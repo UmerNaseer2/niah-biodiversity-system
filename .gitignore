@@ -1,0 +1,16 @@
+# macOS / editors
+.DS_Store
+.vscode/
+.idea/
+
+# dependencies (each app also has its own .gitignore)
+node_modules/
+
+# secrets: never commit real keys
+.env
+.env.*
+!.env.example
+iot/**/secrets.h
+
+# drawio backups
+*.drawio.bkp
