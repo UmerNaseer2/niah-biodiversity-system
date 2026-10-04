@@ -29,7 +29,8 @@ Cybersecurity and data protection (Jason) runs across all of the above.
 
 ## Getting started
 
-You need Node.js 20 or newer, Git (or GitHub Desktop), and the Expo Go app on your phone.
+You need Node.js 22 or 24 (the LTS versions), Git (or GitHub Desktop), and Expo Go for SDK 57 on your phone.
+Node 20 reached end of life in April 2026, so check `node -v` first and update if you're on it.
 
 ### Mobile app
 

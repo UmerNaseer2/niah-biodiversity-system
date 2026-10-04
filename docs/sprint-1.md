@@ -15,7 +15,7 @@ Item numbers match the Initial Release Schedule in the proposal. Tick items off 
 
 ## Smart Digital Ground-Truthing Platform (Frederick, Umer)
 
-- [x] 5. Mobile App Skeleton & Navigation
+- [x] 5. Mobile App Skeleton & Navigation ([test results](test-results/item-5-mobile-skeleton.md))
 - [ ] 6. QR Code Scanner Integration
 - [ ] 7. Basic Plant Record Form (Mobile)
 - [ ] 8. GPS Location Capture & Tracking
