@@ -1,56 +1,86 @@
-# Welcome to your Expo app 👋
+# Niah Ground-Truthing (mobile app)
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+The phone app for recording plants out in Niah National Park. It's built with Expo (SDK 57) and
+Expo Router.
 
-## Get started
+Right now this is the skeleton from item 5. All five tabs are in place with their layouts and
+some fake records, so the other sprint items have somewhere to plug in. Nothing talks to
+Supabase yet.
 
-1. Install dependencies
+| Tab | What it shows |
+| --- | --- |
+| Home | How many plants were recorded today and whether anything is waiting to sync |
+| Scan | Where the QR scanner goes, plus a box to type a tag code by hand |
+| New Record | The plant form, with a GPS box and photo slots |
+| My Records | Every record on the phone, each tagged "Pending sync" or "Synced" |
+| Profile | Where sign in will go, plus some info about the phone and app |
 
-   ```bash
-   npm install
-   ```
+Tapping a record (or saving a new one) opens its page.
 
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+## Running it
 
 ```bash
-npm run reset-project
+cd mobile
+npm install
+npx expo start
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+Then press `i` for the iOS simulator, `a` for an Android emulator or `w` for the browser. On a
+real phone, install Expo Go (the version for SDK 57) and scan the QR code in the terminal.
+Everything used so far comes with Expo Go, so you don't need a development build yet.
 
-### Other setup steps
+## What's where
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+```
+src/
+  app/                  screens. Every file in here is a route
+    _layout.tsx         root stack, colours and the records provider
+    (tabs)/             the five tabs: index (Home), scan, new-record, records, profile
+    record/[id].tsx     one plant record
+  components/           Screen, RecordRow, LocationSummary and the two tab bars
+    ui/                 small pieces: Button, Card, Field, Chip, Pill, SyncBadge...
+  constants/            colours, spacing and icon names
+  data/mock-records.ts  fake records for testing
+  lib/                  date and number formatting, record IDs and tag codes
+  state/                records-context.tsx, the in-memory store every screen reads from
+  types/                PlantRecord and the other shared types
+```
 
-## Learn more
+## Placeholders
 
-To learn more about developing your project with Expo, look at the following resources:
+Anything that isn't real yet has a dashed "Coming in item N" box on screen, so testers can tell
+what's fake.
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+| Item | What goes in | Where |
+| --- | --- | --- |
+| 2 | Sign in with Supabase Auth | Profile tab |
+| 6 | Camera and QR scanning with expo-camera | Scan tab |
+| 7 | Finishing the plant form | New Record tab |
+| 8 | Real GPS with expo-location (replaces `mockGpsReading()`) | New Record tab |
+| 9 | Saving records in SQLite so they survive a restart | `src/state/records-context.tsx` |
+| 10 | Uploading records to Supabase | "Sync now" button on My Records |
+| 11 | Taking photos | New Record tab |
+| 12 | Printable QR tags | Record page |
 
-## Join the community
+## Notes for the team
 
-Join our community of developers creating universal apps.
+- The mock coordinates are made up and sit around the park HQ. Never put real locations of
+  protected plants in test data, screenshots or anything public.
+- Records only live in memory, so they reset every time the app restarts. Item 9 fixes that.
+- The web version is only a quick way to check layouts. The real website is in `/web`.
+- The tab bar is in two files: `components/app-tabs.tsx` (native tabs on iOS and Android) and
+  `components/app-tabs.web.tsx` (the browser). If you add or rename a tab, change both.
+- Item 7: please try the form on a real Android phone as well. The keyboard covers fields
+  differently there.
+- Keys: copy `.env.example` to `.env` and fill it in. Only the Supabase anon key goes in the
+  app. The service role key never goes in mobile code.
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+## Before you open a pull request
+
+```bash
+npm run typecheck
+npm run lint
+npx expo-doctor
+```
+
+All three should pass with no errors.
