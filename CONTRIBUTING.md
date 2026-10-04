@@ -7,7 +7,8 @@
 3. Commit small and often, with a message that says what you did (`Add GPS capture to plant form`).
 4. When it works, open a **pull request** into `main` and put the item number in the title, for example `Item 6: QR code scanner`.
 5. **One other teammate reviews and approves** before it gets merged. This is part of our Definition of Done.
-6. Pull `main` before you start work each day so you're not building on old code.
+6. **Wait for the green tick.** GitHub runs lint, typecheck, the unit tests and the website build on every pull request. If one fails, fix it before merging.
+7. Pull `main` before you start work each day so you're not building on old code.
 
 ## With GitHub Desktop
 
@@ -22,7 +23,7 @@
 A schedule item is done when:
 
 - It matches what is described in Scope and the Initial Release Schedule.
-- It has passed its test cases and the results are recorded.
+- It has passed its test cases and the results are recorded in `docs/test-results/`.
 - Mobile features have also been tested offline and on both Android and iOS.
 - The code has been reviewed by at least one other team member.
 - No known critical or high severity vulnerabilities remain in it.
