@@ -1,4 +1,4 @@
-# Runs the same checks we run by hand before a PR, so a reviewer can see they passed.
+# Runs the checks we run by hand before a PR (all but Expo Doctor), so a reviewer can see they passed.
 name: CI
 
 on:
