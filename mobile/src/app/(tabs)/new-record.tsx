@@ -15,24 +15,9 @@ import { Radius, Spacing } from '@/constants/theme';
 import { mockGpsReading } from '@/data/mock-records';
 import { useTheme } from '@/hooks/use-theme';
 import { conditionLabel } from '@/lib/format';
+import { MAX_HEIGHT_M, parseHeight } from '@/lib/height';
 import { useRecords } from '@/state/records-context';
 import { PLANT_CONDITIONS, type GpsReading, type PlantCondition } from '@/types/plant-record';
-
-// The tallest tree measured in Borneo is about 100 m, so anything over this is a typo.
-const MAX_HEIGHT_M = 120;
-
-/** Reads "12.5" or "12,5". An empty box is fine because height is optional. */
-function parseHeight(text: string): { valid: boolean; value?: number } {
-  const trimmed = text.trim();
-  if (trimmed === '') {
-    return { valid: true };
-  }
-  const value = Number(trimmed.replace(',', '.'));
-  if (!Number.isFinite(value) || value <= 0 || value > MAX_HEIGHT_M) {
-    return { valid: false };
-  }
-  return { valid: true, value };
-}
 
 export default function NewRecordScreen() {
   const router = useRouter();
@@ -229,6 +214,7 @@ export default function NewRecordScreen() {
 const styles = StyleSheet.create({
   photos: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 12,
   },
   photoSlot: {

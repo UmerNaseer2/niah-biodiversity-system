@@ -23,3 +23,21 @@ export function newId(): string {
 export function tagCodeFor(id: string) {
   return `NNP-${id.replace(/-/g, '').slice(0, 6).toUpperCase()}`;
 }
+
+/** Uppercase letters and digits only, so "nnp-3f2a9c" and "NNP 3F2A9C" compare the same. */
+function compact(value: string) {
+  return value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+}
+
+/**
+ * Takes the printed tag code with or without the NNP- part, in any case, or a full record ID.
+ * Needs at least 6 characters so a half typed code doesn't match the wrong plant.
+ */
+export function matchesTag(record: { id: string; tagCode: string }, input: string) {
+  const query = compact(input);
+  if (query.length < 6) {
+    return false;
+  }
+  const tag = compact(record.tagCode);
+  return query === tag || query === tag.slice(3) || query === compact(record.id);
+}

@@ -41,7 +41,7 @@ src/
     ui/                 small pieces: Button, Card, Field, Chip, Pill, SyncBadge...
   constants/            colours, spacing and icon names
   data/mock-records.ts  fake records for testing
-  lib/                  date and number formatting, record IDs and tag codes
+  lib/                  date and number formatting, the height check, record IDs and tag codes
   state/                records-context.tsx, the in-memory store every screen reads from
   types/                PlantRecord and the other shared types
 ```
@@ -75,12 +75,27 @@ what's fake.
 - Keys: copy `.env.example` to `.env` and fill it in. Only the Supabase anon key goes in the
   app. The service role key never goes in mobile code.
 
+## Tests
+
+```bash
+npm test
+```
+
+Jest runs the unit tests in the `__tests__` folders, which sit next to the code they check. So far
+they cover the helpers in `src/lib` (dates, heights, IDs and tag lookup) and make sure the mock data
+follows the same rules as the app. Keep test files out of `src/app/`, because Expo Router treats
+every file in there as a screen.
+
+Manual test results go in `docs/test-results/`. See the item 5 one for an example.
+
 ## Before you open a pull request
 
 ```bash
 npm run typecheck
 npm run lint
+npm test
 npx expo-doctor
 ```
 
-All three should pass with no errors.
+All four should pass with no errors. GitHub runs the typecheck, lint and tests again on every pull
+request, and the result shows at the bottom of the PR.
