@@ -1,7 +1,7 @@
 import { createContext, use, useState, type ReactNode } from 'react';
 
 import { MOCK_RECORDS } from '@/data/mock-records';
-import { newId, tagCodeFor } from '@/lib/id';
+import { matchesTag, newId, tagCodeFor } from '@/lib/id';
 import type { NewPlantRecord, PlantRecord } from '@/types/plant-record';
 
 // Records only live in memory for now, so they reset every time the app restarts.
@@ -17,11 +17,6 @@ type RecordsContextValue = {
 };
 
 const RecordsContext = createContext<RecordsContextValue | null>(null);
-
-/** Uppercase letters and digits only, so "nnp-3f2a9c" and "NNP 3F2A9C" compare the same. */
-function compact(value: string) {
-  return value.toUpperCase().replace(/[^A-Z0-9]/g, '');
-}
 
 export function RecordsProvider({ children }: { children: ReactNode }) {
   const [records, setRecords] = useState(() =>
@@ -48,17 +43,8 @@ export function RecordsProvider({ children }: { children: ReactNode }) {
     return records.find((record) => record.id === id);
   }
 
-  // Takes the printed tag code with or without the NNP- part, in any case, or a full record ID.
-  // Needs at least 6 characters so a half typed code doesn't match the wrong plant.
   function findByTag(input: string) {
-    const query = compact(input);
-    if (query.length < 6) {
-      return undefined;
-    }
-    return records.find((record) => {
-      const tag = compact(record.tagCode);
-      return query === tag || query === tag.slice(3) || query === compact(record.id);
-    });
+    return records.find((record) => matchesTag(record, input));
   }
 
   return (
