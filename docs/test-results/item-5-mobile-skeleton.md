@@ -4,7 +4,8 @@ Run on 4 Oct 2026 on Umer's Mac (macOS, Node 22.22.3), on the `item-5-review-fix
 
 ## Automated checks
 
-Run from `mobile/` unless it says otherwise. GitHub now runs the same checks on every pull request.
+Run from `mobile/` unless it says otherwise. GitHub now runs all of these except Expo Doctor on every
+pull request and every push to `main`, so Expo Doctor still has to be run by hand.
 
 | Check | Command | Result |
 | --- | --- | --- |
@@ -18,6 +19,9 @@ Run from `mobile/` unless it says otherwise. GitHub now runs the same checks on 
 The unit tests cover the date and number formatting, the height check on the New Record form,
 record IDs, looking up a plant by its tag code, and the mock data (no repeated IDs or tags, and the
 fake GPS points stay near the park HQ).
+
+After the merge, the first GitHub Actions run on `main` (CI #1, commit `8862abd`) passed both jobs,
+Mobile app and Web platform.
 
 ## Manual tests in the browser
 
