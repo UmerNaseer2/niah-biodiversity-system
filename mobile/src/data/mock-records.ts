@@ -55,7 +55,7 @@ export const MOCK_RECORDS: PlantRecord[] = [
     photoCount: 2,
     recordedAt: earlierToday(25),
     syncStatus: 'pending',
-    gps: { latitude: 3.81402, longitude: 113.77861, accuracyM: 6 },
+    gps: { latitude: 3.81488, longitude: 113.77968, accuracyM: 6 },
   }),
   mock({
     id: '8c41e7b2-5d3f-4a9e-b6c1-2e8f4a7d1c02',
