@@ -24,6 +24,9 @@ shift a little while the fonts load. Nothing breaks.
 
 There are no unit tests for the website yet, so everything on it was tested by hand below.
 
+After the merge, the GitHub Actions run on `main` (CI #3, commit `9a9151f`) passed both jobs,
+Mobile app and Web platform.
+
 ## Manual tests in the browser
 
 The site ran on the Next.js dev server and was opened in a browser at desktop width, 1024 px and
