@@ -47,7 +47,7 @@ export default function ScanScreen() {
   }
 
   return (
-    <Screen title="Scan a tag" subtitle="Point the camera at the QR tag on the plant.">
+    <Screen hasInputs title="Scan a tag" subtitle="Point the camera at the QR tag on the plant.">
       <View style={styles.viewfinder}>
         <View style={[styles.corner, styles.topLeft]} />
         <View style={[styles.corner, styles.topRight]} />

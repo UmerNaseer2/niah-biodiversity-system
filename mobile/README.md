@@ -97,5 +97,10 @@ npm test
 npx expo-doctor
 ```
 
-All four should pass with no errors. GitHub runs the typecheck, lint and tests again on every pull
-request, and the result shows at the bottom of the PR.
+All four should pass with no errors. GitHub runs all four again on every pull request, and the
+result shows at the bottom of the PR.
+
+Expo Doctor has one known false alarm. It says `Field: ios.icon - cannot access file at
+'./assets/expo.icon'`, because it tries to read our Liquid Glass icon folder as a PNG. Expo's own
+config schema allows a `.icon` folder there and the build uses it fine, so you can ignore that one
+message. The CI step lets it through and fails on anything else.

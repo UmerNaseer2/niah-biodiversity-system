@@ -16,6 +16,7 @@ export default function HomeScreen() {
   const { records, pendingCount } = useRecords();
   const today = records.filter((record) => isToday(record.recordedAt));
   const todayPending = today.filter((record) => record.syncStatus === 'pending').length;
+  const todaySynced = today.filter((record) => record.syncStatus === 'synced').length;
   const plantsRecorded = today.length === 1 ? 'plant recorded' : 'plants recorded';
 
   return (
@@ -38,7 +39,7 @@ export default function HomeScreen() {
           </View>
           <ThemedText type="small" themeColor="textSecondary">
             {today.length > 0
-              ? `${todayPending} waiting to sync · ${today.length - todayPending} synced`
+              ? `${todayPending} waiting to sync · ${todaySynced} synced`
               : 'Nothing recorded yet today. Scan a tag or start a new record.'}
           </ThemedText>
         </View>

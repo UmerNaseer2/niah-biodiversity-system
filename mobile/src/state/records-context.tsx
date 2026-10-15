@@ -11,6 +11,7 @@ type RecordsContextValue = {
   /** Newest first. */
   records: PlantRecord[];
   pendingCount: number;
+  syncedCount: number;
   addRecord: (draft: NewPlantRecord) => PlantRecord;
   getRecord: (id: string) => PlantRecord | undefined;
   findByTag: (input: string) => PlantRecord | undefined;
@@ -24,6 +25,9 @@ export function RecordsProvider({ children }: { children: ReactNode }) {
   );
 
   const pendingCount = records.filter((record) => record.syncStatus === 'pending').length;
+  // Counted on its own instead of total minus pending, so records that fail to upload in item 10
+  // don't show up as synced.
+  const syncedCount = records.filter((record) => record.syncStatus === 'synced').length;
 
   function addRecord(draft: NewPlantRecord) {
     const id = newId();
@@ -48,7 +52,8 @@ export function RecordsProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <RecordsContext value={{ records, pendingCount, addRecord, getRecord, findByTag }}>
+    <RecordsContext
+      value={{ records, pendingCount, syncedCount, addRecord, getRecord, findByTag }}>
       {children}
     </RecordsContext>
   );

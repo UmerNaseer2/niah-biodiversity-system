@@ -1,4 +1,4 @@
-# Runs the checks we run by hand before a PR (all but Expo Doctor), so a reviewer can see they passed.
+# Runs the same checks we run by hand before a PR, so a reviewer can see they passed.
 name: CI
 
 on:
@@ -42,6 +42,27 @@ jobs:
           npm run typecheck
       - name: Unit tests
         run: npm test -- --ci
+      - name: Expo Doctor
+        # Expo Doctor has no way to skip a check, and its app.json check reads our Liquid Glass
+        # icon folder (assets/expo.icon, from the SDK 57 template) as a broken PNG. Expo's own
+        # schema says a .icon folder is allowed, so we let that one message through and fail on
+        # anything else, including a second app.json error.
+        run: |
+          set +e
+          npx --yes expo-doctor > "$RUNNER_TEMP/doctor.log" 2>&1
+          status=$?
+          set -e
+          cat "$RUNNER_TEMP/doctor.log"
+          if [ "$status" -eq 0 ]; then
+            exit 0
+          fi
+          if grep -Eq '^[0-9]+/[0-9]+ checks passed\. 1 checks failed' "$RUNNER_TEMP/doctor.log" \
+            && [ "$(grep -c 'Field: ' "$RUNNER_TEMP/doctor.log")" -eq 1 ] \
+            && grep -q "Field: ios.icon - cannot access file at './assets/expo.icon'" "$RUNNER_TEMP/doctor.log"; then
+            echo "Only the known ios.icon message failed, so this counts as a pass."
+            exit 0
+          fi
+          exit 1
 
   web:
     name: Web platform

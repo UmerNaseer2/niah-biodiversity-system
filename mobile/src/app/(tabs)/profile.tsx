@@ -14,7 +14,7 @@ import { useRecords } from '@/state/records-context';
 
 export default function ProfileScreen() {
   const theme = useTheme();
-  const { records, pendingCount } = useRecords();
+  const { records, pendingCount, syncedCount } = useRecords();
   const version = Constants.expoConfig?.version ?? '1.0.0';
 
   return (
@@ -41,7 +41,7 @@ export default function ProfileScreen() {
       <Card title="This phone" icon="phone">
         <InfoRow label="Records on this phone" value={String(records.length)} />
         <InfoRow label="Waiting to sync" value={String(pendingCount)} />
-        <InfoRow label="Synced" value={String(records.length - pendingCount)} />
+        <InfoRow label="Synced" value={String(syncedCount)} />
       </Card>
 
       <Card title="About" icon="info">

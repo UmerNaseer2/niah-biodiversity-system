@@ -26,13 +26,13 @@ const FILTERS: { value: Filter; label: string; empty: string }[] = [
 export default function RecordsScreen() {
   const router = useRouter();
   const theme = useTheme();
-  const { records, pendingCount } = useRecords();
+  const { records, pendingCount, syncedCount } = useRecords();
   const [filter, setFilter] = useState<Filter>('all');
 
   const counts = {
     all: records.length,
     pending: pendingCount,
-    synced: records.length - pendingCount,
+    synced: syncedCount,
   };
   const shown =
     filter === 'all' ? records : records.filter((record) => record.syncStatus === filter);

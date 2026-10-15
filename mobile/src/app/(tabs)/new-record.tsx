@@ -100,6 +100,7 @@ export default function NewRecordScreen() {
   return (
     <Screen
       key={formKey}
+      hasInputs
       title="New plant record"
       subtitle="Fill in what you can. Only the species is required.">
       <Card title="Plant" icon="leaf">
