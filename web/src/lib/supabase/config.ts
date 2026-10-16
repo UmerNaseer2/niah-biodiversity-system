@@ -10,8 +10,25 @@ const anonKey =
 export const SUPABASE_URL = url;
 export const SUPABASE_ANON_KEY = anonKey;
 
+// Permit HTTP only for local development. Never send project credentials or
+// user data to a non-TLS Supabase endpoint in a production build.
+const secureUrl = (() => {
+  try {
+    const parsed = new URL(url);
+    return (
+      parsed.protocol === "https:" ||
+      (process.env.NODE_ENV !== "production" &&
+        parsed.protocol === "http:" &&
+        ["localhost", "127.0.0.1"].includes(parsed.hostname))
+    );
+  } catch {
+    return false;
+  }
+})();
+
 export const authConfigured = Boolean(
   url &&
+    secureUrl &&
     anonKey &&
     !url.includes("your-project-id") &&
     !anonKey.includes("your-anon-key"),
