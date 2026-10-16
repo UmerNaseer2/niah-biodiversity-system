@@ -8,10 +8,10 @@ import {
 } from "@/components/plant-bits";
 import { PlannedTape } from "@/components/tape";
 import { TrunkWithTag } from "@/components/tree-tag";
-import { publishedRecords } from "@/data/records";
-import { getSpecies, hidesLocation } from "@/data/species";
+import { hidesLocation } from "@/data/species";
 import { formatDate, itemsLabel } from "@/lib/format";
-import { tagCode } from "@/lib/tags";
+import { getRecentPublished } from "@/lib/records-db";
+import { getSpeciesList } from "@/lib/species-db";
 
 // The order things really happen in, so the numbers mean something
 const STEPS = [
@@ -43,14 +43,18 @@ const STEPS = [
 
 const HERO_TAG = "NNP-3F2A9C";
 
-export default function HomePage() {
-  const recent = [...publishedRecords]
-    .sort((a, b) => b.recordedAt.localeCompare(a.recordedAt))
-    .map((record) => {
-      const plant = getSpecies(record.speciesSlug);
-      if (!plant) throw new Error(`No species called ${record.speciesSlug}`);
-      return { record, plant, code: tagCode(record.id) };
-    });
+export default async function HomePage() {
+  const [records, species] = await Promise.all([
+    getRecentPublished(4),
+    getSpeciesList(),
+  ]);
+  const bySlug = new Map(species.map((s) => [s.slug, s]));
+  const recent = records.map((record) => {
+    const plant = record.speciesSlug ? bySlug.get(record.speciesSlug) : undefined;
+    // A plant with no species yet goes by what the field team wrote down
+    const name = plant?.commonNames[0] ?? record.commonName ?? record.speciesName;
+    return { record, plant, name };
+  });
 
   return (
     <>
@@ -135,10 +139,10 @@ export default function HomePage() {
           </div>
 
           <ul className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {recent.map(({ record, plant, code }) => (
+            {recent.map(({ record, plant, name }) => (
               <li key={record.id}>
                 <Link
-                  href={`/tag/${code}`}
+                  href={`/tag/${record.tagCode}`}
                   className="card group flex h-full flex-col overflow-hidden transition-colors hover:border-pencil"
                 >
                   <div
@@ -149,15 +153,21 @@ export default function HomePage() {
                   </div>
                   <div className="flex flex-1 flex-col p-4">
                     <p className="font-mono text-xs font-bold text-moss">
-                      {code}
+                      {record.tagCode}
                     </p>
                     <h3 className="mt-1 text-lg font-bold leading-snug group-hover:underline">
-                      {plant.commonNames[0]}
+                      {name}
                     </h3>
-                    <LatinName name={plant.scientificName} className="text-moss" />
+                    {plant ? (
+                      <LatinName name={plant.scientificName} className="text-moss" />
+                    ) : (
+                      record.speciesName !== name && (
+                        <span className="text-moss">{record.speciesName}</span>
+                      )
+                    )}
                     <div className="mt-3 flex flex-wrap gap-2">
-                      <IucnChip code={plant.iucn} />
-                      {hidesLocation(plant) && <HiddenLocationBadge />}
+                      {plant && <IucnChip code={plant.iucn} />}
+                      {(!plant || hidesLocation(plant)) && <HiddenLocationBadge />}
                     </div>
                     <p className="mt-auto pt-4 text-sm text-moss">
                       Recorded {formatDate(record.recordedAt)}

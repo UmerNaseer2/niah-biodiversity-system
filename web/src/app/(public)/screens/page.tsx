@@ -18,11 +18,12 @@ const WORKS_NOW = [
   "The CSV download on the reports page is built from the mock records.",
   "Threatened and protected plants only show a rough area on public pages. Their exact points never leave the server.",
   "Staff sign in with Supabase, and only conservation officers and administrators can open the dashboard. Every staff page checks that on the server.",
-  "Officers can add, edit and delete species on the dashboard. The plant pages read them from Supabase, or from the sample data when it isn’t set up.",
+  "Officers can add, edit and delete species on the dashboard.",
+  "The home page, plant list, plant pages and tag pages read species and approved records from Supabase, or from the sample data when it isn’t set up.",
 ];
 
 const NOT_REAL_YET = [
-  "Records, sensor readings and the users list still come from mock files in web/src/data.",
+  "On the dashboard, records, sensor readings and the users list still come from mock files in web/src/data.",
   "Staff accounts are made by hand in Supabase. Inviting people and changing roles on the website are item 2.",
   "Apart from species, nothing is saved yet. Refreshing a page puts it back how it was.",
   "Maps are hand drawn sketches. Real maps are item 20.",

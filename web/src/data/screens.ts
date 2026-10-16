@@ -13,8 +13,9 @@ export const publicScreens: Screen[] = [
   {
     title: "Home",
     path: "/",
-    items: [13],
-    works: "Search sends you to the plant list. The tag in the hero opens a real tag page.",
+    items: [13, 16],
+    works:
+      "Search sends you to the plant list, and Recently tagged shows the newest approved records. The tag in the hero opens a real tag page.",
   },
   {
     title: "Plant list",
@@ -39,7 +40,7 @@ export const publicScreens: Screen[] = [
     title: "Tag page",
     path: "/tag/NNP-3F2A9C",
     items: [12, 16],
-    works: "What a visitor sees after scanning. Every sample species is threatened or protected, so tag pages only show a rough area.",
+    works: "What a visitor sees after scanning. Every sample species is threatened or protected, so tag pages hide the exact spot.",
   },
   {
     title: "Staff sign in",

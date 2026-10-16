@@ -15,7 +15,7 @@ export const metadata: Metadata = {
 const EXAMPLES = [
   { code: "NNP-3F2A9C", note: "Belian, location hidden" },
   { code: "NNP-B17D03", note: "Tapang, protected in Sarawak" },
-  { code: "NNP-5E9A2C", note: "Waiting for review, so not public yet" },
+  { code: "NNP-D4B86E", note: "Not public yet, so there’s no page" },
 ];
 
 export default function TagPage() {
@@ -40,7 +40,7 @@ export default function TagPage() {
                   href={`/tag/${example.code}`}
                   className="group flex items-center gap-4 py-3"
                 >
-                  <span className="font-mono font-bold group-hover:underline">
+                  <span className="shrink-0 font-mono font-bold group-hover:underline">
                     {example.code}
                   </span>
                   <span className="text-sm text-moss">{example.note}</span>

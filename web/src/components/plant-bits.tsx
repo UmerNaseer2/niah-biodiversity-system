@@ -109,6 +109,7 @@ const CONDITION_STYLE: Record<Condition, string> = {
   healthy: "bg-ok-soft text-ok",
   damaged: "bg-warn-soft text-warn",
   diseased: "bg-bad-soft text-bad",
+  dead: "bg-paper text-moss ring-1 ring-inset ring-line",
 };
 
 export function ConditionBadge({ condition }: { condition: Condition }) {

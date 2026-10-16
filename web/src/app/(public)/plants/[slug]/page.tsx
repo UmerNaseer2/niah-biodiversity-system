@@ -18,8 +18,8 @@ import { hidesLocation } from "@/data/species";
 import { formatDate, plural } from "@/lib/format";
 import { roughAreas } from "@/lib/geo";
 import { IUCN } from "@/lib/iucn";
-import { getPublishedRecordsForSpecies, getSpeciesBySlug } from "@/lib/species-db";
-import { tagCode } from "@/lib/tags";
+import { getPublishedRecordsForSpecies } from "@/lib/records-db";
+import { getSpeciesBySlug } from "@/lib/species-db";
 
 export async function generateMetadata({
   params,
@@ -49,11 +49,12 @@ export default async function PlantPage({
   const hidden = hidesLocation(plant);
   const tagged = await getPublishedRecordsForSpecies(plant.slug);
 
-  // Exact points stay on the server. For hidden species the map only ever
-  // gets the snapped grid squares.
+  // For a hidden species records_public (and the sample data) only gives the
+  // middle of each grid square, and the map only gets the squares.
   const located = tagged.flatMap((r) =>
-    r.gps ? [{ id: tagCode(r.id), lat: r.gps.lat, lng: r.gps.lng }] : [],
+    r.gps ? [{ id: r.tagCode, lat: r.gps.lat, lng: r.gps.lng }] : [],
   );
+  const areas = hidden ? roughAreas(located) : [];
 
   const sections = [
     { id: "about", title: "About", text: plant.about },
@@ -198,7 +199,7 @@ export default async function PlantPage({
               <>
                 <ul className="mt-4 grid gap-3 sm:grid-cols-2">
                   {tagged.map((record) => {
-                    const code = tagCode(record.id);
+                    const code = record.tagCode;
                     return (
                       <li key={record.id}>
                         <Link
@@ -210,8 +211,10 @@ export default async function PlantPage({
                               {code}
                             </p>
                             <p className="mt-0.5 text-sm text-moss">
-                              {record.heightM} m tall · recorded{" "}
-                              {formatDate(record.recordedAt)}
+                              {record.heightM == null
+                                ? "Height not measured"
+                                : `${record.heightM} m tall`}{" "}
+                              · recorded {formatDate(record.recordedAt)}
                             </p>
                             <div className="mt-2">
                               <ConditionBadge condition={record.condition} />
@@ -237,19 +240,22 @@ export default async function PlantPage({
 
                 {located.length === 0 ? (
                   <p className="mt-6 max-w-2xl text-moss">
-                    The tagged plant doesn’t have a GPS point yet, so there’s
-                    nothing to show on a map.
+                    {tagged.length === 1
+                      ? "The tagged plant doesn’t have a GPS point yet, so there’s nothing to show on a map."
+                      : "The tagged plants don’t have GPS points yet, so there’s nothing to show on a map."}
                   </p>
                 ) : (
                   <SketchMap
                     id="species-map"
                     title={`Sketch map of where ${name} has been tagged`}
                     description={
-                      hidden
-                        ? `A sketch map around park HQ. The hatched square marks the rough area, about 440 m across, that holds the tagged ${name}. The exact spot is not shown.`
-                        : `A sketch map around park HQ with a dot for each tagged ${name}.`
+                      !hidden
+                        ? `A sketch map around park HQ with a dot for each tagged ${name}.`
+                        : areas.length === 1
+                          ? `A sketch map around park HQ. The hatched square marks the rough area, about 440 m across, that holds the tagged ${name}. The exact spot is not shown.`
+                          : `A sketch map around park HQ. The hatched squares mark the rough areas, each about 440 m across, that hold the tagged ${name}. The exact spots are not shown.`
                     }
-                    areas={hidden ? roughAreas(located) : []}
+                    areas={areas}
                     points={
                       hidden
                         ? []

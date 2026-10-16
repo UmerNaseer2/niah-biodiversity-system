@@ -5,9 +5,9 @@ look up the plants of Niah National Park, and a dashboard where SFC staff review
 species and keep an eye on the sensors. It's built with Next.js 16 (App Router) and Tailwind CSS 4.
 
 The original item 13 wireframe is still the visual baseline. Staff sign in, the species pages on
-the dashboard (add, edit and delete) and the public plant list and plant pages now use Supabase
-(items 14 to 16). The other dashboard screens still use mock data, and refreshing them puts them
-back how they were.
+the dashboard (add, edit and delete) and the public pages (home, plant list, plant pages and tag
+pages) now use Supabase (items 14 to 16). The other dashboard screens still use mock data, and
+refreshing them puts them back how they were.
 
 | Side | Screens |
 | --- | --- |
@@ -28,6 +28,13 @@ accepts both `NEXT_PUBLIC_SUPABASE_URL`/`NEXT_PUBLIC_SUPABASE_ANON_KEY` and the 
 names `SUPABASE_URL`/`SUPABASE_PUBLISHABLE_KEY`. Without them `/login` says sign in isn't set up
 and `/dashboard` sends you back to `/login`. A production build (`npm run build`) also needs the
 project URL to start with `https://` (item 23), and treats any other URL as not set up.
+
+With Supabase set up, the public pages read it on every visit, so new species and newly approved
+records show up without a new build. They read the `species_public` and `records_public` views, so
+the project needs 001 to 007 from `supabase/`. Set the values before `npm run build`, because a
+page that was built without them keeps the sample data. If Supabase doesn't answer, the public
+pages say "This page didn't load" instead of falling back to the sample data, so a problem can't
+hide behind made up plants. Without the values they show the sample data in `src/data`.
 
 For the demo, start at http://localhost:3000/screens. It lists every screen in the order we show
 them, with what works on each one. The pink strip at the top of every page links there too.
@@ -80,6 +87,7 @@ src/
     globals.css         colours, fonts and the shared classes (card, btn, field, tape...)
     not-found.tsx       the 404 page
     (public)/           the public site. The brackets keep the folder name out of the URL
+      error.tsx         what a public page shows when its data doesn't load
       plants/           plant list with search, and [slug] for one plant
       tag/              type in a tag code, and [code] for the page a QR tag opens
       login/            staff sign in and sign out, with Supabase Auth
@@ -118,16 +126,17 @@ planned for, so it's clear what's real during the demo. The item numbers match t
 - All the data is made up. The coordinates sit around the park HQ, the names are fake and the
   emails use example.com. Never put the real location of a threatened or protected plant in mock
   data, screenshots or anything public.
-- Public plant pages query the `species_public` and `records_public` views, never the tables.
-  `records_public` only gives the exact spot of a plant that's LC or NT and isn't protected in
-  Sarawak, and the middle of its grid square for every other plant (006, item 4). Keep the exact
+- Public pages query the `species_public` and `records_public` views, never the tables.
+  `records_public` only gives the exact spot of a plant whose species is LC or NT, isn't protected
+  in Sarawak and isn't marked rough area only. Every other plant, including one the field team
+  hasn't matched to a species yet, only gets the middle of its grid square (007). Keep the exact
   spots of threatened and protected plants in server-only staff workflows, and never select them
   into a public page response.
-- A species hides its exact spot if it's threatened on the IUCN Red List (VU, EN or CR) or
-  protected in Sarawak. See `hidesLocation()` in `src/data/species.ts`. Public pages only get a
-  rough area: the server snaps the point to a 0.004 degree grid square (about 440 m at Niah) in
-  `src/lib/geo.ts` before the page is built, so the exact point never reaches the browser. Keep it
-  that way on every public page.
+- The pages use the same rule, `showsExactSpot()` in `src/lib/iucn.ts` (through `hidesLocation()`
+  in `src/data/species.ts`), so a plant the view hides is never drawn as an exact dot. For those
+  plants the server snaps the point to a 0.004 degree grid square (about 440 m at Niah) in
+  `src/lib/geo.ts` before it sends the page, so the exact point never reaches the browser, even
+  with the sample data. Keep it that way on every public page.
 - Client components (files starting with `"use client"`) only import from `src/lib` and
   `src/components`, never from `src/data`, because anything they import gets sent to the browser.
   `import type` from `src/data` is fine since types disappear at build time. For the same reason
@@ -148,9 +157,15 @@ planned for, so it's clear what's real during the demo. The item numbers match t
 - Dates are formatted by hand in `src/lib/format.ts`, so the server and the browser print the same
   thing. The wireframe pretends it's 9 am on 4 Oct 2026 (`MOCK_NOW`). Don't call `new Date()` or
   `Date.now()` while a page renders. In a client component it causes hydration errors, and in a
-  server component the date gets frozen at build time.
+  server component the date gets frozen at build time. Supabase sends times in UTC, so pass them
+  through `parkTime()` first. Niah is 8 hours ahead, so a plant recorded at 4:30 pm UTC on 27 Sep
+  was recorded on 28 Sep at the park.
 - The six mock records have the same IDs and tag codes as `mobile/src/data/mock-records.ts` (for
-  example the Belian is NNP-3F2A9C in both). If you change one file, change the other.
+  example the Belian is NNP-3F2A9C in both). If you change one file, change the other. The seed
+  records in `supabase/002_seed_data.sql` only partly match: NNP-5E9A2C is approved there but
+  waiting in the mock data, and the seed has NNP-9F8E7D and NNP-2A1B0C instead of NNP-72C5F8 and
+  NNP-D4B86E. So `/tag` uses NNP-D4B86E as its example of a tag with no public page. It has none
+  with Supabase or with the sample data.
 - Write Tailwind class names out in full. Tailwind can't find a class that's glued together from
   bits of strings, so it never ends up in the CSS.
 - A box that scrolls sideways (`overflow-x-auto`) also needs `relative`. Otherwise screen reader

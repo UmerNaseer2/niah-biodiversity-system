@@ -13,47 +13,59 @@ import {
 import { SketchMap } from "@/components/sketch-map";
 import { Planned } from "@/components/tape";
 import { TreeTag } from "@/components/tree-tag";
-import { findPublishedByTag, publishedRecords } from "@/data/records";
-import { getSpecies, hidesLocation } from "@/data/species";
+import { hidesLocation, type Species } from "@/data/species";
 import { formatDate, plural } from "@/lib/format";
-import { fromHq } from "@/lib/geo";
-import { normaliseTag, safeDecode, tagCode } from "@/lib/tags";
+import { fromHq, roughAreas } from "@/lib/geo";
+import { getPublishedByTag, type PublicRecord } from "@/lib/records-db";
+import { getSpeciesBySlug } from "@/lib/species-db";
+import { normaliseTag, safeDecode } from "@/lib/tags";
 
-export function generateStaticParams() {
-  return publishedRecords.map((r) => ({ code: tagCode(r.id) }));
-}
+const NO_SPECIES =
+  "The field team hasn’t matched this plant to a species on our list yet.";
 
 async function lookUp(params: PageProps<"/tag/[code]">["params"]) {
   const raw = safeDecode((await params).code);
   const code = normaliseTag(raw);
-  // Waiting records are never found here, only published ones
-  const record = code ? findPublishedByTag(code) : undefined;
-  const plant = record ? getSpecies(record.speciesSlug) : undefined;
-  return { raw, code, record, plant };
+  // The page sends any other spelling to the tidy code first, so only that
+  // one gets looked up. Waiting records are never found, only approved ones.
+  if (!code || code !== raw) return { raw, code, record: null, species: null };
+  const record = await getPublishedByTag(code);
+  const species = record?.speciesSlug
+    ? await getSpeciesBySlug(record.speciesSlug)
+    : null;
+  return { raw, code, record, species };
+}
+
+// The species' common name, or what the field team wrote down if the plant
+// isn't matched to a species yet
+function plantName(record: PublicRecord, species: Species | null) {
+  return species?.commonNames[0] ?? record.commonName ?? record.speciesName;
 }
 
 export async function generateMetadata({
   params,
 }: PageProps<"/tag/[code]">): Promise<Metadata> {
-  const { code, plant } = await lookUp(params);
-  if (!code || !plant) return { title: "Tag not found" };
+  const { code, record, species } = await lookUp(params);
+  if (!code || !record) return { title: "Tag not found" };
   return {
-    title: `${plant.commonNames[0]} (${code})`,
-    description: plant.summary,
+    title: `${plantName(record, species)} (${code})`,
+    description: species ? species.summary : NO_SPECIES,
   };
 }
 
 export default async function TagResultPage({
   params,
 }: PageProps<"/tag/[code]">) {
-  const { raw, code, record, plant } = await lookUp(params);
+  const { raw, code, record, species } = await lookUp(params);
   if (!code) notFound();
   // "nnp-3f2a9c" or "3F2A9C" both end up on /tag/NNP-3F2A9C
   if (code !== raw) redirect(`/tag/${code}`);
-  if (!record || !plant) notFound();
+  if (!record) notFound();
 
-  const name = plant.commonNames[0];
-  const hidden = hidesLocation(plant);
+  const name = plantName(record, species);
+  // Same rule as records_public, which also hides the spot of a plant with no
+  // species yet
+  const hidden = !species || hidesLocation(species);
 
   return (
     <div className="mx-auto w-full max-w-4xl px-4 py-8 sm:px-6">
@@ -82,22 +94,30 @@ export default async function TagResultPage({
           <h1 className="mt-2 text-4xl font-bold tracking-tight sm:text-5xl">
             {name}
           </h1>
-          <p className="mt-1 text-xl">
-            <LatinName name={plant.scientificName} />
-          </p>
+          {species ? (
+            <p className="mt-1 text-xl">
+              <LatinName name={species.scientificName} />
+            </p>
+          ) : (
+            record.speciesName !== name && (
+              <p className="mt-1 text-xl">{record.speciesName}</p>
+            )
+          )}
           <div className="mt-4 flex flex-wrap gap-2">
-            <IucnChip code={plant.iucn} />
-            {plant.sarawakProtected && <ProtectedBadge />}
+            {species && <IucnChip code={species.iucn} />}
+            {species?.sarawakProtected && <ProtectedBadge />}
             {hidden && <HiddenLocationBadge />}
           </div>
-          <p className="mt-5 text-lg">{plant.summary}</p>
-          <Link
-            href={`/plants/${plant.slug}`}
-            className="mt-4 inline-flex items-center gap-1.5 font-bold text-forest hover:underline"
-          >
-            More about this species
-            <Icon name="arrow-right" className="size-4" />
-          </Link>
+          <p className="mt-5 text-lg">{species ? species.summary : NO_SPECIES}</p>
+          {species && (
+            <Link
+              href={`/plants/${species.slug}`}
+              className="mt-4 inline-flex items-center gap-1.5 font-bold text-forest hover:underline"
+            >
+              More about this species
+              <Icon name="arrow-right" className="size-4" />
+            </Link>
+          )}
         </div>
       </header>
 
@@ -108,7 +128,9 @@ export default async function TagResultPage({
         <dl className="mt-4 grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-line bg-line sm:grid-cols-4">
           <div className="bg-sheet p-4">
             <dt className="text-sm text-moss">Height</dt>
-            <dd className="mt-1 text-lg font-bold">{record.heightM} m</dd>
+            <dd className="mt-1 text-lg font-bold">
+              {record.heightM == null ? "Not measured" : `${record.heightM} m`}
+            </dd>
           </div>
           <div className="bg-sheet p-4">
             <dt className="text-sm text-moss">Condition</dt>
@@ -152,24 +174,50 @@ export default async function TagResultPage({
           Where it is
         </h2>
         {hidden ? (
-          <div className="card mt-4 flex gap-4 p-5">
-            <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-paper text-moss">
-              <Icon name="lock" />
-            </span>
-            <div>
-              <p className="font-bold">The exact spot is hidden</p>
-              <p className="mt-1 text-moss">
-                Exact spots of threatened and protected plants stay with park
-                staff, so this site can’t be used to find and take them.
-              </p>
-              <Link
-                href={`/plants/${plant.slug}`}
-                className="mt-3 inline-block font-bold text-forest hover:underline"
-              >
-                See the rough area on the species page
-              </Link>
+          <>
+            <div className="card mt-4 flex gap-4 p-5">
+              <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-paper text-moss">
+                <Icon name="lock" />
+              </span>
+              <div>
+                <p className="font-bold">The exact spot is hidden</p>
+                {species ? (
+                  <>
+                    <p className="mt-1 text-moss">
+                      Exact spots of threatened and protected plants stay with
+                      park staff, so this site can’t be used to find and take
+                      them.
+                    </p>
+                    <Link
+                      href={`/plants/${species.slug}`}
+                      className="mt-3 inline-block font-bold text-forest hover:underline"
+                    >
+                      See the rough area on the species page
+                    </Link>
+                  </>
+                ) : (
+                  <p className="mt-1 text-moss">
+                    Until we know what this plant is, its exact spot stays with
+                    park staff in case it turns out to be threatened or
+                    protected.
+                  </p>
+                )}
+              </div>
             </div>
-          </div>
+            {/* With no species there's no species page, so the rough area
+                goes here. The view already moved the point to the middle of
+                its grid square. */}
+            {!species && record.gps && (
+              <SketchMap
+                id="tag-map"
+                title={`Sketch map of the rough area around tag ${code}`}
+                description={`A sketch map around park HQ. The hatched square marks the rough area, about 440 m across, that holds tag ${code}. The exact spot is not shown.`}
+                areas={roughAreas([record.gps])}
+                planned={[20]}
+                className="mt-8"
+              />
+            )}
+          </>
         ) : record.gps ? (
           <>
             <p className="mt-2 text-moss">

@@ -21,6 +21,20 @@ const MONTHS = [
 export const MOCK_NOW = "2026-10-04T09:00";
 export const MOCK_TODAY_LABEL = "Sunday 4 October 2026";
 
+const PARK_OFFSET_MS = 8 * 60 * 60 * 1000;
+
+/**
+ * Supabase sends times in UTC, like "2026-10-11T10:30:00+00:00". This turns
+ * one into park time with no offset, the same as the mock dates. It only
+ * shifts a time we already have and never reads the clock.
+ */
+export function parkTime(iso: string) {
+  if (!/(?:Z|[+-]\d{2}:?\d{2})$/.test(iso)) return iso;
+  const ms = Date.parse(iso);
+  if (Number.isNaN(ms)) return iso;
+  return new Date(ms + PARK_OFFSET_MS).toISOString().slice(0, 16);
+}
+
 function parts(iso: string) {
   const match = /^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2}))?/.exec(iso);
   if (!match) throw new Error(`Not a date: ${iso}`);

@@ -1,6 +1,6 @@
-import { supabase, isSupabaseConfigured } from "./supabase";
+import { publicClient } from "./supabase";
 import { species as mockSpecies, type Species } from "@/data/species";
-import { records as mockRecords, type PlantRecord } from "@/data/records";
+import { parkTime } from "@/lib/format";
 import { isIucnCode } from "@/lib/iucn";
 
 /**
@@ -30,105 +30,44 @@ export function speciesFromRow(row: Record<string, unknown>): Species {
     about: String(row.about || row.description || ""),
     habitat: String(row.habitat || ""),
     uses: String(row.uses || ""),
+    // The day it changed in park time, not UTC
     updated: row.updated_at
-      ? String(row.updated_at).split("T")[0]
+      ? parkTime(String(row.updated_at)).slice(0, 10)
       : String(row.updated || "2026-10-02"),
   };
 }
 
 /**
- * Normalizes a Supabase PostgreSQL record row into the PlantRecord format
- */
-function mapRowToRecord(row: Record<string, unknown>): PlantRecord {
-  return {
-    id: String(row.id || ""),
-    speciesSlug: String(row.species_slug || row.speciesSlug || ""),
-    heightM: Number(row.height_m ?? row.heightM ?? 0),
-    condition: (row.condition as PlantRecord["condition"]) || "healthy",
-    photoCount: Number(row.photo_count ?? row.photoCount ?? 0),
-    gps: (row.gps as PlantRecord["gps"]) || null,
-    notes: row.notes ? String(row.notes) : undefined,
-    recordedBy: String(row.recorded_by || row.recordedBy || "field_botanist"),
-    recordedAt: String(row.recorded_at || row.recordedAt || new Date().toISOString()),
-    status: (row.status as PlantRecord["status"]) || "waiting",
-  };
-}
-
-/**
- * Retrieves the full list of plant species.
- * Fetches from Supabase if configured, otherwise falls back to local mock data.
+ * Every species, in order of scientific name. Uses the sample data when
+ * Supabase isn't set up. With Supabase set up, a failed query throws so the
+ * page shows its error screen instead of sample data.
  */
 export async function getSpeciesList(): Promise<Species[]> {
-  if (isSupabaseConfigured && supabase) {
-    try {
-      const { data, error } = await supabase
-        .from("species_public")
-        .select("*")
-        .order("scientific_name", { ascending: true });
+  const client = await publicClient();
+  if (!client) return mockSpecies;
 
-      if (!error && data) {
-        return data.map(speciesFromRow);
-      }
-    } catch {
-      // Graceful fallback to mock data on network/connection failure
-    }
-  }
-
-  return mockSpecies;
+  const { data, error } = await client
+    .from("species_public")
+    .select("*")
+    .order("scientific_name", { ascending: true });
+  if (error) throw new Error(`Couldn't load the species list: ${error.message}`);
+  return data.map(speciesFromRow);
 }
 
-/**
- * Retrieves a single species by its URL slug.
- */
+/** One species by its URL slug, or null */
 export async function getSpeciesBySlug(slug: string): Promise<Species | null> {
   // Slugs are only lowercase letters, numbers and hyphens, so anything else
   // can't be a species and doesn't go to the database
   if (!/^[a-z0-9-]+$/.test(slug)) return null;
 
-  if (isSupabaseConfigured && supabase) {
-    try {
-      const { data, error } = await supabase
-        .from("species_public")
-        .select("*")
-        .eq("slug", slug)
-        .maybeSingle();
+  const client = await publicClient();
+  if (!client) return mockSpecies.find((s) => s.slug === slug) ?? null;
 
-      if (!error) {
-        return data ? speciesFromRow(data) : null;
-      }
-    } catch {
-      // Fallback to mock data
-    }
-  }
-
-  const found = mockSpecies.find((s) => s.slug === slug);
-  return found || null;
-}
-
-/**
- * Retrieves published field records for a specific species.
- */
-export async function getPublishedRecordsForSpecies(
-  slug: string
-): Promise<PlantRecord[]> {
-  if (isSupabaseConfigured && supabase) {
-    try {
-      const { data, error } = await supabase
-        .from("records_public")
-        .select("*")
-        .eq("species_slug", slug)
-        .eq("status", "published")
-        .order("recorded_at", { ascending: false });
-
-      if (!error && data) {
-        return data.map(mapRowToRecord);
-      }
-    } catch {
-      // Fallback to mock data
-    }
-  }
-
-  return mockRecords.filter(
-    (r) => r.speciesSlug === slug && r.status === "published"
-  );
+  const { data, error } = await client
+    .from("species_public")
+    .select("*")
+    .eq("slug", slug)
+    .maybeSingle();
+  if (error) throw new Error(`Couldn't load the species ${slug}: ${error.message}`);
+  return data ? speciesFromRow(data) : null;
 }

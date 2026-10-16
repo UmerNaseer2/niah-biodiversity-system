@@ -21,8 +21,9 @@ kept, and you can fix the problem and run it again.
 
 As of 16 Oct 2026 the hosted project has 001 and 002. Run 003, 004, 005, 006 and 007 next, one
 file at a time, in that order, and don't stop part way. The website's species pages (add, edit
-and delete) need 007, and 007 stops on its first line if 006 isn't there. 003 is fine to run even
-if it turns out to be there already.
+and delete) and its public pages need 007, and 007 stops on its first line if 006 isn't there.
+Until then the public pages say "This page didn't load". 003 is fine to run even if it turns out
+to be there already.
 
 If 005 stops with a check error (like `records_gps_check`), a record already on the hosted project
 breaks one of its new rules. Fix or delete that record in the Table Editor and run 005 again.
@@ -30,13 +31,14 @@ breaks one of its new rules. Fix or delete that record in the Table Editor and r
 ## Sample data
 
 The sample records use made-up points around park HQ, not real plant locations, like the mock
-records in both apps. The facts of the sample species were checked on 16 Oct 2026, and 007 has
-the fixes. The IUCN statuses come from each species' Wikipedia page, which cites the Red List,
-the protection from the Sarawak Forestry Department's list of protected plants, and the names
-and where they grow from Kew's Plants of the World Online. SFC should still confirm them, and
-someone should check the statuses on the Red List site itself. Kew doesn't list Paphiopedilum
-barbatum in Borneo, so SFC should say whether it grows at Niah or should come out of the sample
-data.
+records in both apps. The comment in 002 says they match the mock records, but they only partly
+do: NNP-5E9A2C is approved in the seed and waiting in the mock data, and NNP-9F8E7D and NNP-2A1B0C
+are only in the seed. The facts of the sample species were checked on 16 Oct 2026, and 007 has the
+fixes. The IUCN statuses come from each species' Wikipedia page, which cites the Red List, the
+protection from the Sarawak Forestry Department's list of protected plants, and the names and
+where they grow from Kew's Plants of the World Online. SFC should still confirm them, and someone
+should check the statuses on the Red List site itself. Kew doesn't list Paphiopedilum barbatum in
+Borneo, so SFC should say whether it grows at Niah or should come out of the sample data.
 
 Every sample species is threatened or protected, so none of their plants show an exact spot on
 the public site. To see one that does, add a Least Concern species that isn't protected, then

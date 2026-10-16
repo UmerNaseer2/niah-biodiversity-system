@@ -26,6 +26,15 @@ export function roughAreas(points: { lat: number; lng: number }[]) {
   return [...cells.values()];
 }
 
+/** The middle of a point's grid square, the same point records_public gives the public */
+export function roughCentre(lat: number, lng: number) {
+  const area = roughArea(lat, lng);
+  return {
+    lat: Number(((area.south + area.north) / 2).toFixed(3)),
+    lng: Number(((area.west + area.east) / 2).toFixed(3)),
+  };
+}
+
 const METRES_PER_DEGREE = 111_320;
 
 /** "about 450 m south east of park HQ", only for plants whose spot is public */
