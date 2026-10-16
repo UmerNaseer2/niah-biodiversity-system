@@ -1,3 +1,5 @@
+import { randomUUID } from 'expo-crypto';
+
 import { matchesTag, newId, tagCodeFor } from '@/lib/id';
 
 const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
@@ -9,20 +11,10 @@ describe('newId', () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 
-  it('still makes v4 UUIDs when crypto.randomUUID is missing', () => {
-    const original = Object.getOwnPropertyDescriptor(globalThis, 'crypto');
-    Object.defineProperty(globalThis, 'crypto', { value: undefined, configurable: true });
-    try {
-      const ids = Array.from({ length: 500 }, () => newId());
-      ids.forEach((id) => expect(id).toMatch(UUID_V4));
-      expect(new Set(ids).size).toBe(ids.length);
-    } finally {
-      if (original) {
-        Object.defineProperty(globalThis, 'crypto', original);
-      } else {
-        delete (globalThis as { crypto?: unknown }).crypto;
-      }
-    }
+  it('gets the ID from expo-crypto', () => {
+    // In tests expo-crypto hands out Node's UUIDs (jest/setup.js), so this checks the wiring.
+    jest.mocked(randomUUID).mockReturnValueOnce('3f2a9c4e-8b1d-4c6a-9e2f-7a1b5c3d9e01');
+    expect(newId()).toBe('3f2a9c4e-8b1d-4c6a-9e2f-7a1b5c3d9e01');
   });
 });
 

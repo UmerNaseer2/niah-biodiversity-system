@@ -1,10 +1,14 @@
 import * as Location from 'expo-location';
 import { Stack } from 'expo-router';
 import { act, fireEvent, renderRouter, screen, testRouter } from 'expo-router/testing-library';
+import { deleteDatabaseAsync, SQLiteDatabase } from 'expo-sqlite';
 import { AccessibilityInfo, Linking } from 'react-native';
 
 import NewRecordScreen from '@/app/(tabs)/new-record';
 import RecordScreen from '@/app/record/[id]';
+import { MOCK_RECORDS } from '@/data/mock-records';
+import { DATABASE_NAME } from '@/db/database';
+import { openRecordsStore } from '@/db/records-store';
 import { RecordsProvider, useRecords } from '@/state/records-context';
 import type { PlantRecord } from '@/types/plant-record';
 
@@ -37,11 +41,14 @@ function TestLayout() {
   );
 }
 
-function renderForm() {
-  return renderRouter(
+/** Opens the form once the records saved on the phone have loaded. */
+async function renderForm() {
+  const app = renderRouter(
     { _layout: TestLayout, 'new-record': NewRecordScreen, 'record/[id]': RecordScreen },
     { initialUrl: '/new-record' },
   );
+  await screen.findByLabelText('Species, required');
+  return app;
 }
 
 function newestRecord() {
@@ -83,16 +90,24 @@ async function captureLocation() {
   sendFix(4.6);
 }
 
-beforeEach(() => {
+/** Presses Save and waits for the new record to open, which happens once it's on the phone. */
+async function saveAndOpen() {
+  fireEvent.press(saveButton());
+  expect(await screen.findByText(/^Tag NNP-[0-9A-F]{6}$/)).toBeVisible();
+}
+
+beforeEach(async () => {
   jest.clearAllMocks();
   getPermission.mockResolvedValue(granted);
   jest.mocked(Location.hasServicesEnabledAsync).mockResolvedValue(true);
   watchPosition.mockResolvedValue({ remove: jest.fn() });
+  // Every test starts with nothing saved on the phone.
+  await deleteDatabaseAsync(DATABASE_NAME);
 });
 
 describe('New record screen', () => {
   it('keeps Save turned off until there is a species and a location', async () => {
-    renderForm();
+    await renderForm();
     expect(saveButton()).toBeDisabled();
     expect(screen.getByText('Add the species name to save.')).toBeVisible();
 
@@ -109,8 +124,8 @@ describe('New record screen', () => {
     expect(screen.getByText('Saved on this phone first. It uploads when you sync.')).toBeVisible();
   });
 
-  it('shows the species error once you leave the box empty', () => {
-    renderForm();
+  it('shows the species error once you leave the box empty', async () => {
+    await renderForm();
     expect(screen.queryByRole('alert')).toBeNull();
 
     fireEvent(speciesBox(), 'blur');
@@ -120,8 +135,8 @@ describe('New record screen', () => {
     );
   });
 
-  it('suggests species while typing and fills in the common name', () => {
-    renderForm();
+  it('suggests species while typing and fills in the common name', async () => {
+    await renderForm();
     fireEvent.changeText(speciesBox(), 'shor');
     expect(screen.getByText("Tap a match below, or keep typing if it isn't there.")).toBeVisible();
 
@@ -132,8 +147,8 @@ describe('New record screen', () => {
     expect(screen.queryByRole('button', { name: /^Use / })).toBeNull();
   });
 
-  it('keeps a common name that was already typed when a species is picked', () => {
-    renderForm();
+  it('keeps a common name that was already typed when a species is picked', async () => {
+    await renderForm();
     fireEvent.changeText(commonNameBox(), 'Kawang');
     fireEvent.changeText(speciesBox(), 'engk');
     fireEvent.press(screen.getByRole('button', { name: 'Use Shorea macrophylla, Engkabang' }));
@@ -141,7 +156,7 @@ describe('New record screen', () => {
   });
 
   it('turns down a height with too many decimals', async () => {
-    renderForm();
+    await renderForm();
     await captureLocation();
     fireEvent.changeText(speciesBox(), 'Shorea macrophylla');
     fireEvent.changeText(heightBox(), '12.345');
@@ -157,8 +172,8 @@ describe('New record screen', () => {
     expect(saveButton()).toBeEnabled();
   });
 
-  it('counts down the characters left in the notes', () => {
-    renderForm();
+  it('counts down the characters left in the notes', async () => {
+    await renderForm();
     const notesBox = screen.getByLabelText('Notes');
     fireEvent.changeText(notesBox, 'a'.repeat(899));
     expect(screen.queryByText(/characters? left$/)).toBeNull();
@@ -171,14 +186,14 @@ describe('New record screen', () => {
   });
 
   it('saves a species picked from the list and opens the new record', async () => {
-    const app = renderForm();
+    const app = await renderForm();
     fireEvent.changeText(speciesBox(), 'ironwood');
     fireEvent.press(screen.getByRole('button', { name: 'Use Eusideroxylon zwageri, Belian' }));
     fireEvent.changeText(heightBox(), ' 12,5 ');
     fireEvent.press(screen.getByRole('radio', { name: 'Damaged' }));
     fireEvent.changeText(screen.getByLabelText('Notes'), '  Bark stripped on one side  ');
     await captureLocation();
-    fireEvent.press(saveButton());
+    await saveAndOpen();
 
     const saved = newestRecord();
     expect(saved).toMatchObject({
@@ -201,14 +216,22 @@ describe('New record screen', () => {
     expect(screen.getByText(`Tag ${saved?.tagCode}`)).toBeVisible();
     expect(screen.getByRole('heading', { name: 'Eusideroxylon zwageri' })).toBeVisible();
     expect(screen.getByText('3.81452° N, 113.77921° E')).toBeVisible();
+
+    // It's in the database on the phone as well, so it's still there after a restart.
+    const store = await openRecordsStore();
+    try {
+      expect(await store.loadRecords()).toEqual([saved]);
+    } finally {
+      await store.close();
+    }
   });
 
   it('links a species name typed out in full, in any case', async () => {
-    renderForm();
+    await renderForm();
     fireEvent.changeText(speciesBox(), '  nepenthes   AMPULLARIA ');
     expect(screen.getByText('On the species list.')).toBeVisible();
     await captureLocation();
-    fireEvent.press(saveButton());
+    await saveAndOpen();
 
     expect(newestRecord()).toMatchObject({
       speciesName: 'Nepenthes ampullaria',
@@ -217,12 +240,12 @@ describe('New record screen', () => {
   });
 
   it('still saves a species that is not on the list, just without a link', async () => {
-    renderForm();
+    await renderForm();
     fireEvent.changeText(speciesBox(), '  Ficus   sp. ');
     expect(screen.getByText('Not on the species list. You can still save it.')).toBeVisible();
     fireEvent.changeText(commonNameBox(), '   ');
     await captureLocation();
-    fireEvent.press(saveButton());
+    await saveAndOpen();
 
     const saved = newestRecord();
     expect(saved?.speciesName).toBe('Ficus sp.');
@@ -233,14 +256,14 @@ describe('New record screen', () => {
   });
 
   it('starts the next record with an empty form', async () => {
-    const app = renderForm();
+    const app = await renderForm();
     fireEvent.changeText(speciesBox(), 'Shorea macrophylla');
     fireEvent(speciesBox(), 'blur');
     fireEvent.changeText(commonNameBox(), 'Engkabang');
     fireEvent.changeText(heightBox(), '30');
     fireEvent.press(screen.getByRole('radio', { name: 'Dead' }));
     await captureLocation();
-    fireEvent.press(saveButton());
+    await saveAndOpen();
     expect(app.getPathname()).toBe(`/record/${newestRecord()?.id}`);
 
     testRouter.back('/new-record');
@@ -255,8 +278,59 @@ describe('New record screen', () => {
     expect(saveButton()).toBeDisabled();
   });
 
+  it("keeps everything in the form when the record can't be saved", async () => {
+    const insert = jest
+      .spyOn(SQLiteDatabase.prototype, 'runAsync')
+      .mockRejectedValueOnce(new Error('database or disk is full'));
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const app = await renderForm();
+      fireEvent.changeText(speciesBox(), 'Shorea macrophylla');
+      fireEvent.changeText(heightBox(), '12.5');
+      await captureLocation();
+      fireEvent.press(saveButton());
+
+      const message = "Couldn't save the record on this phone. Try again.";
+      expect(await screen.findByRole('alert')).toHaveTextContent(message);
+      expect(AccessibilityInfo.announceForAccessibility).toHaveBeenCalledWith(message);
+      expect(warn).toHaveBeenCalledWith("Couldn't save the record.", expect.any(Error));
+      expect(app.getPathname()).toBe('/new-record');
+      expect(speciesBox()).toHaveDisplayValue('Shorea macrophylla');
+      expect(heightBox()).toHaveDisplayValue('12.5');
+      expect(screen.getByText('±5 m · Good')).toBeVisible();
+      expect(onRecords.mock.lastCall?.[0]).toHaveLength(MOCK_RECORDS.length);
+
+      // Nothing has to be typed again. Save works once the phone has room.
+      expect(saveButton()).toBeEnabled();
+      await saveAndOpen();
+      expect(newestRecord()).toMatchObject({ speciesName: 'Shorea macrophylla', heightM: 12.5 });
+    } finally {
+      insert.mockRestore();
+      warn.mockRestore();
+    }
+  });
+
+  it('saves once when Save is tapped twice quickly', async () => {
+    const insert = jest.spyOn(SQLiteDatabase.prototype, 'runAsync');
+    try {
+      await renderForm();
+      fireEvent.changeText(speciesBox(), 'Shorea macrophylla');
+      await captureLocation();
+      // Both taps land before the screen has redrawn Save as turned off.
+      act(() => {
+        fireEvent.press(saveButton());
+        fireEvent.press(saveButton());
+      });
+      expect(await screen.findByText(/^Tag NNP-[0-9A-F]{6}$/)).toBeVisible();
+      expect(insert).toHaveBeenCalledTimes(1);
+      expect(onRecords.mock.lastCall?.[0]).toHaveLength(MOCK_RECORDS.length + 1);
+    } finally {
+      insert.mockRestore();
+    }
+  });
+
   it('shows a rough fix while it improves, and lets you use it early', async () => {
-    renderForm();
+    await renderForm();
     fireEvent.changeText(speciesBox(), 'Shorea macrophylla');
     await startCapture();
     sendFix(17.2);
@@ -268,12 +342,12 @@ describe('New record screen', () => {
     expect(screen.getByRole('button', { name: 'Retake location' })).toBeVisible();
     expect(saveButton()).toBeEnabled();
 
-    fireEvent.press(saveButton());
+    await saveAndOpen();
     expect(newestRecord()?.location?.accuracyM).toBe(18);
   });
 
   it('tells screen reader users when the location is captured', async () => {
-    renderForm();
+    await renderForm();
     await captureLocation();
     expect(screen.getByText('±5 m · Good')).toBeVisible();
     expect(AccessibilityInfo.announceForAccessibility).toHaveBeenCalledWith(
@@ -289,7 +363,7 @@ describe('New record screen', () => {
       canAskAgain: false,
     });
     const openSettings = jest.mocked(Linking.openSettings).mockResolvedValue(undefined);
-    renderForm();
+    await renderForm();
     fireEvent.changeText(speciesBox(), 'Shorea macrophylla');
     fireEvent.press(screen.getByRole('button', { name: 'Capture location' }));
 

@@ -8,7 +8,6 @@ import { ThemedText } from '@/components/themed-text';
 import { Button } from '@/components/ui/button';
 import { Chip, ChipRow } from '@/components/ui/chip';
 import { Icon } from '@/components/ui/icon';
-import { PlaceholderNote } from '@/components/ui/placeholder-note';
 import { Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { plural } from '@/lib/format';
@@ -68,8 +67,9 @@ export default function RecordsScreen() {
         ))}
       </ChipRow>
 
-      {/* A plain map is fine for a few records. Item 9 should switch to a FlatList once
-          records come from SQLite and the list can get long. */}
+      {/* A plain map draws every record at once, which is fine for a few hundred. A FlatList
+          would only draw the ones on screen, but it can't go inside Screen's ScrollView, so
+          it's carried over to Sprint #2. */}
       {shown.length > 0 ? (
         <View style={styles.list}>
           {shown.map((record) => (
@@ -89,11 +89,6 @@ export default function RecordsScreen() {
           ) : null}
         </View>
       )}
-
-      <PlaceholderNote item={9}>
-        Records only live in memory for now, so they reset when the app restarts. This item saves
-        them in SQLite on the phone so nothing is lost without signal.
-      </PlaceholderNote>
     </Screen>
   );
 }

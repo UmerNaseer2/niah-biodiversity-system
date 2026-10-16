@@ -109,3 +109,10 @@ export const MOCK_RECORDS: PlantRecord[] = [
     gps: { latitude: 3.80967, longitude: 113.77655, accuracyM: 8 },
   }),
 ];
+
+/**
+ * The records the app shows next to the ones saved on the phone, so the screens have something in
+ * them. Only development builds get them, so a store build starts with an empty list. They're
+ * never saved on the phone either.
+ */
+export const SAMPLE_RECORDS: readonly PlantRecord[] = __DEV__ ? MOCK_RECORDS : [];

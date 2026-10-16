@@ -1,18 +1,12 @@
+import { randomUUID } from 'expo-crypto';
+
 /**
  * Makes a v4 UUID on the phone, so a record has its ID before it ever reaches the server and
- * an upload that runs twice updates the same row instead of making a duplicate.
- * The Math.random fallback is only for the skeleton. Item 9 can switch to expo-crypto.
+ * an upload that runs twice updates the same row instead of making a duplicate. expo-crypto
+ * gets the random numbers from the phone's secure random number generator.
  */
 export function newId(): string {
-  if (typeof globalThis.crypto?.randomUUID === 'function') {
-    return globalThis.crypto.randomUUID();
-  }
-
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (char) => {
-    const random = Math.floor(Math.random() * 16);
-    const value = char === 'x' ? random : (random % 4) + 8;
-    return value.toString(16);
-  });
+  return randomUUID();
 }
 
 /**

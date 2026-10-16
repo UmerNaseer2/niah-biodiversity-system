@@ -1,6 +1,13 @@
 import { useRouter } from 'expo-router';
 import { useRef, useState } from 'react';
-import { Pressable, StyleSheet, View, type TextInput } from 'react-native';
+import {
+  AccessibilityInfo,
+  Platform,
+  Pressable,
+  StyleSheet,
+  View,
+  type TextInput,
+} from 'react-native';
 
 import { LocationCapture } from '@/components/location-capture';
 import { Screen } from '@/components/screen';
@@ -30,6 +37,8 @@ import { PLANT_CONDITIONS, type PlantCondition } from '@/types/plant-record';
 // The notes box starts counting down when there are this many characters left.
 const NOTES_COUNTDOWN = 100;
 
+const SAVE_FAILED = "Couldn't save the record on this phone. Try again.";
+
 export default function NewRecordScreen() {
   const router = useRouter();
   const theme = useTheme();
@@ -45,6 +54,10 @@ export default function NewRecordScreen() {
   const [touched, setTouched] = useState({ species: false, height: false });
   // Changing this remounts the screen, so the next record starts at the top of the form.
   const [formKey, setFormKey] = useState(0);
+  const [saving, setSaving] = useState(false);
+  const [saveFailed, setSaveFailed] = useState(false);
+  // Stops a quick second tap straight away, before the button has redrawn as disabled.
+  const savingRef = useRef(false);
 
   const commonNameRef = useRef<TextInput>(null);
   const heightRef = useRef<TextInput>(null);
@@ -89,22 +102,38 @@ export default function NewRecordScreen() {
     setFormKey((key) => key + 1);
   }
 
-  function save() {
-    if (!form.canSave) {
+  async function save() {
+    if (!form.canSave || savingRef.current) {
       return;
     }
-    const record = addRecord({
-      // Names on the list are saved the way the list spells them.
-      speciesName: speciesMatch?.scientificName ?? tidyName(species),
-      speciesSlug: speciesMatch?.slug,
-      commonName: tidyName(commonName) || undefined,
-      heightM: form.heightM,
-      condition,
-      notes: notes.trim() || undefined,
-      location: gps.location,
-    });
-    resetForm();
-    router.push({ pathname: '/record/[id]', params: { id: record.id } });
+    savingRef.current = true;
+    setSaving(true);
+    setSaveFailed(false);
+    try {
+      const record = await addRecord({
+        // Names on the list are saved the way the list spells them.
+        speciesName: speciesMatch?.scientificName ?? tidyName(species),
+        speciesSlug: speciesMatch?.slug,
+        commonName: tidyName(commonName) || undefined,
+        heightM: form.heightM,
+        condition,
+        notes: notes.trim() || undefined,
+        location: gps.location,
+      });
+      resetForm();
+      router.push({ pathname: '/record/[id]', params: { id: record.id } });
+    } catch (error) {
+      // Everything typed in stays in the form, so nothing is lost and Save can be tapped again.
+      console.warn("Couldn't save the record.", error);
+      setSaveFailed(true);
+      // On the web the role="alert" below does the same job.
+      if (Platform.OS !== 'web') {
+        AccessibilityInfo.announceForAccessibility(SAVE_FAILED);
+      }
+    } finally {
+      savingRef.current = false;
+      setSaving(false);
+    }
   }
 
   return (
@@ -220,7 +249,12 @@ export default function NewRecordScreen() {
       </Card>
 
       <View style={styles.save}>
-        <Button label="Save record" onPress={save} disabled={!form.canSave} />
+        <Button label="Save record" onPress={save} disabled={!form.canSave || saving} />
+        {saveFailed ? (
+          <ThemedText type="small" themeColor="danger" role="alert" style={styles.saveHint}>
+            {SAVE_FAILED}
+          </ThemedText>
+        ) : null}
         <ThemedText type="small" themeColor="textSecondary" style={styles.saveHint}>
           {form.saveHint}
         </ThemedText>
