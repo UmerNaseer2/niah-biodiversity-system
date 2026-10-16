@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Icon } from "@/components/icon";
 import { PageHeader } from "@/components/page-header";
-import { PlannedTape } from "@/components/tape";
+import { Tape } from "@/components/tape";
 import { people, ROLE_LABEL, type Role } from "@/data/people";
 import { requireStaff } from "@/lib/auth";
 import { formatDateTime } from "@/lib/format";
@@ -51,7 +51,8 @@ export default async function UsersPage() {
         description="Everyone who can sign in to the staff side. Field teams use the same accounts in the mobile app, and their role decides what they can see and change."
         aside={
           <>
-            <PlannedTape items={[2]} />
+            {/* Item 2 is a Sprint 1 item, but this screen moved to Sprint 2 */}
+            <Tape parts={["Planned", "Item 2", "Sprint 2"]} />
             <button type="button" disabled className="btn btn-primary">
               <Icon name="plus" className="size-4" />
               Invite someone
@@ -68,8 +69,9 @@ export default async function UsersPage() {
           </span>
         </h2>
         <p className="max-w-2xl text-moss">
-          These accounts are made up. Listing the real ones, inviting people
-          and changing roles are part of item 2.
+          These accounts are made up. For now an administrator invites people
+          and changes roles in the Supabase dashboard, and doing it here is
+          planned for Sprint 2.
         </p>
         <div
           role="region"

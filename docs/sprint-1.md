@@ -11,7 +11,8 @@ as their pull requests are merged.
 
 ## Foundation layer (owner to be decided)
 
-- [ ] 2. User Authentication & Authorisation System (Supabase Auth)
+- [x] 2. User Authentication & Authorisation System (Supabase Auth)
+  ([test results](test-results/item-2-auth.md))
 - [x] 3. Cloud Infrastructure Setup & Data Sync Framework (Supabase project, Storage), the
   Sprint #1 part ([test results](test-results/item-3-cloud-sync.md)). The phone starts using it
   in item 10. The hosted project still needs 003 to 007 run, in order, see
@@ -65,6 +66,11 @@ serial.
   need item 10 (sync with Supabase) first.
 - Item 9, a FlatList for My Records so it stays smooth with hundreds of records. It can't go inside
   the ScrollView every screen uses, so the screen needs reworking for it.
+
+- Item 2, signing in on the phone. It comes with item 10, because the phone only needs an account
+  once it uploads records.
+- Item 2, inviting people and changing roles on the website's Users and roles page. Until then an
+  administrator does both in the Supabase dashboard.
 
 ## Contribution evidence
 
