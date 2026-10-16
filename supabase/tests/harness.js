@@ -16,6 +16,7 @@ export const SQL_FILES = [
   '004_security_hardening.sql',
   '005_phone_sync.sql',
   '006_role_based_access.sql',
+  '007_species_fixes.sql',
 ];
 
 export function readSql(file) {
@@ -26,11 +27,15 @@ export function readFixture(file) {
   return JSON.parse(readFileSync(new URL(`./fixtures/${file}`, import.meta.url), 'utf8'));
 }
 
-/** A new database with the Supabase stand-ins, then every SQL file run as the postgres user. */
-export async function newDatabase() {
+/**
+ * A new database with the Supabase stand-ins, then our SQL files run as the postgres user. It runs
+ * every file unless it's given a shorter list, for checking what a file does when an earlier one
+ * hasn't been run.
+ */
+export async function newDatabase(files = SQL_FILES) {
   const db = await PGlite.create({ extensions: { uuid_ossp } });
   await db.exec(readFileSync(new URL('./supabase-stub.sql', import.meta.url), 'utf8'));
-  for (const file of SQL_FILES) {
+  for (const file of files) {
     let sql = readSql(file);
     if (file === '001_initial_schema.sql') {
       // PGlite doesn't come with PostGIS, and nothing in our SQL uses it yet.

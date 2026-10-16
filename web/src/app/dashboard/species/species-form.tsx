@@ -1,7 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState, type FormEvent, type MouseEvent } from "react";
+import {
+  startTransition,
+  useActionState,
+  useEffect,
+  useState,
+  type FormEvent,
+  type MouseEvent,
+} from "react";
 import { Icon } from "@/components/icon";
 import {
   HiddenLocationBadge,
@@ -10,95 +17,23 @@ import {
   ProtectedBadge,
 } from "@/components/plant-bits";
 import { Planned } from "@/components/tape";
-import { IUCN, IUCN_ORDER, type IucnCode } from "@/lib/iucn";
+import { IUCN, IUCN_CODES, type IucnCode } from "@/lib/iucn";
+import {
+  EMPTY,
+  FIELD_ORDER,
+  MAX,
+  checkDetails,
+  checkNewSpecies,
+  lockReason,
+  splitNames,
+  tidy,
+  type Errors,
+  type FieldId,
+  type Values,
+} from "@/lib/species-form";
+import { addSpecies, editSpecies, type SpeciesFormState } from "./actions";
 
-type Values = {
-  scientificName: string;
-  authority: string;
-  family: string;
-  commonNames: string;
-  iucn: IucnCode | "";
-  sarawakProtected: boolean;
-  visibility: "exact" | "rough";
-  summary: string;
-  about: string;
-};
-
-// Only the fields that can have an error, in the order they appear
-type FieldId = "scientific-name" | "family" | "common-names" | "iucn" | "summary";
-type Errors = Partial<Record<FieldId, string>>;
-
-const EMPTY: Values = {
-  scientificName: "",
-  authority: "",
-  family: "",
-  commonNames: "",
-  iucn: "",
-  sarawakProtected: false,
-  visibility: "exact",
-  summary: "",
-  about: "",
-};
-
-const FIELD_ORDER: FieldId[] = [
-  "scientific-name",
-  "family",
-  "common-names",
-  "iucn",
-  "summary",
-];
-
-/** "shorea   macrophylla " becomes "shorea macrophylla" */
-function tidy(value: string) {
-  return value.trim().replace(/\s+/g, " ");
-}
-
-function splitNames(value: string) {
-  return value
-    .split(",")
-    .map(tidy)
-    .filter(Boolean);
-}
-
-function validate(values: Values, existingNames: string[]): Errors {
-  const errors: Errors = {};
-  const name = tidy(values.scientificName);
-
-  if (!name) {
-    errors["scientific-name"] = "Enter the scientific name.";
-  } else if (!/^[A-Z][a-z]+ [a-z]+(-[a-z]+)?$/.test(name)) {
-    errors["scientific-name"] =
-      "Write the genus then the species, like Shorea macrophylla.";
-  } else if (
-    existingNames.some((existing) => existing.toLowerCase() === name.toLowerCase())
-  ) {
-    errors["scientific-name"] = `${name} is already in the database.`;
-  }
-
-  if (!tidy(values.family)) errors.family = "Enter the family.";
-  if (splitNames(values.commonNames).length === 0) {
-    errors["common-names"] = "Enter at least one common name.";
-  }
-  if (!values.iucn) errors.iucn = "Choose the IUCN status.";
-  if (!tidy(values.summary)) errors.summary = "Write a one sentence summary.";
-
-  return errors;
-}
-
-/** Why the exact spot can't be shown, or null when it's up to the officer */
-function lockReason(values: Values) {
-  const threatened = values.iucn !== "" && IUCN[values.iucn].threatened;
-  if (threatened && values.sarawakProtected) {
-    return `${IUCN[values.iucn as IucnCode].label} and protected species always get a rough area only.`;
-  }
-  if (threatened) {
-    return `${IUCN[values.iucn as IucnCode].label} species always get a rough area only.`;
-  }
-  if (values.sarawakProtected) {
-    return "Protected species always get a rough area only.";
-  }
-  return null;
-}
+const INITIAL: SpeciesFormState = { status: "idle" };
 
 function FieldError({ id, message }: { id: string; message?: string }) {
   if (!message) return null;
@@ -125,19 +60,66 @@ const LABEL = "font-bold";
 const HINT = "text-sm text-moss";
 const OPTIONAL = <span className="font-normal text-moss"> (optional)</span>;
 
-export function NewSpeciesForm({ existingNames }: { existingNames: string[] }) {
-  const [values, setValues] = useState<Values>(EMPTY);
-  const [errors, setErrors] = useState<Errors>({});
-  const [added, setAdded] = useState<Values | null>(null);
+// The add page passes the names already in the database, and the edit page
+// passes the species as it is now
+type Props =
+  | { mode: "add"; existingNames: string[] }
+  | { mode: "edit"; slug: string; initial: Values };
+
+export function SpeciesForm(props: Props) {
+  const adding = props.mode === "add";
+  const [state, formAction, pending] = useActionState(
+    adding ? addSpecies : editSpecies,
+    INITIAL,
+  );
+  // Without JavaScript the browser posts the form itself, and the page comes
+  // back with the server's answer as the first state, so it starts from that.
+  // The edit form doesn't send the scientific name, so that comes from the
+  // species.
+  const [values, setValues] = useState<Values>(() => {
+    if (state.status === "saved") return state.values;
+    if (props.mode === "add") {
+      return state.status === "error" ? state.values : EMPTY;
+    }
+    return state.status === "error"
+      ? { ...state.values, scientificName: props.initial.scientificName }
+      : props.initial;
+  });
+  const [errors, setErrors] = useState<Errors>(() =>
+    state.status === "error" ? state.fieldErrors : {},
+  );
+  const [formError, setFormError] = useState(() =>
+    state.status === "error" ? state.message : null,
+  );
+  const [saved, setSaved] = useState(() =>
+    state.status === "saved" ? state : null,
+  );
+  const [handled, setHandled] = useState(state);
   const [focusRequest, setFocusRequest] = useState<{ elementId: string } | null>(
     null,
   );
+
+  // A new answer from the server. It's picked up while rendering rather than
+  // in an effect, so the page never draws the old answer first.
+  if (state !== handled) {
+    setHandled(state);
+    if (state.status === "error") {
+      setErrors(state.fieldErrors);
+      setFormError(state.message);
+      setFocusRequest({ elementId: "error-summary" });
+    } else if (state.status === "saved") {
+      // Editing it more starts from what was saved
+      setValues(state.values);
+      setSaved(state);
+      setFocusRequest({ elementId: "species-saved" });
+    }
+  }
 
   useEffect(() => {
     if (focusRequest) document.getElementById(focusRequest.elementId)?.focus();
   }, [focusRequest]);
 
-  const locked = lockReason(values);
+  const locked = lockReason(values.iucn, values.sarawakProtected);
   const visibility = locked ? "rough" : values.visibility;
   const errorList = FIELD_ORDER.filter((id) => errors[id]);
 
@@ -154,15 +136,22 @@ export function NewSpeciesForm({ existingNames }: { existingNames: string[] }) {
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    // With JavaScript the form is sent from here, once it passes the same
+    // checks the server runs, and only once at a time
     event.preventDefault();
-    const found = validate(values, existingNames);
+    if (pending) return;
+    const found =
+      props.mode === "add"
+        ? checkNewSpecies(values, props.existingNames)
+        : checkDetails(values);
     setErrors(found);
+    setFormError(null);
     if (Object.keys(found).length > 0) {
       setFocusRequest({ elementId: "error-summary" });
       return;
     }
-    setAdded({ ...values, visibility });
-    setFocusRequest({ elementId: "species-added" });
+    const formData = new FormData(event.currentTarget);
+    startTransition(() => formAction(formData));
   }
 
   function jumpTo(event: MouseEvent<HTMLAnchorElement>, id: FieldId) {
@@ -170,48 +159,67 @@ export function NewSpeciesForm({ existingNames }: { existingNames: string[] }) {
     document.getElementById(id)?.focus();
   }
 
-  function addAnother() {
-    setValues(EMPTY);
+  function showForm(event: MouseEvent<HTMLAnchorElement>) {
+    // Opening it in a new tab still works like a normal link
+    if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    event.preventDefault();
+    if (adding) setValues(EMPTY);
     setErrors({});
-    setAdded(null);
-    setFocusRequest({ elementId: "scientific-name" });
+    setFormError(null);
+    setSaved(null);
+    setFocusRequest({ elementId: adding ? "scientific-name" : "authority" });
   }
 
-  if (added) {
-    const names = splitNames(added.commonNames);
+  if (saved) {
+    const commonName = splitNames(saved.values.commonNames)[0];
     return (
       <section
-        aria-labelledby="species-added"
+        aria-labelledby="species-saved"
         className="card mt-8 max-w-2xl p-5 sm:p-6"
       >
         <span className="flex size-10 items-center justify-center rounded-full bg-ok-soft text-ok">
           <Icon name="check" />
         </span>
         <h2
-          id="species-added"
+          id="species-saved"
           tabIndex={-1}
           className="mt-3 text-2xl font-bold tracking-tight"
         >
-          Species added to this demo
+          {adding ? "Species added" : "Changes saved"}
         </h2>
         <p className="mt-2">
-          {names[0]} (<LatinName name={tidy(added.scientificName)} />) would
-          now show up in the mobile app and on the public site, with{" "}
-          {added.visibility === "rough"
-            ? "only a rough area on the map."
-            : "exact spots on the map."}
+          {commonName} (<LatinName name={saved.values.scientificName} />){" "}
+          {adding
+            ? "is in the database and has its own page on the public site."
+            : "is up to date on the public site."}{" "}
+          {saved.values.visibility === "rough"
+            ? "The public map only shows a rough area for its plants."
+            : "The public map shows the exact spot of its plants."}
         </p>
         <p className="mt-2 text-moss">
-          Nothing was saved though. The database is item 14, so it’s gone when
-          you refresh.
+          {adding
+            ? "The mobile app picks it up once the phone downloads the species list when it syncs."
+            : "The mobile app gets the changes once the phone downloads the species list when it syncs."}{" "}
+          That comes with item 10 in Sprint 2.
         </p>
         <div className="mt-5 flex flex-wrap gap-2">
-          <Link href="/dashboard/species" className="btn btn-primary">
+          <Link href={`/plants/${saved.slug}`} className="btn btn-primary">
+            See its public page
+          </Link>
+          <Link href="/dashboard/species" className="btn btn-secondary">
             Back to species
           </Link>
-          <button type="button" onClick={addAnother} className="btn btn-secondary">
-            Add another
-          </button>
+          <a
+            href={
+              adding
+                ? "/dashboard/species/new"
+                : `/dashboard/species/${saved.slug}/edit`
+            }
+            onClick={showForm}
+            className="btn btn-secondary"
+          >
+            {adding ? "Add another" : "Keep editing"}
+          </a>
         </div>
       </section>
     );
@@ -221,8 +229,17 @@ export function NewSpeciesForm({ existingNames }: { existingNames: string[] }) {
 
   return (
     <div className="mt-8 grid gap-10 lg:grid-cols-[minmax(0,1fr)_20rem]">
-      <form onSubmit={handleSubmit} noValidate className="max-w-2xl space-y-7">
-        {errorList.length > 0 && (
+      <form
+        action={formAction}
+        onSubmit={handleSubmit}
+        noValidate
+        className="max-w-2xl space-y-7"
+      >
+        {props.mode === "edit" && (
+          <input type="hidden" name="slug" value={props.slug} />
+        )}
+
+        {(errorList.length > 0 || formError) && (
           <section
             id="error-summary"
             tabIndex={-1}
@@ -230,46 +247,75 @@ export function NewSpeciesForm({ existingNames }: { existingNames: string[] }) {
             className="rounded-xl border-2 border-bad bg-sheet p-4 sm:p-5"
           >
             <h2 id="error-summary-title" className="font-bold text-bad">
-              Fix {errorList.length === 1 ? "this" : `these ${errorList.length} things`}{" "}
-              before you add the species
+              {errorList.length > 0 ? (
+                <>
+                  Fix{" "}
+                  {errorList.length === 1
+                    ? "this"
+                    : `these ${errorList.length} things`}{" "}
+                  {adding ? "before you add the species" : "before you save your changes"}
+                </>
+              ) : adding ? (
+                "The species wasn’t added"
+              ) : (
+                "Your changes weren’t saved"
+              )}
             </h2>
-            <ul className="mt-2 space-y-1">
-              {errorList.map((id) => (
-                <li key={id}>
-                  <a
-                    href={`#${id}`}
-                    onClick={(event) => jumpTo(event, id)}
-                    className="font-bold text-bad underline underline-offset-4"
-                  >
-                    {errors[id]}
-                  </a>
-                </li>
-              ))}
-            </ul>
+            {formError && <p className="mt-2">{formError}</p>}
+            {errorList.length > 0 && (
+              <ul className="mt-2 space-y-1">
+                {errorList.map((id) => (
+                  <li key={id}>
+                    <a
+                      href={`#${id}`}
+                      onClick={(event) => jumpTo(event, id)}
+                      className="font-bold text-bad underline underline-offset-4"
+                    >
+                      {errors[id]}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            )}
           </section>
         )}
 
-        <div>
-          <label htmlFor="scientific-name" className={LABEL}>
-            Scientific name
-          </label>
-          <p id="scientific-name-hint" className={HINT}>
-            Genus and species, like Shorea macrophylla.
-          </p>
-          <FieldError id="scientific-name" message={errors["scientific-name"]} />
-          <input
-            id="scientific-name"
-            type="text"
-            value={values.scientificName}
-            onChange={(e) => update("scientificName", e.target.value, "scientific-name")}
-            aria-required="true"
-            aria-invalid={Boolean(errors["scientific-name"])}
-            aria-describedby={describedBy("scientific-name", errors["scientific-name"])}
-            autoComplete="off"
-            spellCheck={false}
-            className="field mt-2 font-latin text-lg italic"
-          />
-        </div>
+        {props.mode === "add" ? (
+          <div>
+            <label htmlFor="scientific-name" className={LABEL}>
+              Scientific name
+            </label>
+            <p id="scientific-name-hint" className={HINT}>
+              Genus and species, like Shorea macrophylla.
+            </p>
+            <FieldError id="scientific-name" message={errors["scientific-name"]} />
+            <input
+              id="scientific-name"
+              name="scientificName"
+              type="text"
+              value={values.scientificName}
+              onChange={(e) => update("scientificName", e.target.value, "scientific-name")}
+              maxLength={MAX.scientificName}
+              aria-required="true"
+              aria-invalid={Boolean(errors["scientific-name"])}
+              aria-describedby={describedBy("scientific-name", errors["scientific-name"])}
+              autoComplete="off"
+              spellCheck={false}
+              className="field mt-2 font-latin text-lg italic"
+            />
+          </div>
+        ) : (
+          <div>
+            <p className={LABEL}>Scientific name</p>
+            <p className="mt-1 text-lg">
+              <LatinName name={values.scientificName} />
+            </p>
+            <p className={HINT}>
+              It can’t change, because the link to its public page and its
+              records use it.
+            </p>
+          </div>
+        )}
 
         <div>
           <label htmlFor="authority" className={LABEL}>
@@ -278,12 +324,16 @@ export function NewSpeciesForm({ existingNames }: { existingNames: string[] }) {
           <p id="authority-hint" className={HINT}>
             Who named it, like (de Vriese) P.S.Ashton.
           </p>
+          <FieldError id="authority" message={errors.authority} />
           <input
             id="authority"
+            name="authority"
             type="text"
             value={values.authority}
-            onChange={(e) => update("authority", e.target.value)}
-            aria-describedby="authority-hint"
+            onChange={(e) => update("authority", e.target.value, "authority")}
+            maxLength={MAX.authority}
+            aria-invalid={Boolean(errors.authority)}
+            aria-describedby={describedBy("authority", errors.authority)}
             autoComplete="off"
             spellCheck={false}
             className="field mt-2"
@@ -300,9 +350,11 @@ export function NewSpeciesForm({ existingNames }: { existingNames: string[] }) {
           <FieldError id="family" message={errors.family} />
           <input
             id="family"
+            name="family"
             type="text"
             value={values.family}
             onChange={(e) => update("family", e.target.value, "family")}
+            maxLength={MAX.family}
             aria-required="true"
             aria-invalid={Boolean(errors.family)}
             aria-describedby={describedBy("family", errors.family)}
@@ -322,9 +374,11 @@ export function NewSpeciesForm({ existingNames }: { existingNames: string[] }) {
           <FieldError id="common-names" message={errors["common-names"]} />
           <input
             id="common-names"
+            name="commonNames"
             type="text"
             value={values.commonNames}
             onChange={(e) => update("commonNames", e.target.value, "common-names")}
+            maxLength={MAX.commonNames}
             aria-required="true"
             aria-invalid={Boolean(errors["common-names"])}
             aria-describedby={describedBy("common-names", errors["common-names"])}
@@ -339,11 +393,13 @@ export function NewSpeciesForm({ existingNames }: { existingNames: string[] }) {
           </label>
           <p id="iucn-hint" className={HINT}>
             Vulnerable, Endangered and Critically Endangered count as
-            threatened.
+            threatened. Only Least Concern and Near Threatened species can show
+            their exact spot on the public map.
           </p>
           <FieldError id="iucn" message={errors.iucn} />
           <select
             id="iucn"
+            name="iucn"
             value={values.iucn}
             onChange={(e) => update("iucn", e.target.value as IucnCode | "", "iucn")}
             aria-required="true"
@@ -352,7 +408,7 @@ export function NewSpeciesForm({ existingNames }: { existingNames: string[] }) {
             className="field mt-2 sm:max-w-sm"
           >
             <option value="">Choose a status</option>
-            {IUCN_ORDER.map((code) => (
+            {IUCN_CODES.map((code) => (
               <option key={code} value={code}>
                 {IUCN[code].label} ({code})
               </option>
@@ -363,6 +419,7 @@ export function NewSpeciesForm({ existingNames }: { existingNames: string[] }) {
         <div className="flex items-start gap-3">
           <input
             id="sarawak-protected"
+            name="sarawakProtected"
             type="checkbox"
             checked={values.sarawakProtected}
             onChange={(e) => update("sarawakProtected", e.target.checked)}
@@ -454,9 +511,11 @@ export function NewSpeciesForm({ existingNames }: { existingNames: string[] }) {
           <FieldError id="summary" message={errors.summary} />
           <textarea
             id="summary"
+            name="summary"
             rows={2}
             value={values.summary}
             onChange={(e) => update("summary", e.target.value, "summary")}
+            maxLength={MAX.summary}
             aria-required="true"
             aria-invalid={Boolean(errors.summary)}
             aria-describedby={describedBy("summary", errors.summary)}
@@ -472,31 +531,39 @@ export function NewSpeciesForm({ existingNames }: { existingNames: string[] }) {
             A few sentences for the species page: what it looks like and
             anything interesting about it.
           </p>
+          <FieldError id="about" message={errors.about} />
           <textarea
             id="about"
+            name="about"
             rows={5}
             value={values.about}
-            onChange={(e) => update("about", e.target.value)}
-            aria-describedby="about-hint"
+            onChange={(e) => update("about", e.target.value, "about")}
+            maxLength={MAX.about}
+            aria-invalid={Boolean(errors.about)}
+            aria-describedby={describedBy("about", errors.about)}
             className="field mt-2"
           />
         </div>
 
         <Planned items={[18]} title="Photos">
           <p>
-            Adding photos comes with the photo gallery, so a new species
-            starts with hatched boxes.
+            {adding
+              ? "Adding photos comes with the photo gallery, so a new species starts with hatched boxes."
+              : "Changing photos comes with the photo gallery, so saving leaves its photos as they are."}
           </p>
         </Planned>
 
         <div className="flex flex-wrap gap-2 border-t border-line pt-6">
-          <button type="submit" className="btn btn-primary">
-            Add species
+          <button type="submit" aria-disabled={pending} className="btn btn-primary">
+            {pending ? "Saving…" : adding ? "Add species" : "Save changes"}
           </button>
           <Link href="/dashboard/species" className="btn btn-secondary">
             Cancel
           </Link>
         </div>
+        <p role="status" className="sr-only">
+          {pending ? (adding ? "Saving the species." : "Saving your changes.") : ""}
+        </p>
       </form>
 
       <aside aria-labelledby="preview-heading" className="lg:pt-1">

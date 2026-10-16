@@ -22,15 +22,16 @@ export function LatinName({
   );
 }
 
-// Red List colours. Light ones get dark text, dark ones get white.
+// Red List colours. Light ones get dark text, dark ones get white. NE is
+// white, so it gets an outline.
 const IUCN_SWATCH: Record<IucnCode, string> = {
   LC: "bg-iucn-lc text-ink",
   NT: "bg-iucn-nt text-ink",
   VU: "bg-iucn-vu text-ink",
   EN: "bg-iucn-en text-ink",
   CR: "bg-iucn-cr text-white",
-  EW: "bg-iucn-ew text-white",
-  EX: "bg-iucn-ex text-white",
+  DD: "bg-iucn-dd text-ink",
+  NE: "bg-iucn-ne text-ink ring-1 ring-inset ring-line",
 };
 
 export function IucnChip({
@@ -58,7 +59,10 @@ export function IucnChip({
   );
 }
 
-/** The Red List scale from Least Concern to Extinct, with this species marked */
+/**
+ * The Red List scale from Least Concern to Extinct, with this species marked.
+ * DD and NE species aren't on the scale, so nothing is marked for them.
+ */
 export function IucnScale({ code }: { code: IucnCode }) {
   return (
     <figure>
@@ -76,7 +80,7 @@ export function IucnScale({ code }: { code: IucnCode }) {
             key={step}
             className={`rounded-md py-1.5 font-mono text-sm font-bold ${
               step === code
-                ? `${IUCN_SWATCH[step]} ring-2 ring-ink ring-offset-2 ring-offset-sheet`
+                ? `${IUCN_SWATCH[code]} ring-2 ring-ink ring-offset-2 ring-offset-sheet`
                 : "border border-line bg-paper text-moss"
             }`}
           >

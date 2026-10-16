@@ -294,6 +294,7 @@ describe('species', () => {
       'habitat',
       'uses',
       'updated_at',
+      'rough_area_only',
     ]);
   });
 });
@@ -877,8 +878,8 @@ describe('changes with no filter', () => {
   });
 });
 
-describe('running 006 again', () => {
-  /** Everything 006 sets up, read from the Postgres catalogs. */
+describe('running 006 and 007 again', () => {
+  /** Everything 006 and 007 set up, read from the Postgres catalogs. */
   async function catalogs() {
     const queries = [
       `SELECT schemaname, tablename, policyname, cmd, roles::text[] AS roles, qual, with_check
@@ -926,7 +927,10 @@ describe('running 006 again', () => {
 
   test('ends up the same as the first time', async () => {
     const firstTime = await catalogs();
+    // 006 makes records_public and species_staff again without what 007 adds to them, so 007 has
+    // to run again after it (see supabase/README.md).
     await db.exec(readSql('006_role_based_access.sql'));
+    await db.exec(readSql('007_species_fixes.sql'));
     assert.deepEqual(await catalogs(), firstTime);
 
     const sql = 'SELECT gps FROM public.records_public WHERE id = $1';

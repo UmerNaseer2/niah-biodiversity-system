@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { authConfigured } from "@/lib/supabase/config";
@@ -59,3 +60,16 @@ export const getSession = cache(async (): Promise<SessionResult> => {
     role,
   };
 });
+
+/**
+ * For dashboard pages. The layout checks the session too, but Next renders a
+ * page and its layout at the same time, so a page can't count on the layout's
+ * check before it loads staff data. Sends anyone signed out to the sign in
+ * page, and gives null for an account without dashboard access (the layout
+ * shows them the no access page instead), so the page shows nothing.
+ */
+export async function requireStaff() {
+  const session = await getSession();
+  if (session.status === "signed-out") redirect("/login");
+  return session.status === "ok" ? session : null;
+}

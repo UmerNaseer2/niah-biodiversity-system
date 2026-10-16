@@ -5,7 +5,7 @@ can read and change, with Row Level Security policies, column grants and one tri
 still hold if someone skips the website and the app and calls the Supabase API directly, with the
 anon key and their own login. It's all in `supabase/006_role_based_access.sql`.
 
-The hosted project still needs 003, 004, 005 and 006 run, in that order (see
+The hosted project still needs 003 to 007 run, in that order (see
 [Not tested yet](#not-tested-yet)).
 
 ## Round 1: 16 Oct 2026, SQL tests
@@ -236,9 +236,9 @@ Species photos:
 
 | What | Why | Next step |
 | --- | --- | --- |
-| The hosted project | When we checked on 16 Oct 2026 it had 001 and 002 run, but not the rest | Run 003, 004, 005 and 006 in the SQL editor, one file at a time, in that order, without stopping after 004 (see [supabase/README.md](../../supabase/README.md)). The website's species edit and delete need 006 as well as 004. Then check the Policies page lists "Admins change the roles of other users" on `profiles`, and Database, Triggers lists `fill_in_review` on `records` |
+| The hosted project | When we checked on 16 Oct 2026 it had 001 and 002 run, but not the rest | Run 003, 004, 005, 006 and 007 in the SQL editor, one file at a time, in that order, without stopping after 004 (see [supabase/README.md](../../supabase/README.md)). The website's species pages need 006 and 007 as well as 004. Then check the Policies page lists "Admins change the roles of other users" on `profiles`, and Database, Triggers lists `fill_in_review` on `records` |
 | Supabase's own Postgres | PGlite runs Postgres 18.3 and Supabase projects run 15 or 17. 006 doesn't use anything newer than 15 (`security_invoker` came in 15), but the tests haven't run there | Run the tests against a local Supabase (`supabase start`, which needs Docker), or repeat the main checks on the hosted project |
-| Through the Supabase API | The tests run SQL as the same roles the API uses, but not through the API itself | Once 006 is on the hosted project, sign in to the website as an officer and add, edit and delete a test species, then do the same as an admin |
+| Through the Supabase API | The tests run SQL as the same roles the API uses, but not through the API itself | Once 006 and 007 are on the hosted project, sign in to the website as an officer and add, edit and delete a test species, then do the same as an admin |
 | The Storage API | The size and file type limits on `botanical-photos` are checked by Supabase's Storage server, not by Postgres, so the tests only check the bucket settings and the policies | When item 18 adds species photo upload, try a real photo, an 11 MB file and a PDF, and check only the photo goes in |
 | Locations inside species photos | A photo can keep where it was taken in its EXIF data, and the species photos bucket is public. Storage policies can't look inside a file | Take the EXIF data out before a species photo goes up, when item 18 adds species photo upload |
 | Deleting record photos | No policy lets anyone delete a record photo through the API yet, so deleting a record leaves its photos in `record-photos` | Item 17 (editing and deleting records on the website) adds a delete rule for record photos, and deletes them with the record |

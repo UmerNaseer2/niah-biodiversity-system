@@ -4,14 +4,15 @@ The website for the Digital Plant Knowledge System. It has two sides: public pag
 look up the plants of Niah National Park, and a dashboard where SFC staff review records, manage
 species and keep an eye on the sensors. It's built with Next.js 16 (App Router) and Tailwind CSS 4.
 
-The original item 13 wireframe is still the visual baseline, but staff sign in and the public plant
-list/detail pages now read from Supabase for items 14 to 16. Other dashboard screens remain mock
-data and refreshing them puts them back how they were.
+The original item 13 wireframe is still the visual baseline. Staff sign in, the species pages on
+the dashboard (add, edit and delete) and the public plant list and plant pages now use Supabase
+(items 14 to 16). The other dashboard screens still use mock data, and refreshing them puts them
+back how they were.
 
 | Side | Screens |
 | --- | --- |
 | Public | Home, plant list with search, a page for each plant, scan a tag, tag pages, staff sign in |
-| Staff | Overview, species, add a species, review queue, reports, sensors, users and roles |
+| Staff | Overview, species, add, edit and delete a species, review queue, reports, sensors, users and roles |
 
 ## Running it
 
@@ -45,13 +46,13 @@ src/
       screens/          every screen in demo order
     dashboard/          the staff side, with the sidebar in layout.tsx
       review/           approve or reject records sent from the mobile app
-      species/          the species table, and new/ for the add a species form
+      species/          the species table, new/ to add one, and [slug]/edit and [slug]/delete
       reports/          the CSV export
       sensors/          alerts, the sensor nodes and their map
       users/            who has an account and what each role can do
   components/           shared pieces: sketch map, tree tag, planned tape, icons...
   data/                 mock species, records, people and sensors, plus the screen list
-  lib/                  formatting, tag codes, IUCN labels, the location grid and the release items
+  lib/                  Supabase and sign in, species form checks, IUCN labels, the location grid
 ```
 
 ## Planned features
@@ -65,8 +66,6 @@ planned for, so it's clear what's real during the demo. The item numbers match t
 | --- | --- | --- |
 | 2 | Invites and changing someone's role | Users and roles |
 | 12 | QR codes that really scan, printed for each tag | Scan a tag, tag pages |
-| 14 | A real database instead of the files in `src/data`, and saving new species | Everywhere |
-| 17 | Editing and deleting species | Species |
 | 18 | Photo upload and the photo gallery | Home, plant pages, tag pages, add a species |
 | 19 | Saving approve and reject decisions | Review queue |
 | 20 | Real maps instead of the sketch maps | Overview, plant pages, tag pages |
@@ -88,7 +87,7 @@ planned for, so it's clear what's real during the demo. The item numbers match t
   protected in Sarawak. See `hidesLocation()` in `src/data/species.ts`. Public pages only get a
   rough area: the server snaps the point to a 0.004 degree grid square (about 440 m at Niah) in
   `src/lib/geo.ts` before the page is built, so the exact point never reaches the browser. Keep it
-  that way when the real database goes in.
+  that way on every public page.
 - Client components (files starting with `"use client"`) only import from `src/lib` and
   `src/components`, never from `src/data`, because anything they import gets sent to the browser.
   `import type` from `src/data` is fine since types disappear at build time. For the same reason
@@ -97,9 +96,12 @@ planned for, so it's clear what's real during the demo. The item numbers match t
   That's fine for made up data, but once it's real those pages need a role check on the server
   first (items 2 and 15), and the reports CSV should be built on the server (item 21). The
   database checks roles too (006, item 4), so the staff tables give a visitor nothing.
-- The wireframe forms don't have `name` attributes and never submit anywhere, so nothing anyone
-  types ends up in the address bar. The plant search keeps `?q=` in the URL on purpose, so a search
-  can be shared.
+- Sign in and the species forms post to server actions, so nothing anyone types ends up in the
+  address bar. The other wireframe forms don't have `name` attributes and never submit anywhere.
+  The plant search keeps `?q=` in the URL on purpose, so a search can be shared.
+- The species form checks live in `src/lib/species-form.ts`, so the page runs them before it sends
+  the form and the server action runs them again before it saves. A species' scientific name can't
+  change once it's added, because its public page link and its records use it.
 - Dates are formatted by hand in `src/lib/format.ts`, so the server and the browser print the same
   thing. The wireframe pretends it's 9 am on 4 Oct 2026 (`MOCK_NOW`). Don't call `new Date()` or
   `Date.now()` while a page renders. In a client component it causes hydration errors, and in a

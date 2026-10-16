@@ -1,12 +1,13 @@
 import { supabase, isSupabaseConfigured } from "./supabase";
 import { species as mockSpecies, type Species } from "@/data/species";
 import { records as mockRecords, type PlantRecord } from "@/data/records";
-import type { IucnCode } from "@/lib/iucn";
+import { isIucnCode } from "@/lib/iucn";
 
 /**
  * Normalizes a Supabase PostgreSQL row into the application Species format
  */
-function mapRowToSpecies(row: Record<string, unknown>): Species {
+export function speciesFromRow(row: Record<string, unknown>): Species {
+  const iucn = row.iucn_code ?? row.iucn;
   return {
     slug: String(row.slug || row.id || ""),
     scientificName: String(row.scientific_name || row.scientificName || ""),
@@ -17,11 +18,14 @@ function mapRowToSpecies(row: Record<string, unknown>): Species {
       : Array.isArray(row.commonNames)
       ? (row.commonNames as string[])
       : [],
-    iucn: ((row.iucn_code || row.iucn || "LC") as string) as IucnCode,
+    // The table only takes these codes, but if one ever doesn't match, Not
+    // Evaluated is the honest thing to show
+    iucn: isIucnCode(iucn) ? iucn : "NE",
     sarawakProtected: Boolean(
       row.sarawak_protected ?? row.sarawakProtected ?? false
     ),
     newerName: (row.newer_name || row.newerName) ? String(row.newer_name || row.newerName) : undefined,
+    roughAreaOnly: Boolean(row.rough_area_only ?? row.roughAreaOnly ?? false),
     summary: String(row.summary || ""),
     about: String(row.about || row.description || ""),
     habitat: String(row.habitat || ""),
@@ -63,7 +67,7 @@ export async function getSpeciesList(): Promise<Species[]> {
         .order("scientific_name", { ascending: true });
 
       if (!error && data) {
-        return data.map(mapRowToSpecies);
+        return data.map(speciesFromRow);
       }
     } catch {
       // Graceful fallback to mock data on network/connection failure
@@ -77,16 +81,20 @@ export async function getSpeciesList(): Promise<Species[]> {
  * Retrieves a single species by its URL slug.
  */
 export async function getSpeciesBySlug(slug: string): Promise<Species | null> {
+  // Slugs are only lowercase letters, numbers and hyphens, so anything else
+  // can't be a species and doesn't go to the database
+  if (!/^[a-z0-9-]+$/.test(slug)) return null;
+
   if (isSupabaseConfigured && supabase) {
     try {
       const { data, error } = await supabase
         .from("species_public")
         .select("*")
-        .or(`slug.eq.${slug},id.eq.${slug}`)
+        .eq("slug", slug)
         .maybeSingle();
 
       if (!error) {
-        return data ? mapRowToSpecies(data) : null;
+        return data ? speciesFromRow(data) : null;
       }
     } catch {
       // Fallback to mock data
@@ -123,81 +131,4 @@ export async function getPublishedRecordsForSpecies(
   return mockRecords.filter(
     (r) => r.speciesSlug === slug && r.status === "published"
   );
-}
-
-/**
- * Inserts or proposes a new plant species into Supabase.
- */
-export async function insertSpecies(newSpecies: Partial<Species>): Promise<{ success: boolean; error?: string }> {
-  if (!isSupabaseConfigured || !supabase) {
-    return {
-      success: false,
-      error: "Supabase is not configured. Add credentials in .env.local to persist changes.",
-    };
-  }
-
-  const row = {
-    id: newSpecies.slug,
-    slug: newSpecies.slug,
-    scientific_name: newSpecies.scientificName,
-    authority: newSpecies.authority,
-    family: newSpecies.family,
-    common_names: newSpecies.commonNames || [],
-    iucn_code: newSpecies.iucn || "LC",
-    sarawak_protected: newSpecies.sarawakProtected || false,
-    newer_name: newSpecies.newerName,
-    summary: newSpecies.summary,
-    about: newSpecies.about,
-    habitat: newSpecies.habitat,
-    uses: newSpecies.uses,
-  };
-
-  const { error } = await supabase.from("species").insert([row]);
-  if (error) {
-    return { success: false, error: error.message };
-  }
-
-  return { success: true };
-}
-
-export async function updateSpecies(
-  slug: string,
-  changes: Partial<Species>,
-): Promise<{ success: boolean; error?: string }> {
-  if (!isSupabaseConfigured || !supabase) {
-    return { success: false, error: "Supabase is not configured." };
-  }
-
-  const row = {
-    scientific_name: changes.scientificName,
-    authority: changes.authority,
-    family: changes.family,
-    common_names: changes.commonNames,
-    iucn_code: changes.iucn,
-    sarawak_protected: changes.sarawakProtected,
-    newer_name: changes.newerName,
-    summary: changes.summary,
-    about: changes.about,
-    habitat: changes.habitat,
-    uses: changes.uses,
-  };
-
-  const { error } = await supabase
-    .from("species")
-    .update(row)
-    .eq("id", slug);
-  if (error) return { success: false, error: error.message };
-  return { success: true };
-}
-
-export async function deleteSpecies(
-  slug: string,
-): Promise<{ success: boolean; error?: string }> {
-  if (!isSupabaseConfigured || !supabase) {
-    return { success: false, error: "Supabase is not configured." };
-  }
-
-  const { error } = await supabase.from("species").delete().eq("id", slug);
-  if (error) return { success: false, error: error.message };
-  return { success: true };
 }

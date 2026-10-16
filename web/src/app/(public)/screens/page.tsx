@@ -17,12 +17,13 @@ const WORKS_NOW = [
   "Plant search, the tag lookup, the review queue and the sensor alerts all respond as you use them.",
   "The CSV download on the reports page is built from the mock records.",
   "Threatened and protected plants only show a rough area on public pages. Their exact points never leave the server.",
+  "Officers can add, edit and delete species on the dashboard. The plant pages read them from Supabase, or from the sample data when it isn’t set up.",
 ];
 
 const NOT_REAL_YET = [
-  "There’s no database. Everything comes from mock files in web/src/data (item 14).",
+  "Records, sensor readings and the users list still come from mock files in web/src/data.",
   "There’s no real sign in, so anyone can open the dashboard (items 2 and 15).",
-  "Nothing is saved. Refreshing a page puts it back how it was.",
+  "Apart from species, nothing is saved yet. Refreshing a page puts it back how it was.",
   "Maps are hand drawn sketches. Real maps are item 20.",
   "The squares on the tags don’t scan yet (item 12).",
   "Photos are hatched boxes until photo upload is built (items 11 and 18).",

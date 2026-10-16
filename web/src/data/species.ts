@@ -1,8 +1,12 @@
-// Mock species for the wireframe. The IUCN statuses were checked against
-// public sources on 4 Oct 2026, but SFC should confirm them (and the text)
-// before any of this goes live. Item 14 moves this into Supabase.
+// Sample species for the demo, used where the site isn't reading from
+// Supabase. The facts were checked on 16 Oct 2026: the IUCN statuses on each
+// species' Wikipedia page, which cite the Red List, the Sarawak Forestry
+// Department's list of protected plants and Kew's Plants of the World Online.
+// SFC should still confirm them (and the text). The four that are also in the
+// species table have the same IUCN status, protection and names as
+// supabase/007_species_fixes.sql.
 
-import { IUCN, type IucnCode } from "@/lib/iucn";
+import { showsExactSpot, type IucnCode } from "@/lib/iucn";
 
 export type Species = {
   slug: string;
@@ -15,6 +19,8 @@ export type Species = {
   /** Listed as a protected plant under the Sarawak Wild Life Protection Ordinance 1998 */
   sarawakProtected: boolean;
   newerName?: string;
+  /** An officer chose to only show a rough area, even though the rules would allow the spot */
+  roughAreaOnly?: boolean;
   summary: string;
   about: string;
   habitat: string;
@@ -58,15 +64,15 @@ export const species: Species[] = [
     scientificName: "Koompassia excelsa",
     authority: "(Becc.) Taub.",
     family: "Fabaceae",
-    commonNames: ["Tapang"],
+    commonNames: ["Tapang", "Tualang"],
     iucn: "NT",
-    sarawakProtected: false,
+    sarawakProtected: true,
     summary: "One of the tallest trees in the tropics, with a smooth pale trunk.",
     about:
       "Tapang can grow past 80 m, which puts it among the tallest tropical trees in the world. The trunk is straight, smooth and pale grey with big buttresses at the base, and the crown sits well above the rest of the canopy.",
     habitat: "Lowland rainforest from southern Thailand to Borneo.",
     uses: "Wild honey bees hang their combs from the high branches and honey hunters climb up to collect it, so people often leave tapang standing when they clear land.",
-    updated: "2026-10-01",
+    updated: "2026-10-16",
   },
   {
     slug: "shorea-macrophylla",
@@ -74,15 +80,15 @@ export const species: Species[] = [
     authority: "(de Vriese) P.S.Ashton",
     family: "Dipterocarpaceae",
     commonNames: ["Engkabang", "Illipe nut tree"],
-    iucn: "VU",
-    sarawakProtected: false,
+    iucn: "LC",
+    sarawakProtected: true,
     newerName: "Rubroshorea macrophylla",
     summary: "A riverside dipterocarp whose seeds are the illipe nuts.",
     about:
       "Engkabang is a dipterocarp that does well along rivers and on land that floods for part of the year. In good years it fruits heavily, and its large winged seeds are the illipe nuts that people collect.",
     habitat: "Riverbanks and flat land that floods from time to time.",
     uses: "Fat pressed from the nuts, often called illipe butter, goes into cooking, chocolate and cosmetics.",
-    updated: "2026-10-03",
+    updated: "2026-10-16",
   },
   {
     slug: "durio-graveolens",
@@ -121,10 +127,11 @@ export function getSpecies(slug: string) {
 }
 
 /**
- * Exact locations stay with staff for threatened species (VU and above) and
- * for anything protected under Sarawak law. The public only gets a rough
- * square. In the real build a database view does this, not the page.
+ * Whether the public only gets a rough square for this species (see
+ * showsExactSpot). With Supabase, the records_public view does this before
+ * anything leaves the database. Without it, the pages only send the rough
+ * square to the browser.
  */
 export function hidesLocation(s: Species) {
-  return s.sarawakProtected || IUCN[s.iucn].threatened;
+  return !showsExactSpot(s.iucn, s.sarawakProtected, s.roughAreaOnly ?? false);
 }

@@ -12,18 +12,35 @@ kept, and you can fix the problem and run it again.
 | File | What it does | Item | Safe to run again? |
 | --- | --- | --- | --- |
 | `001_initial_schema.sql` | The tables (profiles, species, records, iot_nodes), Row Level Security, and the public `botanical-photos` bucket | 14 | No, it stops on the policies that are already there |
-| `002_seed_data.sql` | The species and the sample records | 14 | Yes |
+| `002_seed_data.sql` | The species and the sample records | 14 | Yes, then run 007 again |
 | `003_profiles_read_own.sql` | Lets a signed in user read their own profile, so the website can see their role | 15 | Yes |
 | `004_security_hardening.sql` | Role checks on writes, the public views and the staff views | 4, 14, 15, 16 | No, it stops on the policies that are already there |
 | `005_phone_sync.sql` | Lets the phone upload records, and adds the private `record-photos` bucket | 3 | No, it stops on its first line and changes nothing |
-| `006_role_based_access.sql` | What each role can read and change, checked by the database: Row Level Security, column grants and a review trigger | 4 | Yes |
+| `006_role_based_access.sql` | What each role can read and change, checked by the database: Row Level Security, column grants and a review trigger | 4 | Yes, then run 007 again |
+| `007_species_fixes.sql` | The rough area only switch for a species, the public views that use it, checked facts for the sample species, and a trigger that sets `updated_at` when a species is edited | 14 | Yes |
 
-As of 16 Oct 2026 the hosted project has 001 and 002. Run 003, 004, 005 and 006 next, one file
-at a time, in that order. Don't stop after 004, because the website's species edit and delete
-need 006 as well. 003 is fine to run even if it turns out to be there already.
+As of 16 Oct 2026 the hosted project has 001 and 002. Run 003, 004, 005, 006 and 007 next, one
+file at a time, in that order, and don't stop part way. The website's species pages (add, edit
+and delete) need 007, and 007 stops on its first line if 006 isn't there. 003 is fine to run even
+if it turns out to be there already.
 
 If 005 stops with a check error (like `records_gps_check`), a record already on the hosted project
 breaks one of its new rules. Fix or delete that record in the Table Editor and run 005 again.
+
+## Sample data
+
+The sample records use made-up points around park HQ, not real plant locations, like the mock
+records in both apps. The facts of the sample species were checked on 16 Oct 2026, and 007 has
+the fixes. The IUCN statuses come from each species' Wikipedia page, which cites the Red List,
+the protection from the Sarawak Forestry Department's list of protected plants, and the names
+and where they grow from Kew's Plants of the World Online. SFC should still confirm them, and
+someone should check the statuses on the Red List site itself. Kew doesn't list Paphiopedilum
+barbatum in Borneo, so SFC should say whether it grows at Niah or should come out of the sample
+data.
+
+Every sample species is threatened or protected, so none of their plants show an exact spot on
+the public site. To see one that does, add a Least Concern species that isn't protected, then
+publish a record of it.
 
 ## Keys
 
@@ -44,9 +61,10 @@ role key skips Row Level Security, so it never goes in the app, the website's br
 - Row Level Security is on for every table.
 - The public reads through `species_public` and `records_public`, never the tables themselves,
   because the records table has exact locations. Only published records show in
-  `records_public`, and only a plant that's Least Concern or Near Threatened and isn't protected
-  in Sarawak shows its exact spot there. Every other plant shows the middle of its 0.004 degree
-  grid square (about 440 m at Niah).
+  `records_public`, and a plant only shows its exact spot there if its species is Least Concern
+  or Near Threatened, isn't protected in Sarawak and isn't set to rough area only. Every other
+  plant, Data Deficient and Not Evaluated ones too, shows the middle of its 0.004 degree grid
+  square (about 440 m at Niah).
 - The server decides who uploaded a record and its status, never the phone. See
   [docs/sync-design.md](../docs/sync-design.md).
 - A new account is always a visitor, whatever was sent when signing up. Only an admin can change
@@ -72,8 +90,9 @@ npm install
 npm test
 ```
 
-- `tests/sync.test.js` checks phone uploads and record photos (item 3), and `tests/roles.test.js`
-  checks what each role can read and change (item 4).
+- `tests/sync.test.js` checks phone uploads and record photos (item 3), `tests/roles.test.js`
+  checks what each role can read and change (item 4), and `tests/species.test.js` checks 007
+  and adding, editing and deleting a species the way the website does (item 14).
 - PGlite runs Postgres 18.3 and Supabase projects run 15 or 17, so don't use anything newer than
   Postgres 15 in our SQL.
 - `tests/supabase-stub.sql` stands in for the parts of Supabase our SQL uses (the API roles,

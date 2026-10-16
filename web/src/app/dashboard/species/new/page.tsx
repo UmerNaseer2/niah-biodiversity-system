@@ -2,12 +2,22 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Icon } from "@/components/icon";
 import { PageHeader } from "@/components/page-header";
-import { species } from "@/data/species";
-import { NewSpeciesForm } from "./new-species-form";
+import { requireStaff } from "@/lib/auth";
+import { createClient } from "@/lib/supabase/server";
+import { SpeciesForm } from "../species-form";
 
 export const metadata: Metadata = { title: "Add a species" };
 
-export default function NewSpeciesPage() {
+export default async function NewSpeciesPage() {
+  if (!(await requireStaff())) return null;
+
+  // The names already in the database, so the form can say straight away if a
+  // species is there. If they don't load, the database still turns down a
+  // species that's already there when it saves.
+  const supabase = await createClient();
+  const { data } = await supabase.from("species_staff").select("scientific_name");
+  const existingNames = (data ?? []).map((row) => String(row.scientific_name));
+
   return (
     <div>
       <nav aria-label="Breadcrumb" className="mb-4 text-sm">
@@ -22,11 +32,9 @@ export default function NewSpeciesPage() {
       <PageHeader
         eyebrow="Plant database"
         title="Add a species"
-        description="Once it’s saved, field teams can pick it in the mobile app and it gets its own page on the public site. Check the IUCN status on the Red List before you add it."
+        description="Once it’s saved it gets its own page on the public site. Field teams can pick it in the mobile app once the phone downloads the species list, which comes with item 10 in Sprint 2. Check the IUCN status on the Red List before you add it."
       />
-      <NewSpeciesForm
-        existingNames={species.map((s) => s.scientificName)}
-      />
+      <SpeciesForm mode="add" existingNames={existingNames} />
     </div>
   );
 }

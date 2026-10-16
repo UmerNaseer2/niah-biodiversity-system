@@ -14,7 +14,7 @@ export const metadata: Metadata = {
 
 const EXAMPLES = [
   { code: "NNP-3F2A9C", note: "Belian, location hidden" },
-  { code: "NNP-B17D03", note: "Tapang, location shown" },
+  { code: "NNP-B17D03", note: "Tapang, protected in Sarawak" },
   { code: "NNP-5E9A2C", note: "Waiting for review, so not public yet" },
 ];
 

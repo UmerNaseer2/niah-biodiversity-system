@@ -1,45 +1,14 @@
 import { createClient } from "@supabase/supabase-js";
+import { SUPABASE_ANON_KEY, SUPABASE_URL, authConfigured } from "./supabase/config";
 
-const supabaseUrl =
-  process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || "";
-const supabaseAnonKey =
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-  process.env.SUPABASE_PUBLISHABLE_KEY ||
-  "";
+/** Whether the site has a Supabase project to read from */
+export const isSupabaseConfigured = authConfigured;
 
 /**
- * Checks whether valid Supabase environment variables have been configured
- */
-export const isSupabaseConfigured = Boolean(
-  supabaseUrl &&
-    supabaseAnonKey &&
-    !supabaseUrl.includes("your-project-id") &&
-    !supabaseAnonKey.includes("your-anon-key")
-);
-
-/**
- * Client-safe Supabase instance (uses anon key).
- * Returns null if Supabase credentials have not been configured yet.
+ * Client for the public pages. It uses the anon key with nobody signed in, so
+ * it only gets what Row Level Security lets the public see. Null when Supabase
+ * isn't set up.
  */
 export const supabase = isSupabaseConfigured
-  ? createClient(supabaseUrl, supabaseAnonKey)
+  ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
   : null;
-
-/**
- * Server-only client instance using the service role key if available.
- * Never expose the service role key to client components or public responses.
- */
-export function getServiceSupabase() {
-  const serviceRoleKey =
-    process.env.SUPABASE_SERVICE_ROLE_KEY ||
-    process.env.SUPABASE_SECRET_KEY ||
-    supabaseAnonKey;
-  if (!isSupabaseConfigured || !serviceRoleKey) return null;
-
-  return createClient(supabaseUrl, serviceRoleKey, {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-    },
-  });
-}

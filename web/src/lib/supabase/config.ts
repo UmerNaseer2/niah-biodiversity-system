@@ -1,5 +1,5 @@
-// Same check as isSupabaseConfigured in item 14's lib/supabase.ts. Kept here
-// so the auth code does not depend on that branch being merged first.
+// The Supabase project the site talks to, from .env.local. When it isn't set,
+// sign in is off and the public pages use the sample data in src/data.
 const url =
   process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || "";
 const anonKey =

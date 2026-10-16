@@ -13,11 +13,11 @@ as their pull requests are merged.
 - [ ] 2. User Authentication & Authorisation System (Supabase Auth)
 - [x] 3. Cloud Infrastructure Setup & Data Sync Framework (Supabase project, Storage), the
   Sprint #1 part ([test results](test-results/item-3-cloud-sync.md)). The phone starts using it
-  in item 10. The hosted project still needs 003, 004, 005 and 006 run, see
+  in item 10. The hosted project still needs 003 to 007 run, in order, see
   [supabase/README.md](../supabase/README.md).
 - [x] 4. Role-Based Access Control (Row Level Security policies)
-  ([test results](test-results/item-4-access-control.md)). The hosted project still needs 006
-  run, after 003 to 005.
+  ([test results](test-results/item-4-access-control.md)). The hosted project still needs 003
+  to 007 run, in order.
 
 ## Smart Digital Ground-Truthing Platform (Frederick, Umer)
 
@@ -35,7 +35,8 @@ as their pull requests are merged.
   [test results](test-results/item-13-web-wireframe.md). Angel and Andy to check it before we tick
   it)
 - [x] 14. Plant Database Schema & CRUD Operations
-  ([test results](test-results/item-14-plant-schema.md))
+  ([test results](test-results/item-14-plant-schema.md)). Officers add, edit and delete species
+  on the website. The hosted project still needs 003 to 007 run before those pages work there.
 - [x] 15. Conservation Officer Authentication (Web)
   ([test results](test-results/item-15-officer-auth.md))
 - [x] 16. Plant Information Display & Search (Basic)

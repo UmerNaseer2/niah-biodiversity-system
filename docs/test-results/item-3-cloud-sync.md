@@ -7,7 +7,7 @@ for record photos, and the rules the phone follows when it uploads a record and 
 
 This is the Sprint #1 part of item 3. Nothing on the phone talks to Supabase yet. Item 10
 (Sprint #2) adds the "Sync now" button and the Supabase client that use these rules, and item 11
-takes the photos. The hosted project also still needs 003, 004, 005 and 006 run (see
+takes the photos. The hosted project also still needs 003 to 007 run (see
 [Not tested yet](#not-tested-yet)).
 
 ## Round 1: 16 Oct 2026, SQL tests and unit tests
@@ -121,7 +121,7 @@ so items 15 and 16 check the website copes with an empty one.
 
 | What | Why | Next step |
 | --- | --- | --- |
-| The hosted project | When we checked on 16 Oct 2026 it had 001 and 002 run, but not the rest | Run 003, 004, 005 and 006 in the SQL editor, one file at a time, in that order (see [supabase/README.md](../../supabase/README.md)). Then check the Table Editor shows `tag_code`, `species_name` and `submitted_by` on records, and Storage shows the `record-photos` bucket as private |
+| The hosted project | When we checked on 16 Oct 2026 it had 001 and 002 run, but not the rest | Run 003, 004, 005, 006 and 007 in the SQL editor, one file at a time, in that order (see [supabase/README.md](../../supabase/README.md)). Then check the Table Editor shows `tag_code`, `species_name` and `submitted_by` on records, and Storage shows the `record-photos` bucket as private |
 | Supabase's own Postgres | PGlite runs Postgres 18.3 and Supabase projects run 15 or 17. Our SQL doesn't use anything newer than 15, but the tests haven't run there | Run the tests against a local Supabase (`supabase start`, which needs Docker), or repeat the checks on the hosted project once item 10 can upload |
 | The Storage API | The size and file type limits are checked by Supabase's Storage server, not by Postgres, so the tests only check the bucket settings and the policies | When item 11 uploads photos, try a real photo, an 11 MB file and a PDF, and check only the photo goes in |
 | Errors through the Supabase API | The tests check the codes Postgres sends. The phone gets them through the Supabase API, which passes the code and message on | When item 10 is in, upload the same record twice and then upload as a visitor, and check the phone gets `23505` naming `records_pkey`, then `42501` |

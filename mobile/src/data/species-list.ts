@@ -1,6 +1,7 @@
 // Species the New Record form suggests while you type. It's every species in
 // supabase/002_seed_data.sql plus the two extra ones on the website mock list
 // (web/src/data/species.ts), so every mock record links to a species. Names only, never locations.
+// The common names follow the fixes in supabase/007_species_fixes.sql.
 // Item 10 swaps this for the species table in Supabase, downloaded when the phone syncs, so a new
 // species added on the website shows up here without an app update.
 
@@ -26,7 +27,7 @@ export const SPECIES_LIST: SpeciesOption[] = [
   {
     slug: 'koompassia-excelsa',
     scientificName: 'Koompassia excelsa',
-    commonNames: ['Tapang', 'Menggris', 'Tualang'],
+    commonNames: ['Tapang', 'Tualang'],
   },
   {
     slug: 'shorea-macrophylla',

@@ -39,7 +39,7 @@ export const publicScreens: Screen[] = [
     title: "Tag page",
     path: "/tag/NNP-3F2A9C",
     items: [12, 16],
-    works: "What a visitor sees after scanning. Try NNP-B17D03 for a species that shows its location.",
+    works: "What a visitor sees after scanning. Every sample species is threatened or protected, so tag pages only show a rough area.",
   },
   {
     title: "Staff sign in",
@@ -59,14 +59,26 @@ export const staffScreens: Screen[] = [
   {
     title: "Species",
     path: "/dashboard/species",
-    items: [14, 17],
-    works: "The species table. Edit and delete are marked for Sprint 2.",
+    items: [14],
+    works: "The species table, read from Supabase, with edit and delete for each species.",
   },
   {
     title: "Add a species",
     path: "/dashboard/species/new",
     items: [14],
-    works: "The full form. Threatened species lock the location setting to rough area only.",
+    works: "The full form, which saves to Supabase. Only Least Concern and Near Threatened species that are not protected can show their exact spot.",
+  },
+  {
+    title: "Edit a species",
+    path: "/dashboard/species/eusideroxylon-zwageri/edit",
+    items: [14],
+    works: "The same form filled in from Supabase. The scientific name can’t change, since the public page link uses it.",
+  },
+  {
+    title: "Delete a species",
+    path: "/dashboard/species/eusideroxylon-zwageri/delete",
+    items: [14],
+    works: "Says how many records the species has and what happens to them, then deletes it from Supabase.",
   },
   {
     title: "Review queue",
