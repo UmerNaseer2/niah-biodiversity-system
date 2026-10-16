@@ -57,7 +57,8 @@ as their pull requests are merged.
 - [x] 23. Data Encryption (In-Transit), the Sprint #1 part
   ([test results](security/encryption-in-transit.md)). HTTPS on the real site gets checked once
   it's deployed.
-- [ ] 24. Application Vulnerability Assessment Plan
+- [x] 24. Application Vulnerability Assessment Plan
+  ([plan](security/vulnerability-assessment-plan.md)). Jason still reviews it.
 
 ## IoT-Enabled Plant Protection (Rukman, Bryan)
 
