@@ -6,7 +6,8 @@ as their pull requests are merged.
 
 ## Pre-sprint
 
-- [ ] 1. System Architecture & Database Design
+- [x] 1. System Architecture & Database Design ([high-level diagrams](architecture/) and
+  [database design](architecture/database-design.md))
 
 ## Foundation layer (owner to be decided)
 
