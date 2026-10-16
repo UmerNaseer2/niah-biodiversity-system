@@ -1,0 +1,16 @@
+{
+  "name": "niah-database-tests",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Runs our Supabase SQL files on PGlite and checks who can do what",
+  "type": "module",
+  "scripts": {
+    "test": "node --test"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "0.5.8"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

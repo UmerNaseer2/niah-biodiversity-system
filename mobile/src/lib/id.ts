@@ -1,9 +1,10 @@
 import { randomUUID } from 'expo-crypto';
 
 /**
- * Makes a v4 UUID on the phone, so a record has its ID before it ever reaches the server and
- * an upload that runs twice updates the same row instead of making a duplicate. expo-crypto
- * gets the random numbers from the phone's secure random number generator.
+ * Makes a v4 UUID on the phone, so a record has its ID before it ever reaches the server. If an
+ * upload runs twice, the server turns the second one away because the ID is already there, so a
+ * record is never saved twice. expo-crypto gets the random numbers from the phone's secure random
+ * number generator.
  */
 export function newId(): string {
   return randomUUID();

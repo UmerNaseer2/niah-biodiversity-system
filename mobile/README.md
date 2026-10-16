@@ -8,7 +8,9 @@ other sprint items have somewhere to plug in. The plant form from item 7 is fini
 suggestions and checks on what you type. Since item 8 the form gets the location from the phone's
 GPS, and a record can't be saved without one. Since item 6 the Scan tab uses the camera to read a
 plant's QR tag and open its record. Since item 9 the records are saved in SQLite on the phone, so
-they're still there after the app restarts. Nothing talks to Supabase yet.
+they're still there after the app restarts. Nothing talks to Supabase yet, but the rules for
+uploading a record are in `src/sync/` since item 3, ready for the "Sync now" button in item 10
+([docs/sync-design.md](../docs/sync-design.md) explains them).
 
 | Tab | What it shows |
 | --- | --- |
@@ -63,6 +65,8 @@ src/
                         search, IDs and tag codes
   state/                records-context.tsx loads the saved records when the app starts and
                         shares them with every screen
+  sync/                 upload-row.ts, the rules for uploading a record to Supabase and reading
+                        the answer (item 10 uses them)
   types/                PlantRecord and the other shared types
 ```
 
@@ -108,10 +112,13 @@ what's fake.
   the keyboard doesn't shrink the window. `Screen` wraps pages with text boxes in a
   `KeyboardAvoidingView` on Android to keep the focused box in view, but nobody has checked it on a
   real phone yet.
-- `src/data/species-list.ts` uses the same slugs as the species table in Supabase. If you add a
-  species to one, add it to the other too, until item 10 downloads the list when the phone syncs.
-- Keys: copy `.env.example` to `.env` and fill it in. Only the Supabase anon key goes in the
-  app. The service role key never goes in mobile code.
+- `src/data/species-list.ts` uses the same slugs as the species table in Supabase, but it has two
+  the server doesn't have yet, *Durio graveolens* and *Dryobalanops aromatica*. A record of one
+  of those still uploads, because the server keeps the species name and only clears a slug it
+  doesn't know. If you add a species, add it to both, until item 10 downloads the list when the
+  phone syncs.
+- Keys: copy `.env.example` to `.env` and ask Umer for the values. Only the Supabase anon key
+  goes in the app. The service role key never goes in mobile code.
 
 ## Tests
 
@@ -122,8 +129,9 @@ npm test
 Jest runs the tests in the `__tests__` folders, which sit next to the code they check. They cover
 the helpers in `src/lib` (dates, heights, the form checks, the GPS and QR rules, species search, IDs
 and tag lookup), the GPS hook in `src/hooks` against a mocked `expo-location`, the database and
-records store in `src/db`, the records provider in `src/state`, and make sure the mock data follows
-the same rules as the app.
+records store in `src/db`, the records provider in `src/state`, and the upload rules in `src/sync`
+(against the same example records as the SQL tests in `supabase/tests/`). They also make sure the
+mock data follows the same rules as the app.
 
 `expo-sqlite` needs a phone, so in tests `jest/expo-sqlite.js` stands in for it with `sql.js`, which
 is SQLite built for WebAssembly. The tests still run our real SQL against a table with the same

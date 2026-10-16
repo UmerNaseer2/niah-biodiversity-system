@@ -86,3 +86,24 @@ jobs:
         run: npm run build
         env:
           NEXT_TELEMETRY_DISABLED: 1
+
+  database:
+    name: Database
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: supabase/tests
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: supabase/tests/package-lock.json
+      - run: npm ci
+      - name: SQL tests
+        # Runs our SQL files in order on PGlite (Postgres built for WebAssembly), then checks what
+        # each kind of user can and can't do. No Supabase project or keys needed.
+        run: npm test

@@ -1,0 +1,111 @@
+{
+  "about": [
+    "Records the way the phone keeps them (record) and the row the phone uploads for each one",
+    "(row). mobile/src/sync/__tests__/upload-row.test.ts checks the phone builds these rows, and",
+    "supabase/tests/sync.test.js checks the database takes them, so the two sides can't drift",
+    "apart. The locations are made up and sit near the park HQ."
+  ],
+  "uploads": [
+    {
+      "name": "every field filled in",
+      "record": {
+        "id": "6b0e1c2d-4f3a-4c5b-9d8e-7f6a5b4c3d21",
+        "tagCode": "NNP-6B0E1C",
+        "speciesName": "Eusideroxylon zwageri",
+        "speciesSlug": "eusideroxylon-zwageri",
+        "commonName": "Belian",
+        "heightM": 12.5,
+        "condition": "damaged",
+        "notes": "Bark scraped off low on the trunk, maybe by a fallen branch.",
+        "location": {
+          "latitude": 3.8152,
+          "longitude": 113.7801,
+          "accuracyM": 8,
+          "capturedAt": "2026-10-16T01:10:00.000Z"
+        },
+        "photoCount": 0,
+        "recordedAt": "2026-10-16T01:12:00.000Z",
+        "syncStatus": "pending"
+      },
+      "row": {
+        "id": "6b0e1c2d-4f3a-4c5b-9d8e-7f6a5b4c3d21",
+        "species_name": "Eusideroxylon zwageri",
+        "species_slug": "eusideroxylon-zwageri",
+        "common_name": "Belian",
+        "height_m": 12.5,
+        "condition": "damaged",
+        "notes": "Bark scraped off low on the trunk, maybe by a fallen branch.",
+        "gps": {
+          "lat": 3.8152,
+          "lng": 113.7801,
+          "accuracyM": 8,
+          "capturedAt": "2026-10-16T01:10:00.000Z"
+        },
+        "photo_count": 0,
+        "recorded_at": "2026-10-16T01:12:00.000Z"
+      }
+    },
+    {
+      "name": "a species on the phone's list that the server doesn't have",
+      "record": {
+        "id": "c4d5e6f7-0a1b-4c2d-8e3f-a4b5c6d7e8f9",
+        "tagCode": "NNP-C4D5E6",
+        "speciesName": "Durio graveolens",
+        "speciesSlug": "durio-graveolens",
+        "commonName": "Durian kuning",
+        "heightM": 18,
+        "condition": "healthy",
+        "location": {
+          "latitude": 3.8127,
+          "longitude": 113.7769,
+          "accuracyM": 12,
+          "capturedAt": "2026-10-16T02:03:00.000Z"
+        },
+        "photoCount": 0,
+        "recordedAt": "2026-10-16T02:04:00.000Z",
+        "syncStatus": "pending"
+      },
+      "row": {
+        "id": "c4d5e6f7-0a1b-4c2d-8e3f-a4b5c6d7e8f9",
+        "species_name": "Durio graveolens",
+        "species_slug": "durio-graveolens",
+        "common_name": "Durian kuning",
+        "height_m": 18,
+        "condition": "healthy",
+        "notes": null,
+        "gps": {
+          "lat": 3.8127,
+          "lng": 113.7769,
+          "accuracyM": 12,
+          "capturedAt": "2026-10-16T02:03:00.000Z"
+        },
+        "photo_count": 0,
+        "recorded_at": "2026-10-16T02:04:00.000Z"
+      }
+    },
+    {
+      "name": "a name typed in, with nothing optional filled in",
+      "record": {
+        "id": "1f2e3d4c-5b6a-4798-a8b9-0c1d2e3f4a5b",
+        "tagCode": "NNP-1F2E3D",
+        "speciesName": "Ficus sp.",
+        "condition": "healthy",
+        "photoCount": 0,
+        "recordedAt": "2026-10-16T02:30:00.000Z",
+        "syncStatus": "pending"
+      },
+      "row": {
+        "id": "1f2e3d4c-5b6a-4798-a8b9-0c1d2e3f4a5b",
+        "species_name": "Ficus sp.",
+        "species_slug": null,
+        "common_name": null,
+        "height_m": null,
+        "condition": "healthy",
+        "notes": null,
+        "gps": null,
+        "photo_count": 0,
+        "recorded_at": "2026-10-16T02:30:00.000Z"
+      }
+    }
+  ]
+}

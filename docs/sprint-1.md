@@ -11,7 +11,10 @@ as their pull requests are merged.
 ## Foundation layer (owner to be decided)
 
 - [ ] 2. User Authentication & Authorisation System (Supabase Auth)
-- [ ] 3. Cloud Infrastructure Setup & Data Sync Framework (Supabase project, Storage)
+- [x] 3. Cloud Infrastructure Setup & Data Sync Framework (Supabase project, Storage), the
+  Sprint #1 part ([test results](test-results/item-3-cloud-sync.md)). The phone starts using it
+  in item 10. The hosted project still needs 003, 004 and 005 run, see
+  [supabase/README.md](../supabase/README.md).
 - [ ] 4. Role-Based Access Control (Row Level Security policies)
 
 ## Smart Digital Ground-Truthing Platform (Frederick, Umer)
