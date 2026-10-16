@@ -15,6 +15,7 @@ export const SQL_FILES = [
   '003_profiles_read_own.sql',
   '004_security_hardening.sql',
   '005_phone_sync.sql',
+  '006_role_based_access.sql',
 ];
 
 export function readSql(file) {

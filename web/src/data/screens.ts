@@ -90,6 +90,6 @@ export const staffScreens: Screen[] = [
     title: "Users and roles",
     path: "/dashboard/users",
     items: [2, 4],
-    works: "Who can do what. Invites and role changes come with real sign in.",
+    works: "Who can do what, the same rules the database checks. Invites and role changes come with real sign in.",
   },
 ];

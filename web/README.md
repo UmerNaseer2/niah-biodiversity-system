@@ -63,7 +63,7 @@ planned for, so it's clear what's real during the demo. The item numbers match t
 
 | Item | What goes in | Where |
 | --- | --- | --- |
-| 4 | Invites and changing someone's role | Users and roles |
+| 2 | Invites and changing someone's role | Users and roles |
 | 12 | QR codes that really scan, printed for each tag | Scan a tag, tag pages |
 | 14 | A real database instead of the files in `src/data`, and saving new species | Everywhere |
 | 17 | Editing and deleting species | Species |
@@ -79,8 +79,11 @@ planned for, so it's clear what's real during the demo. The item numbers match t
 - All the data is made up. The coordinates sit around the park HQ, the names are fake and the
   emails use example.com. Never put the real location of a threatened or protected plant in mock
   data, screenshots or anything public.
-- Public plant pages query the coordinate-free `species_public` and `records_public` views. Keep
-  exact coordinates in server-only staff workflows and never select them into a public page response.
+- Public plant pages query the `species_public` and `records_public` views, never the tables.
+  `records_public` only gives the exact spot of a plant that's LC or NT and isn't protected in
+  Sarawak, and the middle of its grid square for every other plant (006, item 4). Keep the exact
+  spots of threatened and protected plants in server-only staff workflows, and never select them
+  into a public page response.
 - A species hides its exact spot if it's threatened on the IUCN Red List (VU, EN or CR) or
   protected in Sarawak. See `hidesLocation()` in `src/data/species.ts`. Public pages only get a
   rough area: the server snaps the point to a 0.004 degree grid square (about 440 m at Niah) in
@@ -92,7 +95,8 @@ planned for, so it's clear what's real during the demo. The item numbers match t
   `SketchMap` is only used in server components.
 - Staff pages do send exact points to the browser (review queue, reports and the overview map).
   That's fine for made up data, but once it's real those pages need a role check on the server
-  first (items 2, 4 and 15), and the reports CSV should be built on the server (item 21).
+  first (items 2 and 15), and the reports CSV should be built on the server (item 21). The
+  database checks roles too (006, item 4), so the staff tables give a visitor nothing.
 - The wireframe forms don't have `name` attributes and never submit anywhere, so nothing anyone
   types ends up in the address bar. The plant search keeps `?q=` in the URL on purpose, so a search
   can be shared.

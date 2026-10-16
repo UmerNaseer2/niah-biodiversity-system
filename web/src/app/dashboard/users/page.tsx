@@ -9,22 +9,30 @@ export const metadata: Metadata = { title: "Users and roles" };
 
 const ROLES: Role[] = ["researcher", "botanist", "officer", "admin"];
 
-// What each role can do. In the real system these turn into Row Level
-// Security policies in Supabase (item 4), so the database enforces them and
-// not only the website.
+// What each role can do. These match the Row Level Security rules in
+// supabase/006_role_based_access.sql (item 4), so the database checks them
+// itself and not only the website.
 const PERMISSIONS: { label: string; roles: Role[] }[] = [
   {
     label: "Record plants in the mobile app",
-    roles: ["researcher", "botanist", "officer"],
+    roles: ["botanist", "officer", "admin"],
   },
-  { label: "Add and edit species", roles: ["botanist", "officer"] },
-  { label: "Approve or reject records", roles: ["botanist", "officer"] },
   {
-    label: "See exact spots of threatened and protected plants",
-    roles: ["researcher", "botanist", "officer"],
+    label: "Fix their own records while they wait for review",
+    roles: ["botanist", "officer", "admin"],
   },
-  { label: "Download reports", roles: ["researcher", "botanist", "officer"] },
-  { label: "See sensor alerts", roles: ["officer", "admin"] },
+  {
+    label: "See exact spots in the records they uploaded",
+    roles: ["botanist", "officer", "admin"],
+  },
+  { label: "Add, edit and delete species", roles: ["officer", "admin"] },
+  { label: "Approve, reject or delete records", roles: ["officer", "admin"] },
+  {
+    label: "See exact spots of every record, threatened plants too",
+    roles: ["officer", "admin"],
+  },
+  { label: "Download reports", roles: ["officer", "admin"] },
+  { label: "See sensor readings and alerts", roles: ["officer", "admin"] },
   { label: "Manage users and roles", roles: ["admin"] },
 ];
 
@@ -40,7 +48,7 @@ export default function UsersPage() {
         description="Everyone who can sign in to the staff side. Field teams use the same accounts in the mobile app, and their role decides what they can see and change."
         aside={
           <>
-            <PlannedTape items={[2, 4]} />
+            <PlannedTape items={[2]} />
             <button type="button" disabled className="btn btn-primary">
               <Icon name="plus" className="size-4" />
               Invite someone
@@ -117,7 +125,9 @@ export default function UsersPage() {
         </h2>
         <p className="max-w-2xl text-moss">
           Visitors without an account only get the public site, where
-          threatened and protected plants show as a rough area.
+          threatened and protected plants show as a rough area. Researchers
+          see the same as the public for now, until SFC decides what else
+          they can see.
         </p>
         <div
           role="region"
@@ -171,14 +181,16 @@ export default function UsersPage() {
           <Icon name="info" className="mt-0.5 size-5 text-forest" />
           <div>
             <h3 className="font-bold">
-              Why can’t administrators see exact spots?
+              Why can administrators do everything officers can?
             </h3>
             <p className="mt-1 text-sm text-moss">
-              They look after accounts, not plants, so they don’t need them.
-              The fewer people who can see where a threatened plant is, the
-              fewer ways that location can leak. These rules will live in the
-              database as Row Level Security policies, so they still hold if
-              someone skips the website and calls the API directly.
+              Our proposal has administrators looking after the accounts and
+              the stored ecological data, so they can do everything an officer
+              can as well. Botanists only see exact spots in the records they
+              uploaded, because the fewer people who can see where a threatened
+              plant is, the fewer ways that location can leak. The database
+              checks these rules itself, so they still hold if someone skips
+              the website and calls the API directly.
             </p>
           </div>
         </div>

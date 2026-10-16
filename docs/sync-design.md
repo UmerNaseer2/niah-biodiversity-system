@@ -57,9 +57,10 @@ that for two reasons:
 
 - An update could write the phone's old copy over a record an officer has already reviewed or
   published.
-- An upsert through the API needs the right to update and read `records` as well. Botanists
-  shouldn't be able to change or read other people's records, so an insert keeps their rights as
-  small as they can be.
+- An upsert through the API needs the right to update and read `records` as well. Since 006
+  (item 4) a botanist can only read their own records, and only edit one while it waits for
+  review, so an upsert would fail once an officer had reviewed the record. An insert only needs
+  the right to add records.
 
 So if the answer to an upload gets lost (the signal drops just after it went up), the next sync
 sends the same record again, the server says the ID is taken, and the phone marks it synced. The

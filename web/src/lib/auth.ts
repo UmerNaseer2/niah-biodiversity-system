@@ -2,11 +2,18 @@ import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { authConfigured } from "@/lib/supabase/config";
 
-// Roles from the profiles table (supabase/001_initial_schema.sql, item 14).
-export type DbRole = "visitor" | "botanist" | "conservation_officer" | "admin";
+// Roles from the profiles table (supabase/001_initial_schema.sql, and
+// researcher from supabase/006_role_based_access.sql, item 4).
+export type DbRole =
+  | "visitor"
+  | "researcher"
+  | "botanist"
+  | "conservation_officer"
+  | "admin";
 
 export const DB_ROLE_LABEL: Record<DbRole, string> = {
   visitor: "Visitor",
+  researcher: "Researcher",
   botanist: "Botanist",
   conservation_officer: "Conservation officer",
   admin: "Administrator",

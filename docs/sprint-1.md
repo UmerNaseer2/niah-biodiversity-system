@@ -13,9 +13,11 @@ as their pull requests are merged.
 - [ ] 2. User Authentication & Authorisation System (Supabase Auth)
 - [x] 3. Cloud Infrastructure Setup & Data Sync Framework (Supabase project, Storage), the
   Sprint #1 part ([test results](test-results/item-3-cloud-sync.md)). The phone starts using it
-  in item 10. The hosted project still needs 003, 004 and 005 run, see
+  in item 10. The hosted project still needs 003, 004, 005 and 006 run, see
   [supabase/README.md](../supabase/README.md).
-- [ ] 4. Role-Based Access Control (Row Level Security policies)
+- [x] 4. Role-Based Access Control (Row Level Security policies)
+  ([test results](test-results/item-4-access-control.md)). The hosted project still needs 006
+  run, after 003 to 005.
 
 ## Smart Digital Ground-Truthing Platform (Frederick, Umer)
 
