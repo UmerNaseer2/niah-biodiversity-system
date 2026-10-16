@@ -49,6 +49,7 @@ export const MOCK_RECORDS: PlantRecord[] = [
   mock({
     id: '3f2a9c4e-8b1d-4c6a-9e2f-7a1b5c3d9e01',
     speciesName: 'Eusideroxylon zwageri',
+    speciesSlug: 'eusideroxylon-zwageri',
     commonName: 'Belian',
     heightM: 18.5,
     condition: 'healthy',
@@ -60,6 +61,7 @@ export const MOCK_RECORDS: PlantRecord[] = [
   mock({
     id: '8c41e7b2-5d3f-4a9e-b6c1-2e8f4a7d1c02',
     speciesName: 'Nepenthes ampullaria',
+    speciesSlug: 'nepenthes-ampullaria',
     commonName: 'Pitcher plant',
     heightM: 0.4,
     condition: 'healthy',
@@ -71,6 +73,7 @@ export const MOCK_RECORDS: PlantRecord[] = [
   mock({
     id: 'b17d03f9-2c6e-4f8a-a3d5-9e1c7b4f2a03',
     speciesName: 'Koompassia excelsa',
+    speciesSlug: 'koompassia-excelsa',
     commonName: 'Tapang',
     heightM: 52,
     condition: 'healthy',
@@ -82,6 +85,7 @@ export const MOCK_RECORDS: PlantRecord[] = [
   mock({
     id: '5e9a2c71-7f4b-4d2e-8c9a-3b6d1e5f7a04',
     speciesName: 'Shorea macrophylla',
+    speciesSlug: 'shorea-macrophylla',
     commonName: 'Engkabang',
     heightM: 24,
     condition: 'damaged',
@@ -94,6 +98,7 @@ export const MOCK_RECORDS: PlantRecord[] = [
   mock({
     id: '72c5f8a0-3e1d-4b9c-9f6a-8d2e4c1b7a06',
     speciesName: 'Durio graveolens',
+    speciesSlug: 'durio-graveolens',
     commonName: 'Durian kuning',
     heightM: 15,
     condition: 'diseased',
@@ -105,6 +110,7 @@ export const MOCK_RECORDS: PlantRecord[] = [
   mock({
     id: 'd4b86e13-9a2c-4e7f-b1d8-6c3a9f2e5b05',
     speciesName: 'Dryobalanops aromatica',
+    speciesSlug: 'dryobalanops-aromatica',
     commonName: 'Kapur',
     heightM: 35,
     condition: 'healthy',

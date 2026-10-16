@@ -1,5 +1,12 @@
-import { useState, type Ref } from 'react';
-import { StyleSheet, TextInput, View, type TextInputProps } from 'react-native';
+import { useEffect, useState, type Ref } from 'react';
+import {
+  AccessibilityInfo,
+  Platform,
+  StyleSheet,
+  TextInput,
+  View,
+  type TextInputProps,
+} from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { Radius, Spacing } from '@/constants/theme';
@@ -29,6 +36,14 @@ export function Field({
 }: FieldProps) {
   const theme = useTheme();
   const [focused, setFocused] = useState(false);
+
+  // Errors show up after you leave a box, when the screen reader has already moved on, so read
+  // them out straight away. On the web the role="alert" below does the same job.
+  useEffect(() => {
+    if (error && Platform.OS !== 'web') {
+      AccessibilityInfo.announceForAccessibility(error);
+    }
+  }, [error]);
 
   let borderColor: string = theme.outline;
   if (error) {
@@ -67,9 +82,14 @@ export function Field({
           </ThemedText>
         ) : null}
       </View>
-      {error || hint ? (
-        <ThemedText type="small" themeColor={error ? 'danger' : 'textSecondary'}>
-          {error ?? hint}
+      {error ? (
+        <ThemedText type="small" themeColor="danger" role="alert">
+          {error}
+        </ThemedText>
+      ) : null}
+      {!error && hint ? (
+        <ThemedText type="small" themeColor="textSecondary">
+          {hint}
         </ThemedText>
       ) : null}
     </View>

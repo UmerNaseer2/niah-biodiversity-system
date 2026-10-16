@@ -22,6 +22,8 @@ export type PlantRecord = {
   /** Short code printed on the tag, for typing in when the QR code won't scan. */
   tagCode: string;
   speciesName: string;
+  /** Links the record to the species list. Left out when the name typed in isn't on the list. */
+  speciesSlug?: string;
   commonName?: string;
   heightM?: number;
   condition: PlantCondition;
@@ -36,5 +38,5 @@ export type PlantRecord = {
 /** What the New Record form fills in. The rest is set when the record is saved. */
 export type NewPlantRecord = Pick<
   PlantRecord,
-  'speciesName' | 'commonName' | 'heightM' | 'condition' | 'notes' | 'location'
+  'speciesName' | 'speciesSlug' | 'commonName' | 'heightM' | 'condition' | 'notes' | 'location'
 >;

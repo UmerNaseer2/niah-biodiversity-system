@@ -1,4 +1,5 @@
 import { MOCK_RECORDS, mockGpsReading } from '@/data/mock-records';
+import { SPECIES_LIST } from '@/data/species-list';
 import { parseHeight } from '@/lib/height';
 import { tagCodeFor } from '@/lib/id';
 
@@ -22,6 +23,13 @@ describe('MOCK_RECORDS', () => {
           value: record.heightM,
         });
       }
+    });
+  });
+
+  it('links every record to a species on the list, spelt the same way', () => {
+    MOCK_RECORDS.forEach((record) => {
+      const option = SPECIES_LIST.find((species) => species.slug === record.speciesSlug);
+      expect(option?.scientificName).toBe(record.speciesName);
     });
   });
 

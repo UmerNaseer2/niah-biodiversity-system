@@ -17,7 +17,7 @@ Item numbers match the Initial Release Schedule in the proposal. Tick items off 
 
 - [x] 5. Mobile App Skeleton & Navigation ([test results](test-results/item-5-mobile-skeleton.md))
 - [ ] 6. QR Code Scanner Integration
-- [ ] 7. Basic Plant Record Form (Mobile)
+- [x] 7. Basic Plant Record Form (Mobile) ([test results](test-results/item-7-record-form.md))
 - [ ] 8. GPS Location Capture & Tracking
 - [ ] 9. Offline Data Collection & Local Storage (started, finishes in Sprint #2)
 
@@ -45,4 +45,4 @@ Suggested Sprint #1 prep: get one ESP32 reading the DHT11 and soil moisture sens
 
 ## Contribution evidence
 
-- [Andy Wei Jian Chu — Sprint 1 contribution evidence](contributions/andy-sprint-1.md)
+- [Andy Wei Jian Chu: Sprint 1 contribution evidence](contributions/andy-sprint-1.md)

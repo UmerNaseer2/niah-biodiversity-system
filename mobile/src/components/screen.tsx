@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Platform, ScrollView, StyleSheet, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SafeAreaView } from 'react-native-screens/experimental';
 
@@ -12,7 +12,7 @@ type ScreenProps = {
   title?: string;
   eyebrow?: string;
   subtitle?: string;
-  /** Turn on for screens with text boxes, so iOS scrolls the focused box above the keyboard. */
+  /** Turn on for screens with text boxes, so the focused box scrolls up above the keyboard. */
   hasInputs?: boolean;
   children: ReactNode;
 };
@@ -58,6 +58,17 @@ export function Screen({ title, eyebrow, subtitle, hasInputs = false, children }
       </View>
     </ScrollView>
   );
+
+  if (Platform.OS === 'android' && hasInputs) {
+    // Android apps now draw edge to edge (Expo SDK 54 and up), so the window no longer shrinks
+    // when the keyboard opens and the boxes near the bottom would end up under it. Padding the
+    // page by the keyboard height gives the ScrollView room to bring the focused box into view.
+    return (
+      <KeyboardAvoidingView behavior="padding" style={styles.scroll}>
+        {content}
+      </KeyboardAvoidingView>
+    );
+  }
 
   if (Platform.OS !== 'ios' || !isTabScreen) {
     return content;
