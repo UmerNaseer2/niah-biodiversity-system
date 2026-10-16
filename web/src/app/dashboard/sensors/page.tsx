@@ -4,6 +4,7 @@ import { PageHeader } from "@/components/page-header";
 import { SketchMap } from "@/components/sketch-map";
 import { Planned, PlannedTape } from "@/components/tape";
 import { sensorAlerts, sensors, type Sensor } from "@/data/sensors";
+import { requireStaff } from "@/lib/auth";
 import { formatDateTime, formatTime, plural } from "@/lib/format";
 import { AlertList, type AlertItem } from "./alert-list";
 
@@ -179,7 +180,9 @@ function SensorCard({ sensor }: { sensor: Sensor }) {
   );
 }
 
-export default function SensorsPage() {
+export default async function SensorsPage() {
+  if (!(await requireStaff())) return null;
+
   const alerts: AlertItem[] = [...sensorAlerts]
     .sort(
       (a, b) =>

@@ -5,7 +5,8 @@
   "description": "Runs our Supabase SQL files on PGlite and checks who can do what",
   "type": "module",
   "scripts": {
-    "test": "node --test"
+    "test": "node --test",
+    "stand-in": "node stand-in.js"
   },
   "devDependencies": {
     "@electric-sql/pglite": "0.5.8"

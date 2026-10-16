@@ -4,13 +4,16 @@ import { Planned } from "@/components/tape";
 import { getPerson } from "@/data/people";
 import { records } from "@/data/records";
 import { getSpecies, hidesLocation } from "@/data/species";
+import { requireStaff } from "@/lib/auth";
 import { formatDateTime } from "@/lib/format";
 import { tagCode } from "@/lib/tags";
 import { ReportBuilder, type ReportRow } from "./report-builder";
 
 export const metadata: Metadata = { title: "Reports" };
 
-export default function ReportsPage() {
+export default async function ReportsPage() {
+  if (!(await requireStaff())) return null;
+
   // The wireframe builds the CSV in the browser. The real one (item 21)
   // should build it on the server after checking the person's role, so exact
   // spots never reach someone who isn't allowed to see them.

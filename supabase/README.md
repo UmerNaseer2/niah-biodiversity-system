@@ -93,6 +93,18 @@ npm test
 - `tests/sync.test.js` checks phone uploads and record photos (item 3), `tests/roles.test.js`
   checks what each role can read and change (item 4), and `tests/species.test.js` checks 007
   and adding, editing and deleting a species the way the website does (item 14).
+- `tests/stand-in.js` is a stand-in for our Supabase project that runs on your computer, for
+  trying the website without a real project. The
+  [web README](../web/README.md#trying-sign-in-without-a-supabase-project) says how, and
+  `npm run stand-in` starts it on port 54321. It builds the same database as the tests, adds a
+  made up account for each role (`officer`, `admin`, `botanist`, `researcher`, `visitor`, and
+  `noprofile`, which has no row in `profiles`, all `@example.test`), and answers the parts of the
+  Auth and REST APIs the website uses, as the signed in user. The password is `TEST_PASSWORD` in
+  `stand-in.js` and only works there. `STAND_IN_PORT` changes the port, and
+  `STAND_IN_TOKEN_SECONDS` makes a sign in run out sooner, to try refreshing. It only listens on
+  127.0.0.1, so other computers can't reach it.
+- `tests/stand-in.test.js` checks the stand-in answers like Supabase for the calls the website
+  makes, so `npm test` runs it too.
 - PGlite runs Postgres 18.3 and Supabase projects run 15 or 17, so don't use anything newer than
   Postgres 15 in our SQL.
 - `tests/supabase-stub.sql` stands in for the parts of Supabase our SQL uses (the API roles,

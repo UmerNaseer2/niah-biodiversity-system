@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import { Icon } from "@/components/icon";
 import { PageHeader } from "@/components/page-header";
 import { PlannedTape } from "@/components/tape";
-import { DEMO_USER_ID, people, ROLE_LABEL, type Role } from "@/data/people";
+import { people, ROLE_LABEL, type Role } from "@/data/people";
+import { requireStaff } from "@/lib/auth";
 import { formatDateTime } from "@/lib/format";
 
 export const metadata: Metadata = { title: "Users and roles" };
@@ -36,7 +37,9 @@ const PERMISSIONS: { label: string; roles: Role[] }[] = [
   { label: "Manage users and roles", roles: ["admin"] },
 ];
 
-export default function UsersPage() {
+export default async function UsersPage() {
+  if (!(await requireStaff())) return null;
+
   const sorted = [...people].sort((a, b) => a.name.localeCompare(b.name));
   const activeCount = people.filter((p) => p.active).length;
 
@@ -65,8 +68,8 @@ export default function UsersPage() {
           </span>
         </h2>
         <p className="max-w-2xl text-moss">
-          Made-up accounts. Inviting people and changing roles come with real
-          sign in, which we are building with Supabase this sprint.
+          These accounts are made up. Listing the real ones, inviting people
+          and changing roles are part of item 2.
         </p>
         <div
           role="region"
@@ -88,9 +91,6 @@ export default function UsersPage() {
                 <tr key={person.id}>
                   <th scope="row" className="px-4 py-3 text-left font-normal">
                     <span className="font-bold">{person.name}</span>
-                    {person.id === DEMO_USER_ID && (
-                      <span className="text-moss"> (you)</span>
-                    )}
                     <span className="block font-mono text-xs text-moss">
                       {person.email}
                     </span>

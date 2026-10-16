@@ -4,7 +4,7 @@ import { useActionState } from "react";
 import { Icon } from "@/components/icon";
 import { signIn, type SignInState } from "./actions";
 
-const INITIAL: SignInState = { error: null };
+const INITIAL: SignInState = { error: null, email: "" };
 
 export function LoginForm({ configured }: { configured: boolean }) {
   const [state, action, pending] = useActionState(signIn, INITIAL);
@@ -20,6 +20,7 @@ export function LoginForm({ configured }: { configured: boolean }) {
           name="email"
           type="email"
           autoComplete="username"
+          defaultValue={state.email}
           required
           disabled={!configured}
           className="field mt-1.5 w-full"

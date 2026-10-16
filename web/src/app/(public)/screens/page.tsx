@@ -17,12 +17,13 @@ const WORKS_NOW = [
   "Plant search, the tag lookup, the review queue and the sensor alerts all respond as you use them.",
   "The CSV download on the reports page is built from the mock records.",
   "Threatened and protected plants only show a rough area on public pages. Their exact points never leave the server.",
+  "Staff sign in with Supabase, and only conservation officers and administrators can open the dashboard. Every staff page checks that on the server.",
   "Officers can add, edit and delete species on the dashboard. The plant pages read them from Supabase, or from the sample data when it isn’t set up.",
 ];
 
 const NOT_REAL_YET = [
   "Records, sensor readings and the users list still come from mock files in web/src/data.",
-  "There’s no real sign in, so anyone can open the dashboard (items 2 and 15).",
+  "Staff accounts are made by hand in Supabase. Inviting people and changing roles on the website are item 2.",
   "Apart from species, nothing is saved yet. Refreshing a page puts it back how it was.",
   "Maps are hand drawn sketches. Real maps are item 20.",
   "The squares on the tags don’t scan yet (item 12).",
@@ -119,8 +120,8 @@ export default function ScreensPage() {
           Staff dashboard
         </h2>
         <p className="text-moss">
-          For conservation officers, botanists, researchers and admins. In
-          the demo you’re signed in as Mira Tan, a made-up officer.
+          For conservation officers and administrators. Every page here needs
+          a staff account, and anyone else who signs in sees a no access page.
         </p>
         <ScreenList screens={staffScreens} start={publicScreens.length + 1} />
       </section>

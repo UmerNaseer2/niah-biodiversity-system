@@ -70,9 +70,6 @@ export const people: Person[] = [
   },
 ];
 
-/** The demo is always signed in as this person */
-export const DEMO_USER_ID = "mira";
-
 export function getPerson(id: string) {
   const person = people.find((p) => p.id === id);
   if (!person) throw new Error(`No mock person called ${id}`);

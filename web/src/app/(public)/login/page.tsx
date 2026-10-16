@@ -5,7 +5,7 @@ import { LoginForm } from "./login-form";
 
 export const metadata: Metadata = {
   title: "Staff sign in",
-  description: "Sign in for park staff and researchers.",
+  description: "Sign in for conservation officers and administrators.",
 };
 
 export default function LoginPage() {

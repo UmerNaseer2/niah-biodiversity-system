@@ -38,7 +38,9 @@ as their pull requests are merged.
   ([test results](test-results/item-14-plant-schema.md)). Officers add, edit and delete species
   on the website. The hosted project still needs 003 to 007 run before those pages work there.
 - [x] 15. Conservation Officer Authentication (Web)
-  ([test results](test-results/item-15-officer-auth.md))
+  ([test results](test-results/item-15-officer-auth.md)). Every staff page checks the role on the
+  server. Tested on a stand-in for Supabase on Umer's Mac, and the hosted project needs 003 to 007
+  run before officers can get in there.
 - [x] 16. Plant Information Display & Search (Basic)
   ([test results](test-results/item-16-plant-search.md))
 

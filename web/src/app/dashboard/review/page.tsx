@@ -4,13 +4,16 @@ import { Planned } from "@/components/tape";
 import { getPerson } from "@/data/people";
 import { records } from "@/data/records";
 import { getSpecies, hidesLocation } from "@/data/species";
+import { requireStaff } from "@/lib/auth";
 import { formatCoords, formatDateTime } from "@/lib/format";
 import { tagCode } from "@/lib/tags";
 import { ReviewQueue, type QueueItem } from "./review-queue";
 
 export const metadata: Metadata = { title: "Review queue" };
 
-export default function ReviewPage() {
+export default async function ReviewPage() {
+  if (!(await requireStaff())) return null;
+
   // Oldest first, so nothing sits in the queue for too long
   const queue: QueueItem[] = records
     .filter((r) => r.status === "waiting")

@@ -26,10 +26,50 @@ Then open http://localhost:3000. The public pages and staff sign in use Supabase
 so copy `.env.example` to `.env.local` and fill in the project URL and publishable key. The app
 accepts both `NEXT_PUBLIC_SUPABASE_URL`/`NEXT_PUBLIC_SUPABASE_ANON_KEY` and the Supabase export
 names `SUPABASE_URL`/`SUPABASE_PUBLISHABLE_KEY`. Without them `/login` says sign in isn't set up
-and `/dashboard` sends you back to `/login`.
+and `/dashboard` sends you back to `/login`. A production build (`npm run build`) also needs the
+project URL to start with `https://` (item 23), and treats any other URL as not set up.
 
 For the demo, start at http://localhost:3000/screens. It lists every screen in the order we show
 them, with what works on each one. The pink strip at the top of every page links there too.
+
+## Trying sign in without a Supabase project
+
+`supabase/tests/stand-in.js` is a stand-in for our Supabase project that runs on your computer,
+with a made up account for each role. It's for trying sign in and the dashboard without a real
+project or real accounts. Start it in one terminal:
+
+```bash
+cd supabase/tests
+npm install
+npm run stand-in
+```
+
+Then start the website in a second terminal. On macOS or Linux:
+
+```bash
+cd web
+NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321 \
+  NEXT_PUBLIC_SUPABASE_ANON_KEY=stand-in-anon-key npm run dev
+```
+
+In PowerShell on Windows:
+
+```powershell
+cd web
+$env:NEXT_PUBLIC_SUPABASE_URL = "http://127.0.0.1:54321"
+$env:NEXT_PUBLIC_SUPABASE_ANON_KEY = "stand-in-anon-key"
+npm run dev
+```
+
+Values set in the terminal win over `.env.local`, so there's no need to change it. In PowerShell
+they stay set until you close that window. Sign in at http://localhost:3000/login as
+`officer@example.test` or `admin@example.test`. The botanist, researcher, visitor and noprofile
+accounts get "No access". The stand-in lists the accounts when it starts, and the password is
+`TEST_PASSWORD` in `stand-in.js`. Everything in it is made up, and it all goes when you stop it.
+[supabase/README.md](../supabase/README.md#tests) has more about it.
+
+This only works with `npm run dev`. The stand-in's URL is http, so a production build of the
+website says sign in isn't set up.
 
 ## What's where
 
@@ -42,7 +82,7 @@ src/
     (public)/           the public site. The brackets keep the folder name out of the URL
       plants/           plant list with search, and [slug] for one plant
       tag/              type in a tag code, and [code] for the page a QR tag opens
-      login/            staff sign in (just a button for now)
+      login/            staff sign in and sign out, with Supabase Auth
       screens/          every screen in demo order
     dashboard/          the staff side, with the sidebar in layout.tsx
       review/           approve or reject records sent from the mobile app
@@ -92,10 +132,13 @@ planned for, so it's clear what's real during the demo. The item numbers match t
   `src/components`, never from `src/data`, because anything they import gets sent to the browser.
   `import type` from `src/data` is fine since types disappear at build time. For the same reason
   `SketchMap` is only used in server components.
-- Staff pages do send exact points to the browser (review queue, reports and the overview map).
-  That's fine for made up data, but once it's real those pages need a role check on the server
-  first (items 2 and 15), and the reports CSV should be built on the server (item 21). The
-  database checks roles too (006, item 4), so the staff tables give a visitor nothing.
+- Every staff page starts with `if (!(await requireStaff())) return null;` from
+  `src/lib/auth.ts`, and a new staff page needs it too. The check in `dashboard/layout.tsx` isn't
+  enough on its own. Next renders a page and its layout at the same time, so a layout that shows
+  "No access" doesn't stop the page's data from reaching the browser.
+- Staff pages do send exact points to the browser (review queue, reports and the overview map), so
+  the reports CSV should be built on the server (item 21). The database checks roles too (006,
+  item 4), so the staff views give anyone else nothing.
 - Sign in and the species forms post to server actions, so nothing anyone types ends up in the
   address bar. The other wireframe forms don't have `name` attributes and never submit anywhere.
   The plant search keeps `?q=` in the URL on purpose, so a search can be shared.

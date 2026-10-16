@@ -89,13 +89,15 @@ export default async function DashboardLayout({
 }
 
 function NoAccess({ email, role }: { email: string; role: DbRole | null }) {
+  const label = role ? DB_ROLE_LABEL[role].toLowerCase() : null;
+  const article = label && /^[aeiou]/.test(label) ? "an" : "a";
   return (
     <main id="main" className="mx-auto w-full max-w-md px-4 py-16">
       <div className="card p-6 sm:p-8">
         <h1 className="text-2xl font-bold tracking-tight">No access</h1>
         <p className="mt-2 text-moss">
           {email} is signed in
-          {role ? ` as ${DB_ROLE_LABEL[role].toLowerCase()}` : ""}, but the
+          {label ? ` as ${article} ${label}` : ""}, but the
           staff dashboard is only for conservation officers and administrators.
           Ask an administrator if you need access.
         </p>

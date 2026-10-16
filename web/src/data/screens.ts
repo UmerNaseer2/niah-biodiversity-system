@@ -45,7 +45,7 @@ export const publicScreens: Screen[] = [
     title: "Staff sign in",
     path: "/login",
     items: [2, 15],
-    works: "No real sign in yet. The button opens the demo dashboard.",
+    works: "Email and password sign in with Supabase. Only conservation officers and administrators get into the dashboard, and there’s no sign up page.",
   },
 ];
 
@@ -102,6 +102,6 @@ export const staffScreens: Screen[] = [
     title: "Users and roles",
     path: "/dashboard/users",
     items: [2, 4],
-    works: "Who can do what, the same rules the database checks. Invites and role changes come with real sign in.",
+    works: "Who can do what, the same rules the database checks. The people list is made up, and invites and role changes are item 2.",
   },
 ];

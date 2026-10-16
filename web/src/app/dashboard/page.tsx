@@ -4,7 +4,7 @@ import { Icon } from "@/components/icon";
 import { ConditionBadge } from "@/components/plant-bits";
 import { SketchMap } from "@/components/sketch-map";
 import { getPerson } from "@/data/people";
-import { getSession } from "@/lib/auth";
+import { requireStaff } from "@/lib/auth";
 import { records } from "@/data/records";
 import { sensorAlerts, sensors } from "@/data/sensors";
 import { getSpecies, species } from "@/data/species";
@@ -25,9 +25,10 @@ function speciesName(slug: string) {
 }
 
 export default async function OverviewPage() {
-  const session = await getSession();
-  const firstName =
-    session.status === "ok" ? session.name.split(" ")[0] : "there";
+  const me = await requireStaff();
+  if (!me) return null;
+  const firstName = me.name.split(" ")[0];
+
   const waiting = records.filter((r) => r.status === "waiting");
   const published = records.filter((r) => r.status === "published");
   const online = sensors.filter((s) => s.online).length;
@@ -50,8 +51,7 @@ export default async function OverviewPage() {
           Good morning, {firstName}
         </h1>
         <p className="mt-1 text-moss">
-          Here’s what needs you today. Everything on this dashboard is mock
-          data.
+          Here’s what needs you today. Everything below is mock data.
         </p>
       </header>
 
