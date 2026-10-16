@@ -1,6 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // No X-Powered-By header, so responses don't say which framework we run
+  poweredByHeader: false,
   async headers() {
     return [
       {

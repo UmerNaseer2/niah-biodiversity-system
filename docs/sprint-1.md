@@ -50,7 +50,7 @@ as their pull requests are merged.
 ## Cybersecurity & Data Protection (Jason)
 
 - [ ] 22. Data Encryption (At-Rest)
-- [ ] 23. Data Encryption (In-Transit)
+- [x] 23. Data Encryption (In-Transit) ([test results](security/encryption-in-transit.md))
 - [ ] 24. Application Vulnerability Assessment Plan
 
 ## IoT-Enabled Plant Protection (Rukman, Bryan)
