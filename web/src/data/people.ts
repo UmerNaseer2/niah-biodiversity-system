@@ -1,12 +1,16 @@
 // Made-up staff accounts for the wireframe. The emails use example.com on
 // purpose, never put real names or emails in mock data.
 
-export type Role = "researcher" | "botanist" | "officer" | "admin";
+export type Role =
+  | "visitor"
+  | "botanist"
+  | "conservation_officer"
+  | "admin";
 
 export const ROLE_LABEL: Record<Role, string> = {
-  researcher: "Researcher",
+  visitor: "Visitor",
   botanist: "Botanist",
-  officer: "Conservation officer",
+  conservation_officer: "Conservation officer",
   admin: "Administrator",
 };
 
@@ -24,7 +28,7 @@ export const people: Person[] = [
     id: "mira",
     name: "Mira Tan",
     email: "mira.tan@example.com",
-    role: "officer",
+    role: "conservation_officer",
     active: true,
     lastActive: "2026-10-04T08:55",
   },
@@ -32,7 +36,7 @@ export const people: Person[] = [
     id: "daniel",
     name: "Daniel Jong",
     email: "daniel.jong@example.com",
-    role: "officer",
+    role: "conservation_officer",
     active: true,
     lastActive: "2026-10-04T08:12",
   },
@@ -56,7 +60,7 @@ export const people: Person[] = [
     id: "alex",
     name: "Alex Lau",
     email: "alex.lau@example.com",
-    role: "researcher",
+    role: "visitor",
     active: true,
     lastActive: "2026-10-02T16:30",
   },
@@ -64,7 +68,7 @@ export const people: Person[] = [
     id: "hafiz",
     name: "Hafiz Osman",
     email: "hafiz.osman@example.com",
-    role: "researcher",
+    role: "visitor",
     active: false,
     lastActive: "2026-08-14T10:00",
   },

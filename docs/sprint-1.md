@@ -9,9 +9,9 @@ Item numbers match the Initial Release Schedule in the proposal. Tick items off 
 
 ## Foundation layer (owner to be decided)
 
-- [ ] 2. User Authentication & Authorisation System (Supabase Auth)
+- [x] 2. User Authentication & Authorisation System (Supabase Auth) ([test results](test-results/item-15-officer-auth.md))
 - [ ] 3. Cloud Infrastructure Setup & Data Sync Framework (Supabase project, Storage)
-- [ ] 4. Role-Based Access Control (Row Level Security policies)
+- [x] 4. Role-Based Access Control (Row Level Security policies) ([verification guide](test-results/item-4-rbac.md))
 
 ## Smart Digital Ground-Truthing Platform (Frederick, Umer)
 

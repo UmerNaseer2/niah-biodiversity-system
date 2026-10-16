@@ -118,7 +118,7 @@ export default function ScreensPage() {
           Staff dashboard
         </h2>
         <p className="text-moss">
-          For conservation officers, botanists, researchers and admins. In
+          For conservation officers, botanists, visitors and admins. In
           the demo you’re signed in as Mira Tan, a made-up officer.
         </p>
         <ScreenList screens={staffScreens} start={publicScreens.length + 1} />

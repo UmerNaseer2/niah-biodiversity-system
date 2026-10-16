@@ -13,3 +13,9 @@ Rules from our design:
   access to the base tables because they contain exact coordinates.
 - `004_security_hardening.sql` restricts writes by profile role and prevents
   signup metadata from selecting a privileged role.
+- `005_rbac_finalization.sql` is the current follow-up migration for IoT and
+  botanical photo policies. Apply migrations in numeric order.
+
+Canonical profile roles are `visitor`, `botanist`, `conservation_officer`, and
+`admin`. Keep these values in sync with the web and mobile clients; do not use
+`researcher` or `officer` as database role values.

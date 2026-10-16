@@ -1,7 +1,9 @@
 # Item 15 test results: conservation officer sign in (web)
 
-Run on 15 October 2026 on Deangel's Victus (Windows 11, Node 24.21.0), on the `item-15-officer-auth`
-branch, against a test Supabase project made for this.
+Run on 15 October 2026 on Deangel's Victus (Windows 11, Node 24.21.0), on the
+`item-15-officer-auth` branch, against a test Supabase project made for this.
+The implementation is maintained on the authentication/RBAC finalization
+branch and uses the canonical `conservation_officer` role name.
 
 ## What this item adds
 
@@ -57,8 +59,8 @@ Needs two test users in Supabase (Authentication, Users, "Auto confirm"). Their 
 | 10 | Dashboard | Refreshed the page and closed and reopened the tab | Still signed in | Pass |
 | 11 | Sign out | Pressed Sign out in the sidebar | Goes to `/login` | Pass |
 | 12 | Sign out | Pressed the browser's back button | Goes back to `/login`, no staff page is shown | Pass |
-| 13 | Admin | Set a test user to `admin` and signed in | Opens the dashboard | Not run |
-| 14 | Profile missing | Signed in with a user that has no row in `profiles` | "No access", no crash | Not run |
+| 13 | Admin | Set a test user to `admin` and signed in | Opens the dashboard | To run against deployed site |
+| 14 | Profile missing | Signed in with a user that has no row in `profiles` | "No access", no crash | To run against deployed site |
 | 15 | Small screen | Window 375 px wide: `/login`, "No access" and the dashboard top bar with Sign out | Nothing scrolls sideways | Partial: `/login` at 375 px has no sideways scroll. "No access" and the dashboard top bar not checked yet |
 | 16 | Console | Watched the browser console on every step above | No errors | Partial: only `/login` was watched, and it showed just dev server hot reload messages. The other steps were not watched |
 | 17 | Not set up | Removed the Supabase values from `.env.local` and restarted | `/login` says sign in isn't set up and the boxes are greyed out. `/dashboard` still redirects to `/login` | Not run |
@@ -93,7 +95,7 @@ once per package in the ESLint chain). The two Supabase packages added nothing. 
 
 | What | Why | Next step |
 | --- | --- | --- |
-| Row Level Security | Item 4 isn't done, so the database doesn't check roles yet | Re-test with the botanist account against the API once item 4 lands |
+| Row Level Security | Database verification is tracked separately | Run the matrix in [item-4-rbac.md](item-4-rbac.md) after applying `005_rbac_finalization.sql` |
 | Password reset, sign up, invites | Not part of this item. Accounts are made by an administrator | Item 4 and Sprint #2 |
 | Admin and no profile (tests 13 and 14), unconfigured server (test 17) | Not run in this round | Run them before Sprint #2 |
 | Expired sessions | The session cookie is refreshed by the proxy, but we didn't wait for a token to expire | Check after an hour of idle time |

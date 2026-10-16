@@ -7,7 +7,7 @@ import { formatDateTime } from "@/lib/format";
 
 export const metadata: Metadata = { title: "Users and roles" };
 
-const ROLES: Role[] = ["researcher", "botanist", "officer", "admin"];
+const ROLES: Role[] = ["visitor", "botanist", "conservation_officer", "admin"];
 
 // What each role can do. In the real system these turn into Row Level
 // Security policies in Supabase (item 4), so the database enforces them and
@@ -15,16 +15,28 @@ const ROLES: Role[] = ["researcher", "botanist", "officer", "admin"];
 const PERMISSIONS: { label: string; roles: Role[] }[] = [
   {
     label: "Record plants in the mobile app",
-    roles: ["researcher", "botanist", "officer"],
+    roles: ["botanist", "conservation_officer", "admin"],
   },
-  { label: "Add and edit species", roles: ["botanist", "officer"] },
-  { label: "Approve or reject records", roles: ["botanist", "officer"] },
+  {
+    label: "Add and edit species",
+    roles: ["conservation_officer", "admin"],
+  },
+  {
+    label: "Approve or reject records",
+    roles: ["conservation_officer", "admin"],
+  },
   {
     label: "See exact spots of threatened and protected plants",
-    roles: ["researcher", "botanist", "officer"],
+    roles: ["conservation_officer", "admin"],
   },
-  { label: "Download reports", roles: ["researcher", "botanist", "officer"] },
-  { label: "See sensor alerts", roles: ["officer", "admin"] },
+  {
+    label: "Download reports",
+    roles: ["conservation_officer", "admin"],
+  },
+  {
+    label: "See sensor alerts",
+    roles: ["conservation_officer", "admin"],
+  },
   { label: "Manage users and roles", roles: ["admin"] },
 ];
 
@@ -57,8 +69,8 @@ export default function UsersPage() {
           </span>
         </h2>
         <p className="max-w-2xl text-moss">
-          Made-up accounts. Inviting people and changing roles come with real
-          sign in, which we are building with Supabase this sprint.
+          Demonstration accounts. Inviting people and changing roles are
+          managed in Supabase and are not editable from this read-only view.
         </p>
         <div
           role="region"
@@ -171,14 +183,14 @@ export default function UsersPage() {
           <Icon name="info" className="mt-0.5 size-5 text-forest" />
           <div>
             <h3 className="font-bold">
-              Why can’t administrators see exact spots?
+              Why are exact spots restricted?
             </h3>
             <p className="mt-1 text-sm text-moss">
-              They look after accounts, not plants, so they don’t need them.
-              The fewer people who can see where a threatened plant is, the
-              fewer ways that location can leak. These rules will live in the
-              database as Row Level Security policies, so they still hold if
-              someone skips the website and calls the API directly.
+              Only conservation officers and administrators can access exact
+              locations through the staff view. Public users receive rough
+              locations, and these rules are enforced by database policies so
+              they still hold if someone skips the website and calls the API
+              directly.
             </p>
           </div>
         </div>
