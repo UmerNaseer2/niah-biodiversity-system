@@ -23,6 +23,7 @@ export const Icons = {
   pin: symbol('mappin.and.ellipse', 'location_on'),
   location: symbol('location.fill', 'my_location'),
   camera: symbol('camera', 'photo_camera'),
+  torch: symbol('flashlight.on.fill', 'flashlight_on'),
   addPhoto: symbol('photo.badge.plus', 'add_a_photo'),
   warning: symbol('exclamationmark.triangle', 'warning'),
   sync: symbol('arrow.triangle.2.circlepath', 'sync'),
