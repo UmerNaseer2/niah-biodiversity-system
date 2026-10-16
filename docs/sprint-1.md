@@ -18,7 +18,7 @@ Item numbers match the Initial Release Schedule in the proposal. Tick items off 
 - [x] 5. Mobile App Skeleton & Navigation ([test results](test-results/item-5-mobile-skeleton.md))
 - [ ] 6. QR Code Scanner Integration
 - [x] 7. Basic Plant Record Form (Mobile) ([test results](test-results/item-7-record-form.md))
-- [ ] 8. GPS Location Capture & Tracking
+- [x] 8. GPS Location Capture & Tracking ([test results](test-results/item-8-gps.md))
 - [ ] 9. Offline Data Collection & Local Storage (started, finishes in Sprint #2)
 
 ## Digital Plant Knowledge System (Angel, Andy)

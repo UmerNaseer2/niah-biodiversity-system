@@ -51,9 +51,13 @@ export function formatHeight(heightM?: number) {
 
 export type AccuracyLevel = 'good' | 'ok' | 'poor';
 
-// Rough cut offs for phone GPS under canopy. Item 8 can tune these after testing in the park.
+/** The proposal's target: GPS readings within 10 m. */
+export const GOOD_ACCURACY_M = 10;
+
+// The "ok" cut off is a rough guess for phone GPS under canopy. We'll tune it after the reference
+// point tests on campus and the first visit to the park.
 export function accuracyLevel(accuracyM: number): AccuracyLevel {
-  if (accuracyM <= 10) {
+  if (accuracyM <= GOOD_ACCURACY_M) {
     return 'good';
   }
   if (accuracyM <= 25) {

@@ -1,11 +1,24 @@
+import * as Location from 'expo-location';
 import { Stack } from 'expo-router';
-import { fireEvent, renderRouter, screen, testRouter } from 'expo-router/testing-library';
-import { AccessibilityInfo } from 'react-native';
+import { act, fireEvent, renderRouter, screen, testRouter } from 'expo-router/testing-library';
+import { AccessibilityInfo, Linking } from 'react-native';
 
 import NewRecordScreen from '@/app/(tabs)/new-record';
 import RecordScreen from '@/app/record/[id]';
 import { RecordsProvider, useRecords } from '@/state/records-context';
 import type { PlantRecord } from '@/types/plant-record';
+
+jest.mock('expo-location');
+
+const getPermission = jest.mocked(Location.getForegroundPermissionsAsync);
+const watchPosition = jest.mocked(Location.watchPositionAsync);
+
+const granted: Location.LocationPermissionResponse = {
+  status: Location.PermissionStatus.GRANTED,
+  granted: true,
+  canAskAgain: true,
+  expires: 'never',
+};
 
 // Hands the records list to the test, so it can check what was saved behind the screen.
 const onRecords = jest.fn<void, [PlantRecord[]]>();
@@ -40,18 +53,60 @@ const commonNameBox = () => screen.getByLabelText('Common name');
 const heightBox = () => screen.getByLabelText('Height');
 const saveButton = () => screen.getByRole('button', { name: 'Save record' });
 
+/** Presses Capture location and waits until the phone is looking for satellites. */
+async function startCapture() {
+  fireEvent.press(screen.getByRole('button', { name: 'Capture location' }));
+  expect(await screen.findByText('Looking for GPS satellites…')).toBeVisible();
+}
+
+/** Sends a GPS fix the way expo-location would. A made-up point near the park HQ. */
+function sendFix(accuracy: number) {
+  const onLocation = watchPosition.mock.lastCall?.[1];
+  act(() => {
+    onLocation?.({
+      coords: {
+        latitude: 3.81452,
+        longitude: 113.77921,
+        altitude: null,
+        accuracy,
+        altitudeAccuracy: null,
+        heading: null,
+        speed: null,
+      },
+      timestamp: Date.now(),
+    });
+  });
+}
+
+async function captureLocation() {
+  await startCapture();
+  sendFix(4.6);
+}
+
 beforeEach(() => {
   jest.clearAllMocks();
+  getPermission.mockResolvedValue(granted);
+  jest.mocked(Location.hasServicesEnabledAsync).mockResolvedValue(true);
+  watchPosition.mockResolvedValue({ remove: jest.fn() });
 });
 
 describe('New record screen', () => {
-  it('keeps Save turned off until there is a species', () => {
+  it('keeps Save turned off until there is a species and a location', async () => {
     renderForm();
     expect(saveButton()).toBeDisabled();
     expect(screen.getByText('Add the species name to save.')).toBeVisible();
 
     fireEvent.changeText(speciesBox(), 'Shorea macrophylla');
+    expect(saveButton()).toBeDisabled();
+    expect(screen.getByText('Capture the location to save.')).toBeVisible();
+
+    await startCapture();
+    expect(saveButton()).toBeDisabled();
+    expect(screen.getByText('Waiting for the location…')).toBeVisible();
+
+    sendFix(4.6);
     expect(saveButton()).toBeEnabled();
+    expect(screen.getByText('Saved on this phone first. It uploads when you sync.')).toBeVisible();
   });
 
   it('shows the species error once you leave the box empty', () => {
@@ -85,8 +140,9 @@ describe('New record screen', () => {
     expect(commonNameBox()).toHaveDisplayValue('Kawang');
   });
 
-  it('turns down a height with too many decimals', () => {
+  it('turns down a height with too many decimals', async () => {
     renderForm();
+    await captureLocation();
     fireEvent.changeText(speciesBox(), 'Shorea macrophylla');
     fireEvent.changeText(heightBox(), '12.345');
     expect(screen.queryByRole('alert')).toBeNull();
@@ -114,13 +170,14 @@ describe('New record screen', () => {
     expect(screen.getByText('1 character left')).toBeVisible();
   });
 
-  it('saves a species picked from the list and opens the new record', () => {
+  it('saves a species picked from the list and opens the new record', async () => {
     const app = renderForm();
     fireEvent.changeText(speciesBox(), 'ironwood');
     fireEvent.press(screen.getByRole('button', { name: 'Use Eusideroxylon zwageri, Belian' }));
     fireEvent.changeText(heightBox(), ' 12,5 ');
     fireEvent.press(screen.getByRole('radio', { name: 'Damaged' }));
     fireEvent.changeText(screen.getByLabelText('Notes'), '  Bark stripped on one side  ');
+    await captureLocation();
     fireEvent.press(saveButton());
 
     const saved = newestRecord();
@@ -133,17 +190,24 @@ describe('New record screen', () => {
       notes: 'Bark stripped on one side',
       syncStatus: 'pending',
     });
-    expect(saved?.location).toBeUndefined();
+    expect(saved?.location).toEqual({
+      latitude: 3.81452,
+      longitude: 113.77921,
+      accuracyM: 5,
+      capturedAt: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/),
+    });
 
     expect(app.getPathname()).toBe(`/record/${saved?.id}`);
     expect(screen.getByText(`Tag ${saved?.tagCode}`)).toBeVisible();
     expect(screen.getByRole('heading', { name: 'Eusideroxylon zwageri' })).toBeVisible();
+    expect(screen.getByText('3.81452° N, 113.77921° E')).toBeVisible();
   });
 
-  it('links a species name typed out in full, in any case', () => {
+  it('links a species name typed out in full, in any case', async () => {
     renderForm();
     fireEvent.changeText(speciesBox(), '  nepenthes   AMPULLARIA ');
     expect(screen.getByText('On the species list.')).toBeVisible();
+    await captureLocation();
     fireEvent.press(saveButton());
 
     expect(newestRecord()).toMatchObject({
@@ -152,11 +216,12 @@ describe('New record screen', () => {
     });
   });
 
-  it('still saves a species that is not on the list, just without a link', () => {
+  it('still saves a species that is not on the list, just without a link', async () => {
     renderForm();
     fireEvent.changeText(speciesBox(), '  Ficus   sp. ');
     expect(screen.getByText('Not on the species list. You can still save it.')).toBeVisible();
     fireEvent.changeText(commonNameBox(), '   ');
+    await captureLocation();
     fireEvent.press(saveButton());
 
     const saved = newestRecord();
@@ -167,13 +232,14 @@ describe('New record screen', () => {
     expect(saved?.condition).toBe('healthy');
   });
 
-  it('starts the next record with an empty form', () => {
+  it('starts the next record with an empty form', async () => {
     const app = renderForm();
     fireEvent.changeText(speciesBox(), 'Shorea macrophylla');
     fireEvent(speciesBox(), 'blur');
     fireEvent.changeText(commonNameBox(), 'Engkabang');
     fireEvent.changeText(heightBox(), '30');
     fireEvent.press(screen.getByRole('radio', { name: 'Dead' }));
+    await captureLocation();
     fireEvent.press(saveButton());
     expect(app.getPathname()).toBe(`/record/${newestRecord()?.id}`);
 
@@ -182,8 +248,59 @@ describe('New record screen', () => {
     expect(commonNameBox()).toHaveDisplayValue('');
     expect(heightBox()).toHaveDisplayValue('');
     expect(screen.getByRole('radio', { name: 'Healthy' })).toBeChecked();
+    // The next plant is somewhere else, so the location has to be captured again.
+    expect(screen.getByRole('button', { name: 'Capture location' })).toBeVisible();
     // The species box was left once already, but the new form shouldn't start with an error.
     expect(screen.queryByRole('alert')).toBeNull();
     expect(saveButton()).toBeDisabled();
+  });
+
+  it('shows a rough fix while it improves, and lets you use it early', async () => {
+    renderForm();
+    fireEvent.changeText(speciesBox(), 'Shorea macrophylla');
+    await startCapture();
+    sendFix(17.2);
+    expect(screen.getByText('Improving the fix…')).toBeVisible();
+    expect(screen.getByText('±18 m · OK')).toBeVisible();
+    expect(saveButton()).toBeDisabled();
+
+    fireEvent.press(screen.getByRole('button', { name: 'Use this location' }));
+    expect(screen.getByRole('button', { name: 'Retake location' })).toBeVisible();
+    expect(saveButton()).toBeEnabled();
+
+    fireEvent.press(saveButton());
+    expect(newestRecord()?.location?.accuracyM).toBe(18);
+  });
+
+  it('tells screen reader users when the location is captured', async () => {
+    renderForm();
+    await captureLocation();
+    expect(screen.getByText('±5 m · Good')).toBeVisible();
+    expect(AccessibilityInfo.announceForAccessibility).toHaveBeenCalledWith(
+      'Location captured, accurate to about 5 metres.',
+    );
+  });
+
+  it('points to Settings when location access is turned off', async () => {
+    getPermission.mockResolvedValue({
+      ...granted,
+      status: Location.PermissionStatus.DENIED,
+      granted: false,
+      canAskAgain: false,
+    });
+    const openSettings = jest.mocked(Linking.openSettings).mockResolvedValue(undefined);
+    renderForm();
+    fireEvent.changeText(speciesBox(), 'Shorea macrophylla');
+    fireEvent.press(screen.getByRole('button', { name: 'Capture location' }));
+
+    const message = 'Location access is off for this app. Turn it on in Settings, then try again.';
+    expect(await screen.findByRole('alert')).toHaveTextContent(message);
+    expect(AccessibilityInfo.announceForAccessibility).toHaveBeenCalledWith(message);
+    expect(watchPosition).not.toHaveBeenCalled();
+    expect(screen.getByText('Capture the location to save.')).toBeVisible();
+
+    fireEvent.press(screen.getByRole('button', { name: 'Open Settings' }));
+    expect(openSettings).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeVisible();
   });
 });

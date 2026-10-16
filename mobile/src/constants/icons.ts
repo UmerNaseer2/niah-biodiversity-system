@@ -30,6 +30,7 @@ export const Icons = {
   phone: symbol('iphone', 'smartphone'),
   info: symbol('info.circle', 'info'),
   notes: symbol('note.text', 'edit_note'),
+  settings: symbol('gear', 'settings'),
 };
 
 export type IconName = keyof typeof Icons;

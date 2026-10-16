@@ -5,13 +5,14 @@ Expo Router.
 
 All five tabs from item 5 are in place, with some fake records so the other sprint items have
 somewhere to plug in. The plant form from item 7 is finished, with species suggestions and checks
-on what you type. Nothing talks to Supabase yet.
+on what you type. Since item 8 the form gets the location from the phone's GPS, and a record can't
+be saved without one. Nothing talks to Supabase yet.
 
 | Tab | What it shows |
 | --- | --- |
 | Home | How many plants were recorded today and whether anything is waiting to sync |
 | Scan | Where the QR scanner goes, plus a box to type a tag code by hand |
-| New Record | The plant form, with species suggestions, a GPS box and photo slots |
+| New Record | The plant form, with species suggestions, GPS capture and photo slots |
 | My Records | Every record on the phone, each tagged "Pending sync" or "Synced" |
 | Profile | Where sign in will go, plus some info about the phone and app |
 
@@ -27,7 +28,9 @@ npx expo start
 
 Then press `i` for the iOS simulator, `a` for an Android emulator or `w` for the browser. On a
 real phone, install Expo Go (the version for SDK 57) and scan the QR code in the terminal.
-Everything used so far comes with Expo Go, so you don't need a development build yet.
+Everything used so far comes with Expo Go, `expo-location` included, so you don't need a
+development build yet. Expo Go asks for location access with its own text. Ours, set in
+`app.json`, only shows in a development or store build.
 
 ## What's where
 
@@ -39,13 +42,15 @@ src/
     _layout.tsx         root stack, colours and the records provider
     (tabs)/             the five tabs: index (Home), scan, new-record, records, profile
     record/[id].tsx     one plant record
-  components/           Screen, RecordRow, LocationSummary and the two tab bars
+  components/           Screen, RecordRow, LocationCapture, LocationSummary and the two tab bars
     ui/                 small pieces: Button, Card, Field, Chip, Pill, SyncBadge...
   constants/            colours, spacing and icon names
   data/
     mock-records.ts     fake records for testing
     species-list.ts     species the form suggests, with the same slugs as Supabase
-  lib/                  formatting, the height and form checks, species search, IDs and tag codes
+  hooks/                use-gps-capture.ts (GPS with expo-location), plus the theme hooks
+  lib/                  formatting, the GPS rules, the height and form checks, species search,
+                        IDs and tag codes
   state/                records-context.tsx, the in-memory store every screen reads from
   types/                PlantRecord and the other shared types
 ```
@@ -59,7 +64,6 @@ what's fake.
 | --- | --- | --- |
 | 2 | Sign in with Supabase Auth | Profile tab |
 | 6 | Camera and QR scanning with expo-camera | Scan tab |
-| 8 | Real GPS with expo-location (replaces `mockGpsReading()`) | New Record tab |
 | 9 | Saving records in SQLite so they survive a restart | `src/state/records-context.tsx` |
 | 10 | Uploading records to Supabase | "Sync now" button on My Records |
 | 11 | Taking photos | New Record tab |
@@ -69,6 +73,11 @@ what's fake.
 
 - The mock coordinates are made up and sit around the park HQ. Never put real locations of
   protected plants in test data, screenshots or anything public.
+- The GPS is real now, so a record shows where you really stood. Don't post screenshots of records
+  from the park anywhere public, like a GitHub issue.
+- A record needs a location to save. On the iOS simulator, pick one with Features > Location in
+  the Simulator menu, or run `xcrun simctl location booted set 3.8141,113.7787` (the park HQ,
+  which is public). On an Android emulator it's under Extended controls > Location.
 - Records only live in memory, so they reset every time the app restarts. Item 9 fixes that.
 - The web version is only a quick way to check layouts. The real website is in `/web`.
 - The tab bar is in two files: `components/app-tabs.tsx` (native tabs on iOS and Android) and
@@ -89,15 +98,16 @@ npm test
 ```
 
 Jest runs the tests in the `__tests__` folders, which sit next to the code they check. They cover
-the helpers in `src/lib` (dates, heights, the form checks, species search, IDs and tag lookup), the
-records store in `src/state`, and make sure the mock data follows the same rules as the app.
+the helpers in `src/lib` (dates, heights, the form checks, the GPS rules, species search, IDs and
+tag lookup), the GPS hook in `src/hooks` against a mocked `expo-location`, the records store in
+`src/state`, and make sure the mock data follows the same rules as the app.
 
 `src/__tests__/` has screen tests. They render a real screen with `renderRouter` from
 `expo-router/testing-library` and tap through it the way a person would. Keep test files out of
 `src/app/`, because Expo Router treats every file in there as a screen. Jest can't read CSS, so
 `jest/css-stub.js` stands in for `global.css`.
 
-Manual test results go in `docs/test-results/`. See the item 5 or item 7 ones for an example.
+Manual test results go in `docs/test-results/`. See the item 5, 7 or 8 ones for an example.
 
 ## Before you open a pull request
 

@@ -1,10 +1,9 @@
 import { tagCodeFor } from '@/lib/id';
 import type { GpsReading, PlantRecord } from '@/types/plant-record';
 
-// All mock coordinates are made-up points scattered around the park HQ at Pangkalan Lubang.
-// They are not where any of these plants actually grow. Real locations of protected species
-// must never go into test data, screenshots or anything public.
-const PARK_HQ = { latitude: 3.8141, longitude: 113.7787 };
+// All mock coordinates are made-up points scattered around the park HQ at Pangkalan Lubang
+// (3.8141, 113.7787). They are not where any of these plants actually grow. Real locations of
+// protected species must never go into test data, screenshots or anything public.
 
 const now = new Date();
 
@@ -32,16 +31,6 @@ function mock({ gps, ...record }: MockInput): PlantRecord {
     ...record,
     tagCode: tagCodeFor(record.id),
     location: gps ? { ...gps, capturedAt: record.recordedAt } : undefined,
-  };
-}
-
-/** Fake GPS fix for the New Record screen until item 8 brings in expo-location. */
-export function mockGpsReading(): GpsReading {
-  return {
-    latitude: PARK_HQ.latitude + (Math.random() - 0.5) * 0.01,
-    longitude: PARK_HQ.longitude + (Math.random() - 0.5) * 0.01,
-    accuracyM: Math.round(4 + Math.random() * 31),
-    capturedAt: new Date().toISOString(),
   };
 }
 

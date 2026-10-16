@@ -2,7 +2,7 @@ import { useRouter } from 'expo-router';
 import { useRef, useState } from 'react';
 import { Pressable, StyleSheet, View, type TextInput } from 'react-native';
 
-import { LocationSummary } from '@/components/location-summary';
+import { LocationCapture } from '@/components/location-capture';
 import { Screen } from '@/components/screen';
 import { ThemedText } from '@/components/themed-text';
 import { Button } from '@/components/ui/button';
@@ -12,8 +12,8 @@ import { Field } from '@/components/ui/field';
 import { Icon } from '@/components/ui/icon';
 import { PlaceholderNote } from '@/components/ui/placeholder-note';
 import { Radius, Spacing } from '@/constants/theme';
-import { mockGpsReading } from '@/data/mock-records';
 import type { SpeciesOption } from '@/data/species-list';
+import { useGpsCapture } from '@/hooks/use-gps-capture';
 import { useTheme } from '@/hooks/use-theme';
 import { conditionLabel, plural } from '@/lib/format';
 import {
@@ -25,7 +25,7 @@ import {
 } from '@/lib/record-form';
 import { findSpeciesByName, searchSpecies } from '@/lib/species-search';
 import { useRecords } from '@/state/records-context';
-import { PLANT_CONDITIONS, type GpsReading, type PlantCondition } from '@/types/plant-record';
+import { PLANT_CONDITIONS, type PlantCondition } from '@/types/plant-record';
 
 // The notes box starts counting down when there are this many characters left.
 const NOTES_COUNTDOWN = 100;
@@ -34,14 +34,13 @@ export default function NewRecordScreen() {
   const router = useRouter();
   const theme = useTheme();
   const { addRecord } = useRecords();
+  const gps = useGpsCapture();
 
   const [species, setSpecies] = useState('');
   const [commonName, setCommonName] = useState('');
   const [heightText, setHeightText] = useState('');
   const [condition, setCondition] = useState<PlantCondition>('healthy');
   const [notes, setNotes] = useState('');
-  const [location, setLocation] = useState<GpsReading>();
-  const [locating, setLocating] = useState(false);
   // Errors only show after someone leaves a field, so they don't flash up mid typing.
   const [touched, setTouched] = useState({ species: false, height: false });
   // Changing this remounts the screen, so the next record starts at the top of the form.
@@ -53,8 +52,8 @@ export default function NewRecordScreen() {
   const form = checkRecordForm({
     species,
     heightText,
-    locating,
-    hasLocation: location !== undefined,
+    locating: gps.locating,
+    hasLocation: gps.location !== undefined,
   });
 
   // A name typed in full still links to the species list, and editing a picked name unlinks it.
@@ -72,27 +71,11 @@ export default function NewRecordScreen() {
 
   const notesLeft = MAX_NOTES_LENGTH - notes.length;
 
-  let locationButtonLabel = 'Capture location';
-  if (locating) {
-    locationButtonLabel = 'Getting location…';
-  } else if (location) {
-    locationButtonLabel = 'Retake location';
-  }
-
   function pickSpecies(option: SpeciesOption) {
     setSpecies(option.scientificName);
     if (tidyName(commonName) === '') {
       setCommonName(option.commonNames[0]);
     }
-  }
-
-  function captureLocation() {
-    setLocating(true);
-    // Pretend to wait for a GPS fix. Item 8 replaces this with expo-location.
-    setTimeout(() => {
-      setLocation(mockGpsReading());
-      setLocating(false);
-    }, 800);
   }
 
   function resetForm() {
@@ -101,7 +84,7 @@ export default function NewRecordScreen() {
     setHeightText('');
     setCondition('healthy');
     setNotes('');
-    setLocation(undefined);
+    gps.clear();
     setTouched({ species: false, height: false });
     setFormKey((key) => key + 1);
   }
@@ -118,7 +101,7 @@ export default function NewRecordScreen() {
       heightM: form.heightM,
       condition,
       notes: notes.trim() || undefined,
-      location,
+      location: gps.location,
     });
     resetForm();
     router.push({ pathname: '/record/[id]', params: { id: record.id } });
@@ -129,7 +112,7 @@ export default function NewRecordScreen() {
       key={formKey}
       hasInputs
       title="New plant record"
-      subtitle="Fill in what you can. Only the species is required.">
+      subtitle="Fill in what you can. Only the species and location are required.">
       <Card title="Plant" icon="leaf">
         <View style={styles.speciesGroup}>
           <Field
@@ -215,23 +198,7 @@ export default function NewRecordScreen() {
       </Card>
 
       <Card title="Location" icon="pin">
-        {location ? (
-          <LocationSummary location={location} showRetakeTip />
-        ) : (
-          <ThemedText themeColor="textSecondary">
-            Stand next to the plant, then capture. GPS works without phone signal.
-          </ThemedText>
-        )}
-        <Button
-          label={locationButtonLabel}
-          icon="location"
-          variant={location ? 'outline' : 'secondary'}
-          onPress={captureLocation}
-          disabled={locating}
-        />
-        <PlaceholderNote item={8}>
-          Real GPS comes with expo-location. For now this makes up a point near the park HQ.
-        </PlaceholderNote>
+        <LocationCapture gps={gps} />
       </Card>
 
       <Card title="Photos" icon="camera">

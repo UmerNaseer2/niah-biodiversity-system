@@ -30,8 +30,9 @@ export type RecordFormCheck = {
 };
 
 /**
- * Checks the New Record form. Only the species is required. Height is optional but has to be a
- * real tree height, and saving waits until a GPS fix that is already on its way comes back.
+ * Checks the New Record form. The species and location are required, because the proposal says
+ * every synced record has GPS coordinates and an accuracy. Height is optional but has to be a real
+ * tree height, and saving waits until a GPS fix that is already on its way comes back.
  */
 export function checkRecordForm({
   species,
@@ -42,7 +43,7 @@ export function checkRecordForm({
   const height = parseHeight(heightText);
   const speciesError = tidyName(species) === '' ? 'Add the species name.' : undefined;
   const heightError = height.valid ? undefined : heightErrorMessage(height.problem);
-  const canSave = !speciesError && !heightError && !locating;
+  const canSave = !speciesError && !heightError && !locating && hasLocation;
 
   let saveHint = 'Saved on this phone first. It uploads when you sync.';
   if (speciesError) {
@@ -52,7 +53,7 @@ export function checkRecordForm({
   } else if (locating) {
     saveHint = 'Waiting for the location…';
   } else if (!hasLocation) {
-    saveHint = 'You can save without a location, but try to capture one first.';
+    saveHint = 'Capture the location to save.';
   }
 
   return {

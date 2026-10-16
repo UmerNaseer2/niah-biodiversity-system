@@ -26,6 +26,12 @@
     "plugins": [
       "expo-router",
       [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "The app saves your location with each plant record, so the plant can be found again."
+        }
+      ],
+      [
         "expo-splash-screen",
         {
           "backgroundColor": "#1F6B3A",

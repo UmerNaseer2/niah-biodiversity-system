@@ -44,10 +44,16 @@ describe('checkRecordForm', () => {
     expect(result.saveHint).toBe('Waiting for the location…');
   });
 
-  it('still saves without a location, but says to capture one', () => {
+  it('needs a location before it saves', () => {
     const result = checkRecordForm({ ...ready, hasLocation: false });
-    expect(result.canSave).toBe(true);
-    expect(result.saveHint).toBe('You can save without a location, but try to capture one first.');
+    expect(result.canSave).toBe(false);
+    expect(result.saveHint).toBe('Capture the location to save.');
+  });
+
+  it('waits for a retake to finish, even with a location from before', () => {
+    const result = checkRecordForm({ ...ready, locating: true, hasLocation: true });
+    expect(result.canSave).toBe(false);
+    expect(result.saveHint).toBe('Waiting for the location…');
   });
 
   it('talks about the species first when more than one thing is wrong', () => {
