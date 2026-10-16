@@ -64,14 +64,32 @@ back how it was.
 | 27 | Every page | Window 375 px wide, on every public page, every staff page and the 404 page | Nothing scrolls sideways. The staff menu scrolls inside its own strip and its badges read "2 waiting" and "1 urgent alert" to a screen reader | Pass, after fix 2 |
 | 28 | Every page | Opened every page in a fresh tab and watched the browser console | No errors | Pass |
 
+## Rechecked on 16 Oct 2026
+
+Items 14 to 16 changed some of the results above, so we checked them again on Umer's Mac on `main`.
+The staff pages need a real sign in now (item 15), so for tests 14, 15 and 17 we ran the reports
+page's own code in Node: the same row mapping as `reports/page.tsx` and `buildCsv` from
+`report-builder.tsx`, with the mock data. Then we read the files back with Python's csv reader.
+
+| # | What changed | Result now | Pass? |
+| --- | --- | --- | --- |
+| 14 | Tapang is now marked protected in Sarawak in `web/src/data/species.ts` | Public records (4): Belian, Pitcher plant and Tapang say Hidden, Durian kuning says No GPS point, so the page says "3 rows will say Hidden." | Pass |
+| 15 | Nothing | All records gives 6 rows | Pass |
+| 17 | Same change as test 14 | All records with the box unticked: 5 rows say Hidden and Durian kuning says No GPS point | Pass |
+| 22 | The mock "(you)" marker went when real sign in came in (item 15) | 6 people, Hafiz shows as Deactivated and the heading says 5 active. Checked in `users/page.tsx` and `data/people.ts`, not in the browser | Pass |
+| CSV | New check | Every file starts with the UTF-8 BOM, uses Windows line endings and has 15 columns on every row. Hidden and No GPS point rows have blank coordinates, and ticking the box fills them in for the other 5 rows. Notes or names starting with `=`, `+` or `@` get a `'` in front, and a note with quotes, a comma and a line break stays in one cell | Pass |
+
+The build row above is from 4 Oct. Since items 14 to 16 the public pages read Supabase on each
+request when it's set up, so the page count changed. A build with no Supabase values still passes.
+
 ## Not tested yet
 
 | What | Why | Next step |
 | --- | --- | --- |
-| Download CSV | Clicking it saves a file, and nobody has opened that file in Excel or Google Sheets yet | Download it with each option, open it in both, and check the columns line up and Hidden rows have blank coordinates |
+| Download CSV | The file was checked with Python's csv reader (see the recheck above), but nobody has opened it in Excel or Google Sheets yet | Download it with each option, open it in both, and check the columns, the Hidden rows and the ' in front of notes like `=SUM(...)` |
 | Real phones | 375 px was only tested in a desktop browser | Click through it in Safari on an iPhone and in Chrome on an Android phone |
 | Screen reader | We checked where focus goes and what the status messages say, but not with a real screen reader | Run tests 8 to 10, 19, 20 and 23 with VoiceOver on a Mac |
-| Team check | Angel and Andy own items 13 to 16 | They click through it and add anything missing before we tick item 13 |
+| Team check | Angel and Andy own items 13 to 16 | They click through it and add anything missing |
 
 ## Security check
 

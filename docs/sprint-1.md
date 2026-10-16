@@ -31,9 +31,8 @@ as their pull requests are merged.
 
 ## Digital Plant Knowledge System (Angel, Andy)
 
-- [ ] 13. Web Platform Skeleton & Dashboard (clickable wireframe is in, see
-  [test results](test-results/item-13-web-wireframe.md). Angel and Andy to check it before we tick
-  it)
+- [x] 13. Web Platform Skeleton & Dashboard (clickable wireframe, rechecked on 16 Oct, see
+  [test results](test-results/item-13-web-wireframe.md). Angel and Andy still click through it)
 - [x] 14. Plant Database Schema & CRUD Operations
   ([test results](test-results/item-14-plant-schema.md)). Officers add, edit and delete species
   on the website. The hosted project still needs 003 to 007 run before those pages work there.

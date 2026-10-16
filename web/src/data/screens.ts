@@ -91,7 +91,7 @@ export const staffScreens: Screen[] = [
     title: "Reports",
     path: "/dashboard/reports",
     items: [21],
-    works: "The CSV download works with the mock records. Reports are a Sprint 3 item, so PDF is taped.",
+    works: "The CSV download works with the mock records. PDF reports and charts are item 21 (Sprint 3), so they have tape on them.",
   },
   {
     title: "Sensors",
