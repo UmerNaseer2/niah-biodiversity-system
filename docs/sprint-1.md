@@ -11,8 +11,9 @@ as their pull requests are merged.
 
 ## Foundation layer (owner to be decided)
 
-- [x] 2. User Authentication & Authorisation System (Supabase Auth)
-  ([test results](test-results/item-2-auth.md))
+- [x] 2. User Authentication & Authorisation System (Supabase Auth), the Sprint #1 part
+  ([test results](test-results/item-2-auth.md)). Signing in on the phone and the website's users
+  screen come in Sprint #2, see below.
 - [x] 3. Cloud Infrastructure Setup & Data Sync Framework (Supabase project, Storage), the
   Sprint #1 part ([test results](test-results/item-3-cloud-sync.md)). The phone starts using it
   in item 10. The hosted project still needs 003 to 007 run, in order, see
@@ -49,8 +50,13 @@ as their pull requests are merged.
 
 ## Cybersecurity & Data Protection (Jason)
 
-- [ ] 22. Data Encryption (At-Rest)
-- [x] 23. Data Encryption (In-Transit) ([test results](security/encryption-in-transit.md))
+- [ ] 22. Data Encryption (At-Rest), in progress
+  ([where it stands](security/encryption-at-rest.md)). Supabase encrypts the database and files,
+  and the phones rely on their own encryption and a passcode until Jason's SQLCipher branch is
+  fixed and merged.
+- [x] 23. Data Encryption (In-Transit), the Sprint #1 part
+  ([test results](security/encryption-in-transit.md)). HTTPS on the real site gets checked once
+  it's deployed.
 - [ ] 24. Application Vulnerability Assessment Plan
 
 ## IoT-Enabled Plant Protection (Rukman, Bryan)
