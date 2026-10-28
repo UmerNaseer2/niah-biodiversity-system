@@ -36,6 +36,7 @@ export function StaffNav({
         </span>
       ),
     },
+    { href: "/dashboard/records", label: "Records", icon: "tag" },
     { href: "/dashboard/species", label: "Species", icon: "leaf" },
     { href: "/dashboard/reports", label: "Reports", icon: "file" },
     {

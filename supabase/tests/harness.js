@@ -17,6 +17,7 @@ export const SQL_FILES = [
   '005_phone_sync.sql',
   '006_role_based_access.sql',
   '007_species_fixes.sql',
+  '008_record_edits.sql',
 ];
 
 export function readSql(file) {

@@ -6,13 +6,13 @@ species and keep an eye on the sensors. It's built with Next.js 16 (App Router) 
 
 The original item 13 wireframe is still the visual baseline. Staff sign in, the species pages on
 the dashboard (add, edit and delete) and the public pages (home, plant list, plant pages and tag
-pages) now use Supabase (items 14 to 16). The other dashboard screens still use mock data, and
+pages) now use Supabase (items 14 to 16), and so do the dashboard records pages (item 17). The other dashboard screens still use mock data, and
 refreshing them puts them back how they were.
 
 | Side | Screens |
 | --- | --- |
 | Public | Home, plant list with search, a page for each plant, scan a tag, tag pages, staff sign in |
-| Staff | Overview, species, add, edit and delete a species, review queue, reports, sensors, users and roles |
+| Staff | Overview, species, add, edit and delete a species, records, edit and delete a record, review queue, reports, sensors, users and roles |
 
 ## Running it
 
@@ -93,6 +93,7 @@ src/
       login/            staff sign in and sign out, with Supabase Auth
       screens/          every screen in demo order
     dashboard/          the staff side, with the sidebar in layout.tsx
+      records/          the records table, and [id]/edit and [id]/delete
       review/           approve or reject records sent from the mobile app
       species/          the species table, new/ to add one, and [slug]/edit and [slug]/delete
       reports/          the CSV export
@@ -100,7 +101,7 @@ src/
       users/            who has an account and what each role can do
   components/           shared pieces: sketch map, tree tag, planned tape, icons...
   data/                 mock species, records, people and sensors, plus the screen list
-  lib/                  Supabase and sign in, species form checks, IUCN labels, the location grid
+  lib/                  Supabase and sign in, species and record form checks, IUCN labels, the location grid
 ```
 
 ## Planned features
@@ -154,6 +155,10 @@ planned for, so it's clear what's real during the demo. The item numbers match t
 - The species form checks live in `src/lib/species-form.ts`, so the page runs them before it sends
   the form and the server action runs them again before it saves. A species' scientific name can't
   change once it's added, because its public page link and its records use it.
+- The record form checks live in `src/lib/record-form.ts` the same way, and follow the mobile app's
+  rules for height and notes. Editing a record never changes its status, tag or who uploaded it, and
+  a published record stays published. Deleting one can't be undone and its tag stops working, and
+  a phone that hasn't synced the record yet uploads it again (`docs/sync-design.md`).
 - Dates are formatted by hand in `src/lib/format.ts`, so the server and the browser print the same
   thing. The wireframe pretends it's 9 am on 4 Oct 2026 (`MOCK_NOW`). Don't call `new Date()` or
   `Date.now()` while a page renders. In a client component it causes hydration errors, and in a

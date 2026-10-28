@@ -88,6 +88,7 @@ erDiagram
     timestamptz reviewed_at
     uuid submitted_by FK "filled in by a trigger (005)"
     timestamptz uploaded_at
+    timestamptz updated_at "set by a trigger when a record is edited (008)"
   }
   iot_nodes {
     text node_id PK
@@ -110,7 +111,7 @@ The diagram leaves out a few columns the apps don't use yet. The SQL files have 
 | --- | --- | --- |
 | `profiles` | One row per account, with its role | Nobody changes their own role. Only an admin changes other people's |
 | `species` | The plant knowledge base: names, family, IUCN status, Sarawak protection, text for the public pages | Conservation officers and admins |
-| `records` | One row per tagged plant from the field, with its GPS point, condition and review status | Field teams add their own as waiting. Officers and admins review |
+| `records` | One row per tagged plant from the field, with its GPS point, condition and review status | Field teams add their own as waiting. Officers and admins review, edit and delete any record |
 | `iot_nodes` | The latest state of each sensor node | Admins. The readings history comes with items 28 and 29 |
 
 Photos aren't stored in the tables. `record-photos` (005) is a private bucket for the photos the

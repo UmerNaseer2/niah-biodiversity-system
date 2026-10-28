@@ -480,6 +480,68 @@ describe('records', () => {
     }
   });
 
+  test('officers and admins edit a record in any status, and updated_at moves', async () => {
+    const edit = `UPDATE public.records
+      SET species_name = 'Edited species', height_m = 6.5, condition = 'damaged', notes = $2
+      WHERE id = $1`;
+    for (const status of ['waiting', 'published', 'rejected']) {
+      for (const user of [officer, admin]) {
+        const id = await upload(botanist);
+        await setStatus(id, status);
+        const before = await storedRecord(id);
+        await new Promise((resolve) => setTimeout(resolve, 5));
+
+        assert.equal(await changed(user, edit, [id, 'Fixed by staff']), 1, `${who(user)}, ${status}`);
+        const saved = await storedRecord(id);
+        assert.equal(saved.species_name, 'Edited species');
+        assert.equal(Number(saved.height_m), 6.5);
+        assert.equal(saved.notes, 'Fixed by staff');
+        assert.ok(saved.updated_at > before.updated_at, `${who(user)}, ${status}`);
+        // The status, the tag and who uploaded it stay as they were.
+        assert.equal(saved.status, status);
+        assert.equal(saved.tag_code, before.tag_code);
+        assert.equal(saved.submitted_by, before.submitted_by);
+        assert.equal(saved.uploaded_at.getTime(), before.uploaded_at.getTime());
+      }
+    }
+  });
+
+  test('saving a record with nothing different leaves updated_at alone', async () => {
+    const id = await upload(botanist);
+    const before = await storedRecord(id);
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    const sql = 'UPDATE public.records SET notes = notes WHERE id = $1';
+    assert.equal(await changed(officer, sql, [id]), 1);
+    assert.equal((await storedRecord(id)).updated_at.getTime(), before.updated_at.getTime());
+  });
+
+  test('a record that was never edited has updated_at set when it was added', async () => {
+    const id = await upload(botanist);
+    const saved = await storedRecord(id);
+    assert.ok(Math.abs(saved.updated_at.getTime() - saved.uploaded_at.getTime()) < 60_000);
+    assert.ok(saved.updated_at > new Date('2026-01-01'));
+  });
+
+  test('records_staff shows updated_at, and the people who read records only', async () => {
+    const id = await upload(botanist);
+    const sql = 'SELECT updated_at FROM public.records_staff WHERE id = $1';
+    for (const user of [officer, admin]) {
+      const rows = await selectAs(db, user, sql, [id]);
+      assert.equal(rows.length, 1, who(user));
+      assert.ok(rows[0].updated_at instanceof Date, who(user));
+    }
+    assert.deepEqual(await selectAs(db, botanist, sql, [id]), []);
+    assert.deepEqual(await selectAs(db, visitor, sql, [id]), []);
+  });
+
+  test('nobody sets updated_at themselves through the API', async () => {
+    const id = await upload(botanist);
+    const sql = 'UPDATE public.records SET updated_at = now() WHERE id = $1';
+    for (const user of [botanist, officer, admin]) {
+      await assert.rejects(run(user, sql, [id]), notAllowed, who(user));
+    }
+  });
+
   test('only officers and admins read records_staff, with the exact spots', async () => {
     const everyRecord = (await db.query('SELECT id, gps FROM public.records ORDER BY id')).rows;
     const sql = 'SELECT id, gps FROM public.records_staff ORDER BY id';
@@ -878,8 +940,8 @@ describe('changes with no filter', () => {
   });
 });
 
-describe('running 006 and 007 again', () => {
-  /** Everything 006 and 007 set up, read from the Postgres catalogs. */
+describe('running 006, 007 and 008 again', () => {
+  /** Everything 006, 007 and 008 set up, read from the Postgres catalogs. */
   async function catalogs() {
     const queries = [
       `SELECT schemaname, tablename, policyname, cmd, roles::text[] AS roles, qual, with_check
@@ -927,10 +989,11 @@ describe('running 006 and 007 again', () => {
 
   test('ends up the same as the first time', async () => {
     const firstTime = await catalogs();
-    // 006 makes records_public and species_staff again without what 007 adds to them, so 007 has
-    // to run again after it (see supabase/README.md).
+    // 006 makes records_public, species_staff and records_staff again without what 007 and 008
+    // add to them, so both have to run again after it (see supabase/README.md).
     await db.exec(readSql('006_role_based_access.sql'));
     await db.exec(readSql('007_species_fixes.sql'));
+    await db.exec(readSql('008_record_edits.sql'));
     assert.deepEqual(await catalogs(), firstTime);
 
     const sql = 'SELECT gps FROM public.records_public WHERE id = $1';
