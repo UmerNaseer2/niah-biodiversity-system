@@ -55,7 +55,7 @@ export default async function ReportsPage() {
       <Planned items={[21]} title="PDF reports and charts" className="mt-12">
         <p>
           A formatted PDF for SFC, with counts per species and condition
-          over time, is part of the reports item in Sprint 3.
+          over time, is part of the reports item in Sprint 2.
         </p>
       </Planned>
     </div>

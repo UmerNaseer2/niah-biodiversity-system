@@ -19,13 +19,13 @@ export const RELEASE_ITEMS: Record<number, { name: string; sprint: string }> = {
   17: { name: "Editing and deleting records (web)", sprint: "Sprint 2" },
   18: { name: "Botanical photo upload and gallery", sprint: "Sprint 2" },
   19: { name: "Observation approval workflow", sprint: "Sprint 2" },
-  20: { name: "Species distribution maps", sprint: "Sprint 3" },
-  21: { name: "Biodiversity reports and export", sprint: "Sprint 3" },
+  20: { name: "Species distribution maps", sprint: "Sprint 2" },
+  21: { name: "Biodiversity reports and export", sprint: "Sprint 2" },
   28: { name: "IoT device integration", sprint: "Sprint 2" },
   29: { name: "Sensor data pipeline", sprint: "Sprint 2" },
-  30: { name: "Environmental monitoring dashboard", sprint: "Sprint 2 to 3" },
-  31: { name: "Threat detection and alerts", sprint: "Sprint 3" },
-  32: { name: "IoT device tracking and GPS map", sprint: "Sprint 3" },
+  30: { name: "Environmental monitoring dashboard", sprint: "Sprint 2" },
+  31: { name: "Threat detection and alerts", sprint: "Sprint 2" },
+  32: { name: "IoT device tracking and GPS map", sprint: "Weeks 10 to 11" },
 };
 
 export function releaseItem(item: number) {

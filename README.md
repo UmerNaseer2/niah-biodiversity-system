@@ -75,3 +75,5 @@ See [CONTRIBUTING.md](CONTRIBUTING.md). Short version: never push straight to `m
 | Final presentations | Week 11 to 12 | | Portfolio end of Week 12 |
 
 Sprint #1 backlog: [docs/sprint-1.md](docs/sprint-1.md)
+
+Sprint #2 backlog: [docs/sprint-2.md](docs/sprint-2.md)
