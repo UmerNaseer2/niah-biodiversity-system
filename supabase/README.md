@@ -16,10 +16,11 @@ kept, and you can fix the problem and run it again.
 | `003_profiles_read_own.sql` | Lets a signed in user read their own profile, so the website can see their role | 15 | Yes |
 | `004_security_hardening.sql` | Role checks on writes, the public views and the staff views | 4, 14, 15, 16 | No, it stops on the policies that are already there |
 | `005_phone_sync.sql` | Lets the phone upload records, and adds the private `record-photos` bucket | 3 | No, it stops on its first line and changes nothing |
-| `006_role_based_access.sql` | What each role can read and change, checked by the database: Row Level Security, column grants and a review trigger | 4 | Yes, then run 007 again |
+| `006_role_based_access.sql` | What each role can read and change, checked by the database: Row Level Security, column grants and a review trigger | 4 | Yes, then run 007 and 008 again |
 | `007_species_fixes.sql` | The rough area only switch for a species, the public views that use it, checked facts for the sample species, and a trigger that sets `updated_at` when a species is edited | 14 | Yes |
+| `008_record_edits.sql` | `updated_at` on records, set by a trigger when a record is edited, and the staff view that shows it | 17 | Yes |
 
-As of 16 Oct 2026 the hosted project has 001 and 002. Run 003, 004, 005, 006 and 007 next, one
+As of 16 Oct 2026 the hosted project has 001 and 002. Run 003, 004, 005, 006, 007 and 008 next, one
 file at a time, in that order, and don't stop part way. The website's species pages (add, edit
 and delete) and its public pages need 007, and 007 stops on its first line if 006 isn't there.
 Until then the public pages say "This page didn't load". 003 is fine to run even if it turns out
