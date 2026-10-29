@@ -7,3 +7,5 @@ See `docs/architecture/IoT Plant Protection - High-level design.png`.
 
 Put each Arduino sketch in its own folder here, for example `iot/sensor-node/sensor-node.ino` and `iot/edge-device/edge-device.ino`.
 Keep WiFi passwords and device credentials in a `secrets.h` file, which is gitignored. Commit a `secrets.example.h` instead.
+
+Note: turns out most of the files except supabase/ is in kebab case, so ill stick to that
