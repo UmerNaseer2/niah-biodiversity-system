@@ -13,7 +13,7 @@ Owners are only filled in where the proposal schedule names one, or where someon
 | 18 | Botanical Photograph Upload & Gallery (Web) | Web platform, storage service | 8 | Umer | [x] Merged 29 Oct, see [test results](test-results/item-18-photo-gallery.md) |
 | 19 | Observation Approval Workflow | Plant database, web platform | 8 | Angel | [ ] |
 | 20 | Plant Species Distribution Maps (Basic) | Plant database, mapping library | 7 | Umer | [x] Merged 29 Oct, see [test results](test-results/item-20-maps.md) |
-| 21 | Biodiversity Reports Generation & Export | Plant database, query engine | 7 | Umer | [ ] |
+| 21 | Biodiversity Reports Generation & Export | Plant database, query engine | 7 | Umer | [x] Merged 29 Oct, see [test results](test-results/item-21-reports.md) |
 
 Notes:
 

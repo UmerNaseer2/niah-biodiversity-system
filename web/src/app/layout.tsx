@@ -53,7 +53,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         >
           Skip to content
         </a>
-        <div className="bg-tape px-4 py-1.5 text-center font-mono text-[0.6875rem] font-bold uppercase leading-snug tracking-[0.08em] text-tape-ink">
+        <div className="bg-tape px-4 py-1.5 print:hidden text-center font-mono text-[0.6875rem] font-bold uppercase leading-snug tracking-[0.08em] text-tape-ink">
           <p>
             Wireframe for our Sprint 1 review
             <span aria-hidden="true"> · </span>
