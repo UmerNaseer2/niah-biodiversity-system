@@ -18,6 +18,7 @@ export const SQL_FILES = [
   '006_role_based_access.sql',
   '007_species_fixes.sql',
   '008_record_edits.sql',
+  '009_species_photos.sql',
 ];
 
 export function readSql(file) {
