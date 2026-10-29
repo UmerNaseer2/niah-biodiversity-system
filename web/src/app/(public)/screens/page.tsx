@@ -20,15 +20,15 @@ const WORKS_NOW = [
   "Staff sign in with Supabase, and only conservation officers and administrators can open the dashboard. Every staff page checks that on the server.",
   "Officers can add, edit and delete species on the dashboard.",
   "The home page, plant list, plant pages and tag pages read species and approved records from Supabase, or from the sample data when it isn’t set up.",
+  "Maps are OpenStreetMap maps. Public maps only show a rough square for threatened and protected plants, and the overview map gives officers the exact spot of every record.",
 ];
 
 const NOT_REAL_YET = [
-  "On the dashboard, records, sensor readings and the users list still come from mock files in web/src/data.",
+  "On the dashboard, the overview lists, review queue, reports, sensor readings and the users list still come from mock files in web/src/data.",
   "Staff accounts are made by hand in Supabase. Inviting people and changing roles on the website are item 2.",
-  "Apart from species, nothing is saved yet. Refreshing a page puts it back how it was.",
-  "Maps are hand drawn sketches. Real maps are item 20.",
+  "Apart from species, record edits and photos, nothing is saved yet. Refreshing a page puts it back how it was.",
   "The squares on the tags don’t scan yet (item 12).",
-  "Photos are hatched boxes until photo upload is built (items 11 and 18).",
+  "The phone doesn’t send photos yet (item 11), so the only plant photos are the ones officers upload on the website.",
 ];
 
 function ScreenList({ screens, start }: { screens: Screen[]; start: number }) {

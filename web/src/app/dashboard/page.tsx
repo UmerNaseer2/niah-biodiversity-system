@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Icon } from "@/components/icon";
 import { ConditionBadge } from "@/components/plant-bits";
-import { SketchMap } from "@/components/sketch-map";
+import { ParkMap } from "@/components/park-map";
 import { getPerson } from "@/data/people";
 import { requireStaff } from "@/lib/auth";
 import { records } from "@/data/records";
@@ -10,6 +10,8 @@ import { sensorAlerts, sensors } from "@/data/sensors";
 import { getSpecies, species } from "@/data/species";
 import { ALERT_LEVEL } from "@/lib/alert-level";
 import { formatDateTime, MOCK_TODAY_LABEL, plural } from "@/lib/format";
+import { recordFromRow } from "@/lib/records-staff";
+import { createClient } from "@/lib/supabase/server";
 import { tagCode } from "@/lib/tags";
 
 // The template in dashboard/layout.tsx only covers the pages below it, so
@@ -36,6 +38,30 @@ export default async function OverviewPage() {
     b.recordedAt.localeCompare(a.recordedAt),
   );
 
+  // The map's plants come from the database. records_staff only answers
+  // officers and admins (supabase/006), the same people who can open this
+  // page. A rejected record isn't a plant we know is there, so it's left off.
+  const supabase = await createClient();
+  const { data: mapRows, error: mapError } = await supabase
+    .from("records_staff")
+    .select("*");
+  if (mapError) console.error("Loading the records for the map failed:", mapError.message);
+  const mapped = (mapRows ?? [])
+    .map(recordFromRow)
+    .filter((r) => r.status !== "rejected")
+    .flatMap((r) =>
+      r.gps
+        ? [
+            {
+              id: r.id,
+              lat: r.gps.lat,
+              lng: r.gps.lng,
+              label: r.commonName || r.speciesName || r.tagCode,
+            },
+          ]
+        : [],
+    );
+
   const counts = [
     { label: "Species", value: String(species.length) },
     { label: "Public records", value: String(published.length) },
@@ -51,7 +77,8 @@ export default async function OverviewPage() {
           Good morning, {firstName}
         </h1>
         <p className="mt-1 text-moss">
-          Here’s what needs you today. Everything below is mock data.
+          Here’s what needs you today. Everything below is mock data, apart
+          from the plants on the map.
         </p>
       </header>
 
@@ -198,28 +225,29 @@ export default async function OverviewPage() {
           Plants and sensors
         </h2>
         <p className="max-w-2xl text-moss">
-          Staff see the exact points, including threatened plants. Every point
-          here is made up, so the demo can’t give away a real location.
+          Every plant record that hasn’t been rejected, at its exact spot,
+          threatened plants included. The plants come from the database. The
+          sensors are still made up.
         </p>
-        <SketchMap
+        {mapError && (
+          <p
+            role="alert"
+            className="mt-4 flex max-w-2xl items-start gap-2.5 rounded-xl border-2 border-bad bg-sheet p-4 font-bold text-bad"
+          >
+            <Icon name="alert" className="mt-0.5 size-4 shrink-0" />
+            The plant records didn’t load, so the map only shows the sensors.
+            Refresh the page, and if it keeps happening, ask an administrator
+            to check the database is up to date (supabase/README.md).
+          </p>
+        )}
+        <ParkMap
           id="overview-map"
-          title="Sketch map of tagged plants and sensors around park HQ"
-          description={`A sketch map around park HQ with ${plural(
-            records.filter((r) => r.gps).length,
+          title="Map of tagged plants and sensors around park HQ"
+          description={`A map of the park around park HQ with ${plural(
+            mapped.length,
             "tagged plant",
           )} and ${plural(sensors.length, "sensor")}. Sensors with an alert are circled.`}
-          points={records.flatMap((r) =>
-            r.gps
-              ? [
-                  {
-                    id: r.id,
-                    lat: r.gps.lat,
-                    lng: r.gps.lng,
-                    label: speciesName(r.speciesSlug),
-                  },
-                ]
-              : [],
-          )}
+          points={mapped}
           sensors={sensors.map((s) => ({
             id: s.id,
             lat: s.position.lat,
@@ -227,7 +255,7 @@ export default async function OverviewPage() {
             online: s.online,
             alert: sensorAlerts.some((a) => a.sensorId === s.id),
           }))}
-          planned={[20, 32]}
+          planned={[32]}
           className="mt-8"
         />
       </section>

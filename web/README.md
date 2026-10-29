@@ -101,7 +101,7 @@ src/
       reports/          the CSV export
       sensors/          alerts, the sensor nodes and their map
       users/            who has an account and what each role can do
-  components/           shared pieces: sketch map, tree tag, photo gallery, planned tape, icons...
+  components/           shared pieces: park map, tree tag, photo gallery, planned tape, icons...
   data/                 mock species, records, people and sensors, plus the screen list
   lib/                  Supabase and sign in, species and record form checks, photos, IUCN labels, the location grid
 ```
@@ -118,7 +118,6 @@ planned for, so it's clear what's real during the demo. The item numbers match t
 | 2 | Invites and changing someone's role | Users and roles |
 | 12 | QR codes that really scan, printed for each tag | Scan a tag, tag pages |
 | 19 | Saving approve and reject decisions | Review queue |
-| 20 | Real maps instead of the sketch maps | Overview, plant pages, tag pages |
 | 21 | PDF reports and charts | Reports |
 | 28, 29 | Live readings from the ESP32 sensor nodes | Sensors |
 | 30 to 32 | The monitoring dashboard, alerts sent to the patrol team and the sensor map | Sensors, overview |
@@ -141,8 +140,14 @@ planned for, so it's clear what's real during the demo. The item numbers match t
   with the sample data. Keep it that way on every public page.
 - Client components (files starting with `"use client"`) only import from `src/lib` and
   `src/components`, never from `src/data`, because anything they import gets sent to the browser.
-  `import type` from `src/data` is fine since types disappear at build time. For the same reason
-  `SketchMap` is only used in server components.
+  `import type` from `src/data` is fine since types disappear at build time. The map is a client
+  component for the same reason: everything a page gives `ParkMap` ends up in the browser, so pages
+  work out the points on the server and pass rough squares from `src/lib/geo.ts`, never the points,
+  for a plant whose spot is hidden.
+- The maps use Leaflet with OpenStreetMap's own tiles, which come straight from openstreetmap.org
+  into the visitor's browser. That's fine under OSM's tile policy for a student project with little
+  traffic, as long as the attribution in the corner stays. If the site ever gets real traffic it
+  should move to a tile provider that allows it.
 - Every staff page starts with `if (!(await requireStaff())) return null;` from
   `src/lib/auth.ts`, and a new staff page needs it too. The check in `dashboard/layout.tsx` isn't
   enough on its own. Next renders a page and its layout at the same time, so a layout that shows

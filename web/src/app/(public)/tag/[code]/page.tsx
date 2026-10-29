@@ -10,7 +10,7 @@ import {
   ProtectedBadge,
 } from "@/components/plant-bits";
 import { MainPhoto } from "@/components/photo-gallery";
-import { SketchMap } from "@/components/sketch-map";
+import { ParkMap } from "@/components/park-map";
 import { TreeTag } from "@/components/tree-tag";
 import { hidesLocation, type Species } from "@/data/species";
 import { formatDate, plural } from "@/lib/format";
@@ -223,12 +223,11 @@ export default async function TagResultPage({
                 goes here. The view already moved the point to the middle of
                 its grid square. */}
             {!species && record.gps && (
-              <SketchMap
+              <ParkMap
                 id="tag-map"
-                title={`Sketch map of the rough area around tag ${code}`}
-                description={`A sketch map around park HQ. The hatched square marks the rough area, about 440 m across, that holds tag ${code}. The exact spot is not shown.`}
+                title={`Map of the rough area around tag ${code}`}
+                description={`A map of the park around park HQ. The shaded square marks the rough area, about 440 m across, that holds tag ${code}. The exact spot is not shown.`}
                 areas={roughAreas([record.gps])}
-                planned={[20]}
                 className="mt-8"
               />
             )}
@@ -238,10 +237,10 @@ export default async function TagResultPage({
             <p className="mt-2 text-moss">
               It’s {fromHq(record.gps.lat, record.gps.lng)}.
             </p>
-            <SketchMap
+            <ParkMap
               id="tag-map"
-              title={`Sketch map showing tag ${code}`}
-              description={`A sketch map around park HQ. The dot is tag ${code}, ${fromHq(record.gps.lat, record.gps.lng)}.`}
+              title={`Map showing tag ${code}`}
+              description={`A map of the park around park HQ. The dot is tag ${code}, ${fromHq(record.gps.lat, record.gps.lng)}.`}
               points={[
                 {
                   id: code,
@@ -250,7 +249,6 @@ export default async function TagResultPage({
                   label: code,
                 },
               ]}
-              planned={[20]}
               className="mt-8"
             />
           </>

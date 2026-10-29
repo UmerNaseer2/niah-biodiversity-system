@@ -13,7 +13,7 @@ import {
   ProtectedBadge,
 } from "@/components/plant-bits";
 import { PhotoGallery } from "@/components/photo-gallery";
-import { SketchMap } from "@/components/sketch-map";
+import { ParkMap } from "@/components/park-map";
 import { hidesLocation } from "@/data/species";
 import { formatDate, plural } from "@/lib/format";
 import { roughAreas } from "@/lib/geo";
@@ -247,15 +247,15 @@ export default async function PlantPage({
                       : "The tagged plants don’t have GPS points yet, so there’s nothing to show on a map."}
                   </p>
                 ) : (
-                  <SketchMap
+                  <ParkMap
                     id="species-map"
-                    title={`Sketch map of where ${name} has been tagged`}
+                    title={`Map of where ${name} has been tagged`}
                     description={
                       !hidden
-                        ? `A sketch map around park HQ with a dot for each tagged ${name}.`
+                        ? `A map of the park around park HQ with a dot for each tagged ${name}.`
                         : areas.length === 1
-                          ? `A sketch map around park HQ. The hatched square marks the rough area, about 440 m across, that holds the tagged ${name}. The exact spot is not shown.`
-                          : `A sketch map around park HQ. The hatched squares mark the rough areas, each about 440 m across, that hold the tagged ${name}. The exact spots are not shown.`
+                          ? `A map of the park around park HQ. The shaded square marks the rough area, about 440 m across, that holds the tagged ${name}. The exact spot is not shown.`
+                          : `A map of the park around park HQ. The shaded squares mark the rough areas, each about 440 m across, that hold the tagged ${name}. The exact spots are not shown.`
                     }
                     areas={areas}
                     points={
@@ -263,7 +263,6 @@ export default async function PlantPage({
                         ? []
                         : located.map((p) => ({ ...p, label: p.id }))
                     }
-                    planned={[20]}
                     className="mt-8"
                   />
                 )}
