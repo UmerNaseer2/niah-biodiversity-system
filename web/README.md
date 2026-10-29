@@ -6,8 +6,9 @@ species and keep an eye on the sensors. It's built with Next.js 16 (App Router) 
 
 The original item 13 wireframe is still the visual baseline. Staff sign in, the species pages on
 the dashboard (add, edit and delete) and the public pages (home, plant list, plant pages and tag
-pages) now use Supabase (items 14 to 16), and so do the dashboard records pages (item 17). The other dashboard screens still use mock data, and
-refreshing them puts them back how they were.
+pages) now use Supabase (items 14 to 16), and so do the dashboard records pages (item 17) and the
+photos (item 18). The other dashboard screens still use mock data, and refreshing them puts them
+back how they were.
 
 | Side | Screens |
 | --- | --- |
@@ -31,7 +32,8 @@ project URL to start with `https://` (item 23), and treats any other URL as not 
 
 With Supabase set up, the public pages read it on every visit, so new species and newly approved
 records show up without a new build. They read the `species_public` and `records_public` views, so
-the project needs 001 to 007 from `supabase/`. Set the values before `npm run build`, because a
+the project needs 001 to 007 from `supabase/`. The photos need 009, and without it the pages
+still work but show no photos. Set the values before `npm run build`, because a
 page that was built without them keeps the sample data. If Supabase doesn't answer, the public
 pages say "This page didn't load" instead of falling back to the sample data, so a problem can't
 hide behind made up plants. Without the values they show the sample data in `src/data`.
@@ -99,9 +101,9 @@ src/
       reports/          the CSV export
       sensors/          alerts, the sensor nodes and their map
       users/            who has an account and what each role can do
-  components/           shared pieces: sketch map, tree tag, planned tape, icons...
+  components/           shared pieces: sketch map, tree tag, photo gallery, planned tape, icons...
   data/                 mock species, records, people and sensors, plus the screen list
-  lib/                  Supabase and sign in, species and record form checks, IUCN labels, the location grid
+  lib/                  Supabase and sign in, species and record form checks, photos, IUCN labels, the location grid
 ```
 
 ## Planned features
@@ -115,7 +117,6 @@ planned for, so it's clear what's real during the demo. The item numbers match t
 | --- | --- | --- |
 | 2 | Invites and changing someone's role | Users and roles |
 | 12 | QR codes that really scan, printed for each tag | Scan a tag, tag pages |
-| 18 | Photo upload and the photo gallery | Home, plant pages, tag pages, add a species |
 | 19 | Saving approve and reject decisions | Review queue |
 | 20 | Real maps instead of the sketch maps | Overview, plant pages, tag pages |
 | 21 | PDF reports and charts | Reports |
@@ -159,6 +160,17 @@ planned for, so it's clear what's real during the demo. The item numbers match t
   rules for height and notes. Editing a record never changes its status, tag or who uploaded it, and
   a published record stays published. Deleting one can't be undone and its tag stops working, and
   a phone that hasn't synced the record yet uploads it again (`docs/sync-design.md`).
+- Species photos are uploaded on the species edit page (item 18) into the public
+  `botanical-photos` bucket. The server action turns each one into a JPEG up to 1600 pixels across
+  with `sharp` and leaves out the EXIF data, because a phone can save where a photo was taken in
+  the file. Never upload a species photo any other way, and never put a photo that shows where a
+  threatened plant grows in that bucket. Files are limited to 4 MB, which fits under the 4.5 MB a
+  Vercel request can be (`bodySizeLimit` in `next.config.ts`).
+- Field photos from the phone go in the private `record-photos` bucket. Only staff pages show
+  them, through signed links that last an hour (`src/lib/record-photos.ts`). Never show them on a
+  public page.
+- Photos are plain `<img>` tags, not `next/image`, because the image optimizer won't fetch from
+  a local address like the stand-in's.
 - Dates are formatted by hand in `src/lib/format.ts`, so the server and the browser print the same
   thing. The wireframe pretends it's 9 am on 4 Oct 2026 (`MOCK_NOW`). Don't call `new Date()` or
   `Date.now()` while a page renders. In a client component it causes hydration errors, and in a

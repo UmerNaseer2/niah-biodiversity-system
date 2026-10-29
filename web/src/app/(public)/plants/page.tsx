@@ -4,6 +4,7 @@ import { hidesLocation } from "@/data/species";
 import { IUCN } from "@/lib/iucn";
 import { getPublishedCounts } from "@/lib/records-db";
 import { getSpeciesList } from "@/lib/species-db";
+import { mainPhoto } from "@/lib/species-photos";
 import { PlantSearch, type PlantSummary } from "./plant-search";
 
 export const metadata: Metadata = {
@@ -35,6 +36,7 @@ export default async function PlantsPage({
     sarawakProtected: s.sarawakProtected,
     hidesLocation: hidesLocation(s),
     tagged: counts[s.slug] ?? 0,
+    photo: mainPhoto(s.photos)?.src ?? null,
   }));
 
   return (

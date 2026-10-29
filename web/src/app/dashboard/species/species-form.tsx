@@ -16,7 +16,6 @@ import {
   LatinName,
   ProtectedBadge,
 } from "@/components/plant-bits";
-import { Planned } from "@/components/tape";
 import { IUCN, IUCN_CODES, type IucnCode } from "@/lib/iucn";
 import {
   EMPTY,
@@ -61,10 +60,10 @@ const HINT = "text-sm text-moss";
 const OPTIONAL = <span className="font-normal text-moss"> (optional)</span>;
 
 // The add page passes the names already in the database, and the edit page
-// passes the species as it is now
+// passes the species as it is now, with its main photo for the preview
 type Props =
   | { mode: "add"; existingNames: string[] }
-  | { mode: "edit"; slug: string; initial: Values };
+  | { mode: "edit"; slug: string; initial: Values; photo: string | null };
 
 export function SpeciesForm(props: Props) {
   const adding = props.mode === "add";
@@ -206,6 +205,14 @@ export function SpeciesForm(props: Props) {
           <Link href={`/plants/${saved.slug}`} className="btn btn-primary">
             See its public page
           </Link>
+          {adding && (
+            <Link
+              href={`/dashboard/species/${saved.slug}/edit#photos`}
+              className="btn btn-secondary"
+            >
+              Add photos
+            </Link>
+          )}
           <Link href="/dashboard/species" className="btn btn-secondary">
             Back to species
           </Link>
@@ -545,13 +552,14 @@ export function SpeciesForm(props: Props) {
           />
         </div>
 
-        <Planned items={[18]} title="Photos">
-          <p>
+        <div className="rounded-xl border border-line bg-sheet p-4">
+          <p className={LABEL}>Photos</p>
+          <p className={HINT}>
             {adding
-              ? "Adding photos comes with the photo gallery, so a new species starts with hatched boxes."
-              : "Changing photos comes with the photo gallery, so saving leaves its photos as they are."}
+              ? "You can add photos once the species is saved, from its edit page."
+              : "Photos have their own section under this form. They save as soon as you upload them, so this button leaves them as they are."}
           </p>
-        </Planned>
+        </div>
 
         <div className="flex flex-wrap gap-2 border-t border-line pt-6">
           <button type="submit" aria-disabled={pending} className="btn btn-primary">
@@ -572,7 +580,17 @@ export function SpeciesForm(props: Props) {
             Preview on the public site
           </h2>
           <div className="card mt-3 overflow-hidden">
-            <div aria-hidden="true" className="hatch h-28 border-b border-line" />
+            {props.mode === "edit" && props.photo ? (
+              // A plain <img>, like the gallery on the public pages
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={props.photo}
+                alt=""
+                className="h-28 w-full border-b border-line object-cover"
+              />
+            ) : (
+              <div aria-hidden="true" className="hatch h-28 border-b border-line" />
+            )}
             <div className="p-4">
               <p className="text-lg font-bold leading-snug">
                 {previewName || <span className="text-pencil">Common name</span>}

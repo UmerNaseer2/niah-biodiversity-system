@@ -12,8 +12,8 @@ import {
   PhotoPlaceholder,
   ProtectedBadge,
 } from "@/components/plant-bits";
+import { PhotoGallery } from "@/components/photo-gallery";
 import { SketchMap } from "@/components/sketch-map";
-import { Planned } from "@/components/tape";
 import { hidesLocation } from "@/data/species";
 import { formatDate, plural } from "@/lib/format";
 import { roughAreas } from "@/lib/geo";
@@ -145,17 +145,19 @@ export default async function PlantPage({
         </aside>
 
         <div className="space-y-12 lg:col-start-1">
-          <Planned items={[18]} title="Photo gallery">
-            <p>
-              Botanists will upload photos of the leaves, bark, flowers and
-              fruit here.
-            </p>
-            <div className="mt-4 grid grid-cols-3 gap-2 sm:gap-3">
-              <PhotoPlaceholder className="aspect-square" />
-              <PhotoPlaceholder className="aspect-square" />
-              <PhotoPlaceholder className="aspect-square" />
-            </div>
-          </Planned>
+          <section aria-labelledby="photos-heading">
+            <h2 id="photos-heading" className="sr-only">
+              Photos
+            </h2>
+            {plant.photos.length > 0 ? (
+              <PhotoGallery photos={plant.photos} />
+            ) : (
+              <div className="card flex items-center gap-4 p-4">
+                <PhotoPlaceholder className="size-16 shrink-0" />
+                <p className="text-moss">No photos of {name} yet.</p>
+              </div>
+            )}
+          </section>
 
           <div className="max-w-2xl space-y-8">
             {sections.map((section) => (

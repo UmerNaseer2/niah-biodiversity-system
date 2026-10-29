@@ -13,6 +13,7 @@ import {
   type Errors,
   type Values,
 } from "@/lib/record-form";
+import { RECORD_PHOTO_BUCKET, recordPhotoPaths } from "@/lib/record-photos";
 import { authConfigured } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
 
@@ -181,7 +182,7 @@ export async function deleteRecord(
     .from("records")
     .delete()
     .eq("id", id)
-    .select("tag_code");
+    .select("tag_code, submitted_by");
 
   if (error) {
     return { status: "error", message: messageFor(error.code, error.message, "delete records") };
@@ -191,6 +192,19 @@ export async function deleteRecord(
       status: "error",
       message: "This record isn’t in the database any more. Someone may have deleted it already.",
     };
+  }
+
+  // Its photos go too. The record is already gone, so photos that won't
+  // delete only get logged.
+  const submittedBy = data[0].submitted_by;
+  if (typeof submittedBy === "string") {
+    const paths = await recordPhotoPaths(supabase, submittedBy, id);
+    if (paths && paths.length > 0) {
+      const removed = await supabase.storage.from(RECORD_PHOTO_BUCKET).remove(paths);
+      if (removed.error) {
+        console.error("Couldn't delete a deleted record's photos:", id, removed.error.message);
+      }
+    }
   }
 
   refreshRecordPages();

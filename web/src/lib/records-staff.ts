@@ -25,6 +25,8 @@ export type StaffRecord = {
   recordedAt: string;
   status: "published" | "waiting" | "rejected";
   reviewedBy: string | null;
+  /** The account that sent it from the phone, which names its photo folder (005) */
+  submittedBy: string | null;
   /** Park time of the last edit, or null when it hasn't been edited since upload (008) */
   updatedAt: string | null;
 };
@@ -61,6 +63,7 @@ export function recordFromRow(row: Record<string, unknown>): StaffRecord {
     recordedAt: parkTime(String(row.recorded_at)),
     status: row.status as StaffRecord["status"],
     reviewedBy: row.reviewed_by ? String(row.reviewed_by) : null,
+    submittedBy: row.submitted_by ? String(row.submitted_by) : null,
     updatedAt: wasEdited(row) ? parkTime(String(row.updated_at)) : null,
   };
 }

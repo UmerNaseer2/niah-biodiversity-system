@@ -19,12 +19,13 @@ kept, and you can fix the problem and run it again.
 | `006_role_based_access.sql` | What each role can read and change, checked by the database: Row Level Security, column grants and a review trigger | 4 | Yes, then run 007 and 008 again |
 | `007_species_fixes.sql` | The rough area only switch for a species, the public views that use it, checked facts for the sample species, and a trigger that sets `updated_at` when a species is edited | 14 | Yes |
 | `008_record_edits.sql` | `updated_at` on records, set by a trigger when a record is edited, and the staff view that shows it | 17 | Yes |
+| `009_species_photos.sql` | Checks what goes in `species.photos`, the `species_photos_public` view for the plant pages, and lets officers and admins delete record photos | 18 | Yes |
 
-As of 16 Oct 2026 the hosted project has 001 and 002. Run 003, 004, 005, 006, 007 and 008 next, one
+As of 16 Oct 2026 the hosted project has 001 and 002. Run 003, 004, 005, 006, 007, 008 and 009 next, one
 file at a time, in that order, and don't stop part way. The website's species pages (add, edit
 and delete) and its public pages need 007, and 007 stops on its first line if 006 isn't there.
-Until then the public pages say "This page didn't load". 003 is fine to run even if it turns out
-to be there already.
+Until then the public pages say "This page didn't load". Without 009 the plant pages show no
+photos. 003 is fine to run even if it turns out to be there already.
 
 If 005 stops with a check error (like `records_gps_check`), a record already on the hosted project
 breaks one of its new rules. Fix or delete that record in the Table Editor and run 005 again.
@@ -94,16 +95,18 @@ npm test
 ```
 
 - `tests/sync.test.js` checks phone uploads and record photos (item 3), `tests/roles.test.js`
-  checks what each role can read and change (item 4), and `tests/species.test.js` checks 007
-  and adding, editing and deleting a species the way the website does (item 14).
+  checks what each role can read and change (item 4), `tests/species.test.js` checks 007
+  and adding, editing and deleting a species the way the website does (item 14), and
+  `tests/photos.test.js` checks 009 and saving photos the way the website does (item 18).
 - `tests/stand-in.js` is a stand-in for our Supabase project that runs on your computer, for
   trying the website without a real project. The
   [web README](../web/README.md#trying-sign-in-without-a-supabase-project) says how, and
   `npm run stand-in` starts it on port 54321. It builds the same database as the tests, adds a
   made up account for each role (`officer`, `admin`, `botanist`, `researcher`, `visitor`, and
   `noprofile`, which has no row in `profiles`, all `@example.test`), and answers the parts of the
-  Auth and REST APIs the website uses, as the signed in user. The password is `TEST_PASSWORD` in
-  `stand-in.js` and only works there. `STAND_IN_PORT` changes the port, and
+  Auth, REST and Storage APIs the website uses, as the signed in user. Storage files are kept in
+  memory, and the Storage policies from our SQL files decide who can upload, list and delete. The
+  password is `TEST_PASSWORD` in `stand-in.js` and only works there. `STAND_IN_PORT` changes the port, and
   `STAND_IN_TOKEN_SECONDS` makes a sign in run out sooner, to try refreshing. It only listens on
   127.0.0.1, so other computers can't reach it.
 - `tests/stand-in.test.js` checks the stand-in answers like Supabase for the calls the website

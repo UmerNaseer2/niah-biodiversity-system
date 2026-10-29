@@ -7,11 +7,10 @@ import {
   HiddenLocationBadge,
   IucnChip,
   LatinName,
-  PhotoPlaceholder,
   ProtectedBadge,
 } from "@/components/plant-bits";
+import { MainPhoto } from "@/components/photo-gallery";
 import { SketchMap } from "@/components/sketch-map";
-import { Planned } from "@/components/tape";
 import { TreeTag } from "@/components/tree-tag";
 import { hidesLocation, type Species } from "@/data/species";
 import { formatDate, plural } from "@/lib/format";
@@ -66,6 +65,7 @@ export default async function TagResultPage({
   // Same rule as records_public, which also hides the spot of a plant with no
   // species yet
   const hidden = !species || hidesLocation(species);
+  const speciesPhotos = species?.photos ?? [];
 
   return (
     <div className="mx-auto w-full max-w-4xl px-4 py-8 sm:px-6">
@@ -155,18 +155,33 @@ export default async function TagResultPage({
         </dl>
       </section>
 
-      {record.photoCount > 0 && (
-        <Planned items={[18]} title="Photos of this plant" className="mt-10">
-          <p>
-            The ranger took {plural(record.photoCount, "photo")}. They’ll show
-            here once the gallery is built.
-          </p>
-          <div className="mt-4 grid grid-cols-3 gap-2 sm:gap-3">
-            {Array.from({ length: record.photoCount }, (_, i) => (
-              <PhotoPlaceholder key={i} className="aspect-square" />
-            ))}
-          </div>
-        </Planned>
+      {(speciesPhotos.length > 0 || record.photoCount > 0) && (
+        <section aria-labelledby="photos-heading" className="mt-12">
+          <h2 id="photos-heading" className="text-xl font-bold tracking-tight">
+            Photos
+          </h2>
+          {speciesPhotos.length > 0 && (
+            <>
+              <p className="mt-2 text-moss">
+                What {name} looks like. This photo is of the species, not this
+                exact plant.
+              </p>
+              <MainPhoto photos={speciesPhotos} className="mt-4 max-w-md" />
+            </>
+          )}
+          {record.photoCount > 0 && (
+            <div className="card mt-4 flex max-w-2xl gap-4 p-5">
+              <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-paper text-moss">
+                <Icon name="lock" />
+              </span>
+              <p className="text-moss">
+                The field team took {plural(record.photoCount, "photo")} of
+                this plant. They stay with park staff for now, because a photo
+                can show where a plant grows.
+              </p>
+            </div>
+          )}
+        </section>
       )}
 
       <section aria-labelledby="where-heading" className="mt-12">

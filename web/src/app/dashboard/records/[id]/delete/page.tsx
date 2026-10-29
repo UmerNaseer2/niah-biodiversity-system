@@ -5,6 +5,7 @@ import { Icon } from "@/components/icon";
 import { PageHeader } from "@/components/page-header";
 import { LatinName } from "@/components/plant-bits";
 import { requireStaff } from "@/lib/auth";
+import { plural } from "@/lib/format";
 import { RECORD_ID } from "@/lib/record-form";
 import { recordFromRow, STATUS_LABEL } from "@/lib/records-staff";
 import { createClient } from "@/lib/supabase/server";
@@ -89,9 +90,9 @@ export default async function DeleteRecordPage({
           </li>
           {record.photoCount > 0 && (
             <li>
-              It has {record.photoCount} {record.photoCount === 1 ? "photo" : "photos"}.
-              Photos aren’t uploaded to the website yet (item 11), so none are
-              removed here.
+              Its {plural(record.photoCount, "photo")} from the field are
+              deleted too, once they’ve uploaded. A photo the phone hasn’t
+              uploaded yet stays on the phone.
             </li>
           )}
           <li>

@@ -96,6 +96,12 @@ export default async function DeleteSpeciesPage({
               grid square they’re in, never the exact spot.
             </li>
           )}
+          {species.photos.length > 0 && (
+            <li>
+              Its {plural(species.photos.length, "photo")} go too. Photos the
+              website uploaded are deleted from storage.
+            </li>
+          )}
           <li>
             You can’t undo it. Adding the species again later doesn’t link its
             old records to it.

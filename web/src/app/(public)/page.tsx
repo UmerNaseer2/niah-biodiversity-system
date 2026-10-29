@@ -213,7 +213,7 @@ export default async function HomePage() {
       <section className="mx-auto w-full max-w-6xl px-4 pb-16 sm:px-6">
         <div className="card flex flex-col items-start gap-5 p-6 sm:flex-row sm:items-center sm:justify-between sm:p-8">
           <div>
-            <PlannedTape items={[18]} className="-rotate-1" />
+            <PlannedTape items={[30]} className="-rotate-1" />
             <h2 className="mt-4 text-xl font-bold">Pink tape means planned</h2>
             <p className="mt-1 max-w-2xl text-moss">
               Field teams tie pink flagging tape on trees they still need to

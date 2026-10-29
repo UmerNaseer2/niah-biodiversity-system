@@ -7,6 +7,7 @@
 // supabase/007_species_fixes.sql.
 
 import { showsExactSpot, type IucnCode } from "@/lib/iucn";
+import type { SpeciesPhoto } from "@/lib/species-photos";
 
 export type Species = {
   slug: string;
@@ -26,7 +27,24 @@ export type Species = {
   habitat: string;
   uses: string;
   updated: string;
+  photos: SpeciesPhoto[];
 };
+
+// The same stand-in photos as the species table, with the captions from 007
+function placeholder(id: string): SpeciesPhoto[] {
+  const src = `https://images.unsplash.com/${id}?auto=format&fit=crop&w=1200&q=80`;
+  return [
+    {
+      src,
+      caption:
+        "Placeholder photo from Unsplash until SFC sends real ones. It may not show this species.",
+      credit: "Unsplash",
+      isPrimary: true,
+      path: null,
+      key: src,
+    },
+  ];
+}
 
 export const species: Species[] = [
   {
@@ -43,6 +61,7 @@ export const species: Species[] = [
     habitat: "Lowland rainforest in Borneo and nearby islands, mostly on well drained soil.",
     uses: "Posts, piles, bridges and roof shingles. Many older longhouses stand on belian posts.",
     updated: "2026-10-02",
+    photos: placeholder("photo-1542273917363-3b1817f69a2d"),
   },
   {
     slug: "nepenthes-ampullaria",
@@ -58,6 +77,7 @@ export const species: Species[] = [
     habitat: "Shady, wet places such as peat swamp forest and heath forest (kerangas).",
     uses: "In parts of Borneo the pitchers of this and other Nepenthes are used as small pots for cooking rice.",
     updated: "2026-10-01",
+    photos: placeholder("photo-1518531933037-91b2f5f229cc"),
   },
   {
     slug: "koompassia-excelsa",
@@ -73,6 +93,7 @@ export const species: Species[] = [
     habitat: "Lowland rainforest from southern Thailand to Borneo.",
     uses: "Wild honey bees hang their combs from the high branches and honey hunters climb up to collect it, so people often leave tapang standing when they clear land.",
     updated: "2026-10-16",
+    photos: placeholder("photo-1448375240586-882707db888b"),
   },
   {
     slug: "shorea-macrophylla",
@@ -89,6 +110,7 @@ export const species: Species[] = [
     habitat: "Riverbanks and flat land that floods from time to time.",
     uses: "Fat pressed from the nuts, often called illipe butter, goes into cooking, chocolate and cosmetics.",
     updated: "2026-10-16",
+    photos: placeholder("photo-1473448912268-2022ce9509d8"),
   },
   {
     slug: "durio-graveolens",
@@ -104,6 +126,7 @@ export const species: Species[] = [
     habitat: "Lowland rainforest in Borneo and nearby areas.",
     uses: "People living near the forest eat the fruit fresh.",
     updated: "2026-10-02",
+    photos: [],
   },
   {
     slug: "dryobalanops-aromatica",
@@ -119,6 +142,7 @@ export const species: Species[] = [
     habitat: "Lowland dipterocarp forest on well drained soil.",
     uses: "Timber sold as kapur for building, and camphor used in traditional medicine.",
     updated: "2026-10-04",
+    photos: [],
   },
 ];
 

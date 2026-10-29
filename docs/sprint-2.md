@@ -10,7 +10,7 @@ Owners are only filled in where the proposal schedule names one, or where someon
 | Item | Title | Depends on | Points | Owner | Done |
 | --- | --- | --- | --- | --- | --- |
 | 17 | Plant Record Editing & Deletion (Web) | Plant database, RBAC | 8 | Angel | [x] Merged 29 Oct, see [test results](test-results/item-17-plant-edit-delete.md) |
-| 18 | Botanical Photograph Upload & Gallery (Web) | Web platform, storage service | 8 | Umer | [ ] |
+| 18 | Botanical Photograph Upload & Gallery (Web) | Web platform, storage service | 8 | Umer | [x] Merged 29 Oct, see [test results](test-results/item-18-photo-gallery.md) |
 | 19 | Observation Approval Workflow | Plant database, web platform | 8 | Angel | [ ] |
 | 20 | Plant Species Distribution Maps (Basic) | Plant database, mapping library | 7 | Umer | [ ] |
 | 21 | Biodiversity Reports Generation & Export | Plant database, query engine | 7 | Umer | [ ] |
@@ -20,7 +20,7 @@ Notes:
 - Items 17 to 21 all read the plant tables, so the hosted Supabase project has to be up to date (`supabase/README.md`) before they show real data there. Until then they're tested on the stand-in (`supabase/tests/stand-in.js`).
 - Item 17 adds `supabase/008_record_edits.sql` (an `updated_at` on records). It has to be run on the hosted project after 003 to 007.
 - Item 19 needs records coming in from the mobile app. Until the phone sync is real, test against the stand-in's records. It builds on the edit permissions from item 17.
-- Item 18 has to deal with the private `record-photos` bucket, which has no replace or delete policy yet (005). The plant pages use the public `botanical-photos` bucket.
+- Item 18 adds `supabase/009_species_photos.sql`, which checks species photos and lets officers and admins delete record photos, so deleting a record deletes its photos too. It has to be run on the hosted project after 008. The plant pages use the public `botanical-photos` bucket.
 
 ## Mobile ground-truthing and sync (items 9 to 12)
 
@@ -59,7 +59,7 @@ Notes:
   merged ([where it stands](security/encryption-at-rest.md)).
 - Item 23, checking HTTPS on the real site. It gets checked once the website is deployed.
 - Item 24, Jason still reviews the vulnerability assessment plan.
-- The hosted Supabase project still needs 003 to 008 run, in order (`supabase/README.md`). Only
+- The hosted Supabase project still needs 003 to 009 run, in order (`supabase/README.md`). Only
   Umer can do this.
 
 # After Sprint #2 (Weeks 10 to 11)

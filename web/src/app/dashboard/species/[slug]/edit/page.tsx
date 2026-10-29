@@ -6,8 +6,10 @@ import { PageHeader } from "@/components/page-header";
 import { requireStaff } from "@/lib/auth";
 import { speciesFromRow } from "@/lib/species-db";
 import { valuesFromSpecies } from "@/lib/species-form";
+import { mainPhoto } from "@/lib/species-photos";
 import { createClient } from "@/lib/supabase/server";
 import { SpeciesForm } from "../../species-form";
+import { PhotoManager } from "./photo-manager";
 
 export const metadata: Metadata = { title: "Edit a species" };
 
@@ -65,20 +67,23 @@ export default async function EditSpeciesPage({
   // The about column on its own. Species falls back to the description when
   // it's empty, and saving shouldn't copy that across.
   const about = typeof data.about === "string" ? data.about : "";
+  const name = species.commonNames[0] ?? species.scientificName;
 
   return (
     <div>
       {breadcrumb}
       <PageHeader
         eyebrow="Plant database"
-        title={`Edit ${species.commonNames[0] ?? species.scientificName}`}
+        title={`Edit ${name}`}
         description="Changes show on the public site as soon as you save. Field teams get them in the mobile app once the phone downloads the species list, which comes with item 10 in Sprint 2. If the IUCN status is changing, check it on the Red List first."
       />
       <SpeciesForm
         mode="edit"
         slug={slug}
         initial={valuesFromSpecies(species, about)}
+        photo={mainPhoto(species.photos)?.src ?? null}
       />
+      <PhotoManager slug={slug} name={name} photos={species.photos} />
     </div>
   );
 }
