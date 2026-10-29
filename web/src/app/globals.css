@@ -285,3 +285,51 @@
     display: none;
   }
 }
+
+/*
+  Leaflet maps (components/leaflet-map.tsx). The labels look like the ones
+  on the old sketch maps: bold text with a white halo instead of a box.
+*/
+.map-frame .leaflet-container {
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+}
+
+.map-frame .leaflet-tooltip.map-label {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--color-ink);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  text-shadow:
+    0 0 2px #fff,
+    0 0 3px #fff,
+    0 0 4px #fff;
+}
+
+.map-frame .leaflet-tooltip.map-label::before {
+  display: none;
+}
+
+.map-sensor span {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 2px solid var(--color-ink);
+  border-radius: 2px;
+  background-color: var(--color-ink);
+}
+
+.map-sensor-offline span {
+  background-color: var(--color-sheet);
+}
+
+.map-sensor-alert::after {
+  content: "";
+  position: absolute;
+  inset: -7px;
+  border: 2.5px solid var(--color-bad);
+  border-radius: 999px;
+}

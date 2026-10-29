@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Icon } from "@/components/icon";
 import { PageHeader } from "@/components/page-header";
-import { SketchMap } from "@/components/sketch-map";
+import { ParkMap } from "@/components/park-map";
 import { Planned, PlannedTape } from "@/components/tape";
 import { sensorAlerts, sensors, type Sensor } from "@/data/sensors";
 import { requireStaff } from "@/lib/auth";
@@ -257,11 +257,11 @@ export default async function SensorsPage() {
         <p className="max-w-2xl text-moss">
           The positions are made up, like the rest of the demo.
         </p>
-        <SketchMap
+        <ParkMap
           id="sensor-map"
-          title="Sketch map of the sensor nodes around park HQ"
+          title="Map of the sensor nodes around park HQ"
           description={[
-            `A sketch map around park HQ with ${plural(sensors.length, "sensor")}.`,
+            `A map of the park around park HQ with ${plural(sensors.length, "sensor")}.`,
             ...offline.map((s) => `${s.id} is drawn hollow because it is offline.`),
             "Sensors with an alert today are circled.",
           ].join(" ")}

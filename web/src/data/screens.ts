@@ -28,7 +28,7 @@ export const publicScreens: Screen[] = [
     path: "/plants/eusideroxylon-zwageri",
     items: [16, 18, 20],
     works:
-      "Text, family, IUCN status and the photo gallery are in. Real maps are item 20 (Sprint 2).",
+      "Text, family, IUCN status, the photo gallery and a map of where it’s been tagged. A threatened or protected species only gets a rough square on the map.",
   },
   {
     title: "Scan a tag",
@@ -39,7 +39,7 @@ export const publicScreens: Screen[] = [
   {
     title: "Tag page",
     path: "/tag/NNP-3F2A9C",
-    items: [12, 16],
+    items: [12, 16, 20],
     works: "What a visitor sees after scanning. Every sample species is threatened or protected, so tag pages hide the exact spot.",
   },
   {
@@ -54,8 +54,8 @@ export const staffScreens: Screen[] = [
   {
     title: "Overview",
     path: "/dashboard",
-    items: [13],
-    works: "What needs attention today, with links into each area.",
+    items: [13, 20],
+    works: "What needs attention today, with links into each area, and a map of every plant record in Supabase.",
   },
   {
     title: "Species",
