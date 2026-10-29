@@ -99,7 +99,7 @@ export default function ScreensPage() {
       />
 
       <div className="mt-8 flex flex-col gap-3 rounded-xl border border-line bg-sheet p-4 sm:flex-row sm:items-center sm:gap-5">
-        <PlannedTape items={[18]} className="-rotate-1 self-start sm:self-auto" />
+        <PlannedTape items={[30]} className="-rotate-1 self-start sm:self-auto" />
         <p className="text-sm text-moss">
           Pink tape marks anything that isn’t built yet. It says which release
           item it belongs to and the sprint it’s planned for.

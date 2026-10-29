@@ -25,6 +25,8 @@ export type PlantSummary = {
   sarawakProtected: boolean;
   hidesLocation: boolean;
   tagged: number;
+  /** The main photo, if the species has one */
+  photo: string | null;
 };
 
 type Filter = "all" | "threatened" | "not-threatened";
@@ -167,10 +169,22 @@ export function PlantSearch({
                 href={`/plants/${plant.slug}`}
                 className="card group flex gap-4 p-3 transition-colors hover:border-pencil sm:p-4"
               >
-                <PhotoPlaceholder
-                  showIcon={false}
-                  className="size-20 shrink-0 sm:size-24"
-                />
+                {plant.photo ? (
+                  // A plain <img>, like the gallery on the plant page
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={plant.photo}
+                    alt=""
+                    loading="lazy"
+                    decoding="async"
+                    className="size-20 shrink-0 rounded-lg border border-line object-cover sm:size-24"
+                  />
+                ) : (
+                  <PhotoPlaceholder
+                    showIcon={false}
+                    className="size-20 shrink-0 sm:size-24"
+                  />
+                )}
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-baseline justify-between gap-x-4">
                     <h2 className="text-lg font-bold group-hover:underline">

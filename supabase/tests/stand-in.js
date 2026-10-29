@@ -2,9 +2,10 @@
 // staff pages can be tried without a real project or real accounts. It builds the same PGlite
 // database as the tests (our SQL files in order), adds test accounts and a few made-up records,
 // and answers the parts of the Supabase API the website uses: password sign in, refreshing and
-// signing out (Auth), and reading and changing rows (the REST API). Every request runs as the
-// anon or authenticated role with the user's ID in the JWT claims, like the real API, so Row
-// Level Security, the grants and the views from our SQL files decide what comes back.
+// signing out (Auth), reading and changing rows (the REST API), and uploading, deleting and
+// showing photos (Storage). Every request runs as the anon or authenticated role with the user's
+// ID in the JWT claims, like the real API, so Row Level Security, the grants and the views from
+// our SQL files decide what comes back.
 //
 // Everything is in memory, so stopping it throws it all away. Never put real data in it.
 // web/README.md says how to run the website against it.
@@ -146,6 +147,10 @@ export async function startStandIn({
   }
 
   const auth = new Auth(tokenSeconds);
+  // Uploaded files, by bucket and path. storage.objects keeps who uploaded them, like on Supabase
+  const files = new Map();
+  // Signs links to private files. A new one each run, so old links stop working
+  const linkSecret = randomBytes(32);
   // PGlite has one connection, so requests take turns
   let queue = Promise.resolve();
   const oneAtATime = (fn) => {
@@ -155,7 +160,7 @@ export async function startStandIn({
   };
 
   const server = createServer((req, res) => {
-    handle(req, res, { auth, columns, db, oneAtATime })
+    handle(req, res, { auth, columns, db, files, linkSecret, oneAtATime })
       .catch((error) => {
         console.error(error);
         if (!res.headersSent) send(res, 500, { message: 'The stand-in broke. See its terminal.' });
@@ -221,13 +226,31 @@ async function handle(req, res, ctx) {
   res.setHeader('Access-Control-Expose-Headers', 'Content-Range');
   if (req.method === 'OPTIONS') return send(res, 204);
 
+  const url = new URL(req.url, 'http://stand-in');
+  // Public and signed photo links work without the anon key, because an <img> can't send one
+  const link = /^\/storage\/v1\/object\/(public|sign)\//.exec(url.pathname);
+  if (link && (link[1] === 'public' || req.method === 'GET' || req.method === 'HEAD')) {
+    return openFile(req, res, url, link[1], ctx);
+  }
+
   if (!req.headers.apikey) return send(res, 401, { message: 'No API key found in request' });
   if (req.headers.apikey !== ANON_KEY) return send(res, 401, { message: 'Invalid API key' });
+
+  // Storage takes files, so it reads its own bodies
+  if (url.pathname.startsWith('/storage/v1/')) {
+    try {
+      return await storage(req, res, url, ctx);
+    } catch (error) {
+      if (error instanceof Refusal) {
+        return storageError(res, error.status, error.body.code, error.body.message);
+      }
+      throw error;
+    }
+  }
 
   const { body, status, message } = await readBody(req);
   if (status) return send(res, status, { message });
 
-  const url = new URL(req.url, 'http://stand-in');
   if (url.pathname.startsWith('/auth/v1/')) {
     return ctx.auth.handle(req, res, url.pathname.slice('/auth/v1'.length), url, body);
   }
@@ -693,6 +716,283 @@ async function rest(req, res, url, body, { auth, columns, db, oneAtATime }) {
   const status = method === 'POST' ? 201 : wantsRows ? 200 : 204;
   if (!wantsRows) return send(res, status, undefined, headers);
   return send(res, status, oneObject ? rows[0] : rows, headers);
+}
+
+// ----- Storage -----
+
+// The biggest file any bucket takes (10 MB, from 005 and 006)
+const FILE_LIMIT = 10 * 1024 * 1024;
+const BUCKET = /^[a-z0-9-]+$/;
+// Folders and a file name made of plain characters. No empty folders, and no . or .. folders
+const FILE_PATH = /^(?!.*(?:^|\/)\.{1,2}(?:\/|$))[A-Za-z0-9._-]+(?:\/[A-Za-z0-9._-]+)*$/;
+// Parts of the Storage API under /object/ that aren't buckets
+const NOT_BUCKETS = new Set(['authenticated', 'copy', 'info', 'list', 'move', 'public', 'sign']);
+const NO_FILE = 'Either the object does not exist or you do not have access to it';
+
+/** An error the Storage API sends back. */
+function storageError(res, status, error, message) {
+  return send(res, status, { statusCode: String(status), error, message });
+}
+
+/** Reads a file. Gives back null if it's over the biggest file a bucket takes. */
+async function readFile(req) {
+  const chunks = [];
+  let size = 0;
+  // Reads to the end even when it's too big, so the answer still gets back on the same connection
+  for await (const chunk of req) {
+    size += chunk.length;
+    if (size <= FILE_LIMIT) chunks.push(chunk);
+  }
+  return size > FILE_LIMIT ? null : Buffer.concat(chunks);
+}
+
+async function skipBody(req) {
+  for await (const chunk of req) void chunk;
+}
+
+/** Splits <bucket>/<path> into the bucket and the path, or gives back null. */
+function bucketAndPath(rest) {
+  const slash = rest.indexOf('/');
+  const bucket = slash === -1 ? rest : rest.slice(0, slash);
+  const path = slash === -1 ? '' : rest.slice(slash + 1);
+  if (!BUCKET.test(bucket) || NOT_BUCKETS.has(bucket)) return null;
+  if (path && (path.length > 500 || !FILE_PATH.test(path))) return null;
+  return { bucket, path };
+}
+
+async function bucketNamed(id, { db, oneAtATime }) {
+  const { rows } = await oneAtATime(() =>
+    db.query(
+      'SELECT public, file_size_limit, allowed_mime_types FROM storage.buckets WHERE id = $1',
+      [id],
+    ),
+  );
+  return rows[0] ?? null;
+}
+
+// A signed link is the file, the time it runs out and a signature over both. Supabase uses a JWT,
+// but the website never reads the token, it only puts the link in an <img>.
+function linkSignature(secret, file, expires) {
+  return createHmac('sha256', secret).update(`${file}\n${expires}`).digest('base64url');
+}
+
+function signedToken(secret, file, seconds) {
+  const expires = Math.floor(Date.now() / 1000) + seconds;
+  return `${expires}.${linkSignature(secret, file, expires)}`;
+}
+
+/** Why a signed link doesn't work, or null when it does. */
+function badToken(secret, file, token) {
+  const [expires, signature = ''] = String(token ?? '').split('.');
+  const wanted = Buffer.from(linkSignature(secret, file, expires));
+  const given = Buffer.from(signature);
+  if (given.length !== wanted.length || !timingSafeEqual(given, wanted)) return 'invalid signature';
+  if (Number(expires) * 1000 <= Date.now()) return '"exp" claim timestamp check failed';
+  return null;
+}
+
+/**
+ * GET /storage/v1/object/public/<bucket>/<path>, a file in a public bucket, and
+ * GET /storage/v1/object/sign/<bucket>/<path>?token=..., a signed link to a file in any bucket.
+ * Neither needs the anon key or a sign in.
+ */
+async function openFile(req, res, url, kind, ctx) {
+  await skipBody(req);
+  const notFound = () => storageError(res, 404, 'not_found', 'Object not found');
+  if (req.method !== 'GET' && req.method !== 'HEAD') return notFound();
+  const where = bucketAndPath(url.pathname.slice(`/storage/v1/object/${kind}/`.length));
+  if (!where?.path) return notFound();
+  const file = `${where.bucket}/${where.path}`;
+  if (kind === 'sign') {
+    const bad = badToken(ctx.linkSecret, file, url.searchParams.get('token'));
+    if (bad) return storageError(res, 400, 'InvalidJWT', bad);
+  }
+  const bucket = await bucketNamed(where.bucket, ctx);
+  const stored = ctx.files.get(file);
+  // A file only shows while its row is in storage.objects, the same as on Supabase
+  const { rows } = await ctx.oneAtATime(() =>
+    ctx.db.query('SELECT 1 FROM storage.objects WHERE bucket_id = $1 AND name = $2', [
+      where.bucket,
+      where.path,
+    ]),
+  );
+  if (!bucket || (kind === 'public' && !bucket.public) || !stored || !rows.length) {
+    return notFound();
+  }
+  res.writeHead(200, {
+    'Content-Type': stored.type,
+    'Content-Length': stored.bytes.length,
+    'Cache-Control': 'no-cache',
+  });
+  return res.end(req.method === 'HEAD' ? undefined : stored.bytes);
+}
+
+/** Which part of Storage a request is for, out of the ones the website uses. */
+function storageRoute(req, url) {
+  if (!url.pathname.startsWith('/storage/v1/object/')) return null;
+  const rest = url.pathname.slice('/storage/v1/object/'.length);
+  const [action, where] =
+    req.method === 'POST' && rest.startsWith('list/')
+      ? ['list', bucketAndPath(rest.slice('list/'.length))]
+      : req.method === 'POST' && rest.startsWith('sign/')
+        ? ['sign', bucketAndPath(rest.slice('sign/'.length))]
+        : req.method === 'POST'
+          ? ['upload', bucketAndPath(rest)]
+          : req.method === 'DELETE'
+            ? ['remove', bucketAndPath(rest)]
+            : [null, null];
+  // Only uploads name a file. The others name a bucket and send the paths in the body
+  if (!where || Boolean(where.path) !== (action === 'upload')) return null;
+  return { action, ...where };
+}
+
+/**
+ * The parts of Storage that the website uses, all run as whoever is asking, so the Storage
+ * policies from 005, 006 and 009 decide what they can do: upload(path, bytes) to add a file,
+ * remove(paths) to delete files, list(folder) to see what's in a folder and
+ * createSignedUrls(paths, seconds) for links to private files.
+ */
+async function storage(req, res, url, ctx) {
+  const route = storageRoute(req, url);
+  if (!route) {
+    await skipBody(req);
+    return storageError(res, 404, 'not_found', 'The stand-in doesn’t have that part of Storage');
+  }
+  const bytes = route.action === 'upload' ? await readFile(req) : null;
+  const { body, status, message } = route.action === 'upload' ? {} : await readBody(req);
+
+  const user = whoIsAsking(req, ctx.auth);
+  const bucket = await bucketNamed(route.bucket, ctx);
+  if (!bucket) return storageError(res, 404, 'Bucket not found', 'Bucket not found');
+  if (status) return storageError(res, status, 'invalid_request', message);
+
+  const asker = (sql, params) =>
+    ctx.oneAtATime(() => asUser(ctx.db, user, (tx) => tx.query(sql, params)));
+  if (route.action === 'upload') return uploadFile(req, res, route, bucket, bytes, user, ctx);
+  if (route.action === 'list') return listFolder(res, route, body, asker, ctx);
+  if (route.action === 'sign') return signLinks(res, route, body, asker, ctx);
+  return removeFiles(res, route, body, asker, ctx);
+}
+
+async function uploadFile(req, res, { bucket: bucketId, path }, bucket, bytes, user, ctx) {
+  if (String(req.headers['x-upsert']) === 'true') {
+    return storageError(res, 400, 'invalid_request', 'The stand-in can’t replace files');
+  }
+  const type = String(req.headers['content-type'] ?? '').split(';')[0].trim().toLowerCase();
+  if (type.startsWith('multipart/')) {
+    return storageError(res, 400, 'invalid_request', 'The stand-in only takes the file itself');
+  }
+  const limit = Number(bucket.file_size_limit ?? FILE_LIMIT);
+  if (bytes === null || bytes.length > limit) {
+    const tooBig = 'The object exceeded the maximum allowed size';
+    return storageError(res, 413, 'Payload too large', tooBig);
+  }
+  if (bucket.allowed_mime_types && !bucket.allowed_mime_types.includes(type)) {
+    return storageError(res, 415, 'invalid_mime_type', `mime type ${type} is not supported`);
+  }
+
+  try {
+    await ctx.oneAtATime(() =>
+      asUser(ctx.db, user, (tx) =>
+        tx.query('INSERT INTO storage.objects (bucket_id, name, owner) VALUES ($1, $2, $3)', [
+          bucketId,
+          path,
+          user?.id ?? null,
+        ]),
+      ),
+    );
+  } catch (error) {
+    if (error.code === '23505') {
+      return storageError(res, 409, 'Duplicate', 'The resource already exists');
+    }
+    if (error.code === '42501') {
+      return storageError(res, 403, 'Unauthorized', 'new row violates row-level security policy');
+    }
+    throw error;
+  }
+  ctx.files.set(`${bucketId}/${path}`, { bytes, type });
+  return send(res, 200, { Id: randomUUID(), Key: `${bucketId}/${path}` });
+}
+
+function listOfPaths(value) {
+  return Array.isArray(value) && value.length > 0 && value.every((p) => typeof p === 'string');
+}
+
+async function removeFiles(res, { bucket }, body, asker, ctx) {
+  if (!listOfPaths(body?.prefixes)) {
+    return storageError(res, 400, 'invalid_request', 'prefixes has to be a list of paths');
+  }
+  const { rows } = await asker(
+    `DELETE FROM storage.objects WHERE bucket_id = $1 AND name = ANY($2)
+     RETURNING id, bucket_id, name, owner, created_at`,
+    [bucket, body.prefixes],
+  );
+  // Rows the policies don't let this user delete are skipped, so they keep their files
+  for (const row of rows) ctx.files.delete(`${bucket}/${row.name}`);
+  return send(res, 200, rows);
+}
+
+/** The files and folders straight inside a folder, like Supabase's list(). */
+async function listFolder(res, { bucket }, body, asker, ctx) {
+  const prefix = typeof body?.prefix === 'string' ? body.prefix.replace(/\/+$/, '') : '';
+  const limit = Number.isInteger(body?.limit) && body.limit > 0 ? body.limit : 100;
+  const offset = Number.isInteger(body?.offset) && body.offset > 0 ? body.offset : 0;
+  const start = prefix ? `${prefix}/` : '';
+  // Only the files this user can see, because the policies decide that too
+  const { rows } = await asker(
+    `SELECT id, name, created_at FROM storage.objects
+     WHERE bucket_id = $1 AND left(name, length($2)) = $2`,
+    [bucket, start],
+  );
+  const entries = new Map();
+  for (const row of rows) {
+    const name = row.name.slice(start.length);
+    const slash = name.indexOf('/');
+    if (slash === -1) {
+      const file = ctx.files.get(`${bucket}/${row.name}`);
+      const time = new Date(row.created_at).toISOString();
+      entries.set(name, {
+        name,
+        id: row.id,
+        updated_at: time,
+        created_at: time,
+        last_accessed_at: time,
+        metadata: { size: file?.bytes.length ?? 0, mimetype: file?.type ?? null },
+      });
+    } else {
+      const folder = name.slice(0, slash);
+      const empty = { id: null, updated_at: null, created_at: null, last_accessed_at: null };
+      if (!entries.has(folder)) entries.set(folder, { name: folder, ...empty, metadata: null });
+    }
+  }
+  const sorted = [...entries.values()].sort((a, b) => (a.name < b.name ? -1 : 1));
+  if (body?.sortBy?.order === 'desc') sorted.reverse();
+  return send(res, 200, sorted.slice(offset, offset + limit));
+}
+
+/** Links to files that work for a while without signing in, like createSignedUrls(). */
+async function signLinks(res, { bucket }, body, asker, ctx) {
+  if (!listOfPaths(body?.paths)) {
+    return storageError(res, 400, 'invalid_request', 'paths has to be a list of paths');
+  }
+  if (!Number.isInteger(body.expiresIn) || body.expiresIn < 1) {
+    return storageError(res, 400, 'invalid_request', 'expiresIn has to be a number of seconds');
+  }
+  // Only files this user can see get a link
+  const { rows } = await asker(
+    'SELECT name FROM storage.objects WHERE bucket_id = $1 AND name = ANY($2)',
+    [bucket, body.paths],
+  );
+  const seen = new Set(rows.map((row) => row.name));
+  return send(
+    res,
+    200,
+    body.paths.map((path) => {
+      if (!seen.has(path)) return { error: NO_FILE, path, signedURL: null };
+      const token = signedToken(ctx.linkSecret, `${bucket}/${path}`, body.expiresIn);
+      return { error: null, path, signedURL: `/object/sign/${bucket}/${path}?token=${token}` };
+    }),
+  );
 }
 
 // `npm run stand-in` runs this. STAND_IN_PORT changes the port, and STAND_IN_TOKEN_SECONDS makes

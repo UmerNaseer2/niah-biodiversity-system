@@ -2,14 +2,16 @@ import { publicClient } from "./supabase";
 import { species as mockSpecies, type Species } from "@/data/species";
 import { parkTime } from "@/lib/format";
 import { isIucnCode } from "@/lib/iucn";
+import { photosFromJson, type SpeciesPhoto } from "@/lib/species-photos";
 
 /**
  * Normalizes a Supabase PostgreSQL row into the application Species format
  */
 export function speciesFromRow(row: Record<string, unknown>): Species {
   const iucn = row.iucn_code ?? row.iucn;
+  const slug = String(row.slug || row.id || "");
   return {
-    slug: String(row.slug || row.id || ""),
+    slug,
     scientificName: String(row.scientific_name || row.scientificName || ""),
     authority: String(row.authority || ""),
     family: String(row.family || ""),
@@ -34,7 +36,32 @@ export function speciesFromRow(row: Record<string, unknown>): Species {
     updated: row.updated_at
       ? parkTime(String(row.updated_at)).slice(0, 10)
       : String(row.updated || "2026-10-02"),
+    // species_public has no photos, so the public pages add them from
+    // species_photos_public. species_staff has them.
+    photos: photosFromJson(row.photos, slug),
   };
+}
+
+type PublicClient = NonNullable<Awaited<ReturnType<typeof publicClient>>>;
+
+/**
+ * Photos from species_photos_public (supabase/009), by species ID. If they
+ * don't load, for example because the database doesn't have 009 yet, the
+ * pages still work and just show no photos.
+ */
+async function photosFor(
+  client: PublicClient,
+  slug?: string,
+): Promise<Map<string, SpeciesPhoto[]>> {
+  const query = client.from("species_photos_public").select("id, photos");
+  const { data, error } = await (slug ? query.eq("id", slug) : query);
+  if (error) {
+    console.error("Couldn't load the species photos:", error.message);
+    return new Map();
+  }
+  return new Map(
+    data.map((row) => [String(row.id), photosFromJson(row.photos, String(row.id))]),
+  );
 }
 
 /**
@@ -46,12 +73,18 @@ export async function getSpeciesList(): Promise<Species[]> {
   const client = await publicClient();
   if (!client) return mockSpecies;
 
-  const { data, error } = await client
-    .from("species_public")
-    .select("*")
-    .order("scientific_name", { ascending: true });
+  const [{ data, error }, photos] = await Promise.all([
+    client
+      .from("species_public")
+      .select("*")
+      .order("scientific_name", { ascending: true }),
+    photosFor(client),
+  ]);
   if (error) throw new Error(`Couldn't load the species list: ${error.message}`);
-  return data.map(speciesFromRow);
+  return data.map((row) => {
+    const species = speciesFromRow(row);
+    return { ...species, photos: photos.get(species.slug) ?? [] };
+  });
 }
 
 /** One species by its URL slug, or null */
@@ -63,11 +96,12 @@ export async function getSpeciesBySlug(slug: string): Promise<Species | null> {
   const client = await publicClient();
   if (!client) return mockSpecies.find((s) => s.slug === slug) ?? null;
 
-  const { data, error } = await client
-    .from("species_public")
-    .select("*")
-    .eq("slug", slug)
-    .maybeSingle();
+  const [{ data, error }, photos] = await Promise.all([
+    client.from("species_public").select("*").eq("slug", slug).maybeSingle(),
+    photosFor(client, slug),
+  ]);
   if (error) throw new Error(`Couldn't load the species ${slug}: ${error.message}`);
-  return data ? speciesFromRow(data) : null;
+  if (!data) return null;
+  const species = speciesFromRow(data);
+  return { ...species, photos: photos.get(species.slug) ?? [] };
 }

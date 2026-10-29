@@ -602,11 +602,9 @@ describe('requests the stand-in turns down', () => {
   });
 
   test("parts of Supabase the stand-in doesn't have say so", async () => {
-    const storage = await call('/storage/v1/object/list/record-photos', {
-      method: 'POST',
-      body: {},
-    });
+    const storage = await call('/storage/v1/object/move', { method: 'POST', body: {} });
     assert.equal(storage.status, 404);
+    assert.equal((await call('/storage/v1/bucket')).status, 404);
     const settings = await call('/auth/v1/settings');
     assert.equal(settings.status, 404);
     assert.equal(settings.body.error_code, 'not_found');
@@ -619,6 +617,247 @@ describe('requests the stand-in turns down', () => {
     assert.equal(big.status, 413);
     assert.equal(await speciesInDb(body.id), null);
     assert.equal((await call('/rest/v1/records_public?select=id&limit=1')).status, 200);
+  });
+});
+
+describe('photos in Storage', () => {
+  // The start of a JPEG file. The stand-in only keeps the bytes, so it doesn't need a whole photo
+  const jpeg = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0xff]);
+  const photoPath = () => `species/eusideroxylon-zwageri/${randomUUID()}.jpg`;
+
+  /** Uploads a file the way storage.from(bucket).upload(path, bytes) does with a Buffer. */
+  async function upload(path, options = {}) {
+    const { token = ANON_KEY, bytes = jpeg, type = 'image/jpeg', bucket = 'botanical-photos' } =
+      options;
+    const response = await fetch(`${standIn.url}/storage/v1/object/${bucket}/${path}`, {
+      method: 'POST',
+      headers: {
+        apikey: ANON_KEY,
+        Authorization: `Bearer ${token}`,
+        'Content-Type': type,
+        'cache-control': 'max-age=3600',
+        'x-upsert': options.upsert ? 'true' : 'false',
+      },
+      body: bytes,
+    });
+    return { status: response.status, body: await response.json() };
+  }
+
+  /** Deletes files the way storage.from(bucket).remove(paths) does. */
+  function remove(paths, token = ANON_KEY) {
+    return call('/storage/v1/object/botanical-photos', {
+      method: 'DELETE',
+      token,
+      body: { prefixes: paths },
+    });
+  }
+
+  /** Opens a public photo link like an <img> on a page, with no apikey. */
+  function openLink(path, method = 'GET') {
+    return fetch(`${standIn.url}/storage/v1/object/public/botanical-photos/${path}`, { method });
+  }
+
+  test('an officer uploads a photo and anyone can open its public link', async () => {
+    const { access_token: token } = await sessionFor(officer);
+    const path = photoPath();
+    const uploaded = await upload(path, { token });
+    assert.equal(uploaded.status, 200);
+    assert.equal(uploaded.body.Key, `botanical-photos/${path}`);
+    assert.match(uploaded.body.Id, /^[0-9a-f-]{36}$/);
+
+    const link = await openLink(path);
+    assert.equal(link.status, 200);
+    assert.equal(link.headers.get('content-type'), 'image/jpeg');
+    assert.deepEqual(Buffer.from(await link.arrayBuffer()), jpeg);
+    const head = await openLink(path, 'HEAD');
+    assert.equal(head.status, 200);
+    assert.equal(head.headers.get('content-length'), String(jpeg.length));
+
+    const { rows } = await standIn.db.query(
+      "SELECT owner FROM storage.objects WHERE bucket_id = 'botanical-photos' AND name = $1",
+      [path],
+    );
+    assert.deepEqual(rows, [{ owner: officer.id }]);
+  });
+
+  test('an admin can upload too, and everyone else is turned down', async () => {
+    const { access_token: adminToken } = await sessionFor(admin);
+    assert.equal((await upload(photoPath(), { token: adminToken })).status, 200);
+
+    const tokens = [ANON_KEY];
+    for (const user of [botanist, researcher, visitor, noProfile]) {
+      tokens.push((await sessionFor(user)).access_token);
+    }
+    for (const token of tokens) {
+      const path = photoPath();
+      const refused = await upload(path, { token });
+      assert.equal(refused.status, 403);
+      assert.equal(refused.body.error, 'Unauthorized');
+      assert.equal((await openLink(path)).status, 404);
+    }
+  });
+
+  test('uploads Supabase would turn down are turned down', async () => {
+    const { access_token: token } = await sessionFor(officer);
+    const path = photoPath();
+    assert.equal((await upload(path, { token })).status, 200);
+
+    const again = await upload(path, { token });
+    assert.equal(again.status, 409);
+    assert.equal(again.body.error, 'Duplicate');
+    assert.equal((await upload(path, { token, upsert: true })).status, 400);
+
+    const pdf = await upload(photoPath(), { token, type: 'application/pdf' });
+    assert.equal(pdf.status, 415);
+    const tooBig = await upload(photoPath(), { token, bytes: Buffer.alloc(10 * 1024 * 1024 + 1) });
+    assert.equal(tooBig.status, 413);
+    const form = await upload(photoPath(), { token, type: 'multipart/form-data; boundary=x' });
+    assert.equal(form.status, 400);
+
+    const nowhere = await upload(photoPath(), { token, bucket: 'no-such-bucket' });
+    assert.equal(nowhere.status, 404);
+    // URLs tidy away a plain .. before it's sent, so these are the ways one can still get through
+    for (const badPath of ['species//a.jpg', 'species/%2E%2E%2Fsecret.jpg', 'species/a%20b.jpg']) {
+      assert.equal((await upload(badPath, { token })).status, 404, badPath);
+    }
+    const expired = await upload(photoPath(), { token: 'not-a-token' });
+    assert.equal(expired.status, 401);
+    // The stand-in carries on after all of that
+    assert.equal((await openLink(path)).status, 200);
+  });
+
+  test('only officers and admins can delete photos, and the link stops working', async () => {
+    const { access_token: token } = await sessionFor(officer);
+    const path = photoPath();
+    await upload(path, { token });
+
+    const { access_token: botanistToken } = await sessionFor(botanist);
+    const notTheirs = await remove([path], botanistToken);
+    assert.equal(notTheirs.status, 200);
+    assert.deepEqual(notTheirs.body, []);
+    assert.equal((await remove([path])).body.length, 0);
+    assert.equal((await openLink(path)).status, 200);
+
+    const { access_token: adminToken } = await sessionFor(admin);
+    const removed = await remove([path, photoPath()], adminToken);
+    assert.equal(removed.status, 200);
+    assert.deepEqual(
+      removed.body.map((file) => [file.bucket_id, file.name]),
+      [['botanical-photos', path]],
+    );
+    const gone = await openLink(path);
+    assert.equal(gone.status, 404);
+    assert.equal((await gone.json()).error, 'not_found');
+    assert.equal((await remove('not a list', token)).status, 400);
+  });
+
+  test('record photos stay private', async () => {
+    const { access_token: token, user } = await sessionFor(botanist);
+    const path = `${user.id}/${randomUUID()}/1.jpg`;
+    const uploaded = await upload(path, { token, bucket: 'record-photos' });
+    assert.equal(uploaded.status, 200);
+    const link = await fetch(`${standIn.url}/storage/v1/object/public/record-photos/${path}`);
+    assert.equal(link.status, 404);
+  });
+
+  /** A record with two photos, uploaded by the botanist the way the phone will (item 11). */
+  async function recordWithPhotos() {
+    const { access_token: token, user } = await sessionFor(botanist);
+    const folder = `${user.id}/${randomUUID()}`;
+    for (const name of ['2.jpg', '1.jpg']) {
+      await upload(`${folder}/${name}`, { token, bucket: 'record-photos' });
+    }
+    return folder;
+  }
+
+  /** Lists a folder the way storage.from(bucket).list(folder) does. */
+  function list(folder, token, bucket = 'record-photos') {
+    return call(`/storage/v1/object/list/${bucket}`, {
+      method: 'POST',
+      token,
+      body: { limit: 100, offset: 0, sortBy: { column: 'name', order: 'asc' }, prefix: folder },
+    });
+  }
+
+  /** Asks for links the way storage.from(bucket).createSignedUrls(paths, seconds) does. */
+  function sign(paths, token, expiresIn = 3600) {
+    return call('/storage/v1/object/sign/record-photos', {
+      method: 'POST',
+      token,
+      body: { expiresIn, paths },
+    });
+  }
+
+  test("officers list a record's photos, and nobody else sees them", async () => {
+    const folder = await recordWithPhotos();
+    const { access_token: token } = await sessionFor(officer);
+    const listed = await list(folder, token);
+    assert.equal(listed.status, 200);
+    assert.deepEqual(listed.body.map((file) => file.name), ['1.jpg', '2.jpg']);
+    assert.ok(listed.body.every((file) => file.id && file.metadata.size === jpeg.length));
+
+    // One level up, the record is a folder
+    const [botanistId] = folder.split('/');
+    const folders = await list(botanistId, token);
+    assert.ok(folders.body.some((entry) => entry.name === folder.split('/')[1] && !entry.id));
+
+    for (const user of [visitor, researcher]) {
+      const { access_token: theirs } = await sessionFor(user);
+      assert.deepEqual((await list(folder, theirs)).body, [], user.email);
+    }
+    assert.deepEqual((await list(folder)).body, []);
+  });
+
+  test('signed links open a record photo without signing in, until they run out', async () => {
+    const folder = await recordWithPhotos();
+    const { access_token: token } = await sessionFor(officer);
+    const missing = `${folder}/3.jpg`;
+    const signed = await sign([`${folder}/1.jpg`, missing], token, 60);
+    assert.equal(signed.status, 200);
+    assert.equal(signed.body[0].error, null);
+    assert.match(signed.body[0].signedURL, /^\/object\/sign\/record-photos\/.+\?token=/);
+    assert.equal(signed.body[1].path, missing);
+    assert.equal(signed.body[1].signedURL, null);
+    assert.ok(signed.body[1].error);
+
+    // Like an <img>, with no apikey
+    const link = await fetch(`${standIn.url}/storage/v1${signed.body[0].signedURL}`);
+    assert.equal(link.status, 200);
+    assert.deepEqual(Buffer.from(await link.arrayBuffer()), jpeg);
+
+    // The token only works for the file it was made for
+    const otherFile = signed.body[0].signedURL.replace('/1.jpg?', '/2.jpg?');
+    assert.equal((await fetch(`${standIn.url}/storage/v1${otherFile}`)).status, 400);
+    const changed = signed.body[0].signedURL.replace(/token=(\d+)/, (_, s) => `token=${+s + 999}`);
+    assert.equal((await fetch(`${standIn.url}/storage/v1${changed}`)).status, 400);
+
+    // A visitor can't get links to them
+    const { access_token: visitorToken } = await sessionFor(visitor);
+    const turnedDown = await sign([`${folder}/1.jpg`], visitorToken);
+    assert.equal(turnedDown.body[0].signedURL, null);
+    assert.equal((await sign('not a list', token)).status, 400);
+    assert.equal((await sign([`${folder}/1.jpg`], token, 0)).status, 400);
+  });
+
+  test('officers delete record photos and the links stop working', async () => {
+    const folder = await recordWithPhotos();
+    const paths = [`${folder}/1.jpg`, `${folder}/2.jpg`];
+    const { access_token: token } = await sessionFor(officer);
+    const [{ signedURL }] = (await sign(paths, token)).body;
+
+    const removeRecordPhotos = (who) =>
+      call('/storage/v1/object/record-photos', {
+        method: 'DELETE',
+        token: who,
+        body: { prefixes: paths },
+      });
+    const { access_token: botanistToken } = await sessionFor(botanist);
+    assert.deepEqual((await removeRecordPhotos(botanistToken)).body, []);
+
+    const removed = await removeRecordPhotos(token);
+    assert.equal(removed.body.length, 2);
+    assert.deepEqual((await list(folder, token)).body, []);
+    assert.equal((await fetch(`${standIn.url}/storage/v1${signedURL}`)).status, 404);
   });
 });
 

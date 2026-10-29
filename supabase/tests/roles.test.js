@@ -823,16 +823,14 @@ describe('species photos in Storage', () => {
 
   test("the species photo rules don't reach the private record-photos bucket", async () => {
     const move = 'UPDATE storage.objects SET bucket_id = $2 WHERE bucket_id = $3 AND name = $1';
-    const removeRecordPhoto =
-      "DELETE FROM storage.objects WHERE bucket_id = 'record-photos' AND name = $1";
     const recordPhoto = `${botanist.id}/${randomUUID()}/1.jpg`;
     await uploadPhoto(botanist, recordPhoto, 'record-photos');
     for (const user of [botanist, officer, admin]) {
       const changes = [recordPhoto, 'botanical-photos', 'record-photos'];
       assert.equal(await changed(user, move, changes), 0, `${who(user)}, moving it`);
     }
+    // 009 lets officers and admins delete record photos (photos.test.js), but not add them
     for (const user of [officer, admin]) {
-      assert.equal(await changed(user, removeRecordPhoto, [recordPhoto]), 0, who(user));
       const intoSomeoneElses = `${botanist.id}/${randomUUID()}/1.jpg`;
       await assert.rejects(
         uploadPhoto(user, intoSomeoneElses, 'record-photos'),

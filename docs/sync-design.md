@@ -101,11 +101,13 @@ empty instead, for the old records too, and turns down 0 or less.
 - A photo goes in a folder named after the uploader's user ID, like
   `<user id>/<record id>/1.jpg`. Field staff can only upload into their own folder.
 - Only the uploader, officers and admins can see a photo. A private photo has no fixed public
-  link, so `photo_urls` from 001 isn't used for them. The website can show them to officers with
-  a signed link that runs out after a while.
-- Nobody can replace or delete a photo yet. If a photo upload runs twice, Storage says the file is
-  already there, and item 11 should count that as done, the same way the phone does with records.
-  Don't switch on `upsert`, because that needs the right to replace files.
+  link, so `photo_urls` from 001 isn't used for them. The website shows them to officers and
+  admins on the record edit page with signed links that run out after an hour (item 18).
+- Nobody can replace a photo. If a photo upload runs twice, Storage says the file is already
+  there, and item 11 should count that as done, the same way the phone does with records. Don't
+  switch on `upsert`, because that needs the right to replace files.
+- Since 009, officers and admins can delete record photos, and the website deletes a record's
+  photos when it deletes the record (item 18). Field staff still can't delete their own.
 
 ## Known limits
 

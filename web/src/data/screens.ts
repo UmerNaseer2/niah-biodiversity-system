@@ -28,7 +28,7 @@ export const publicScreens: Screen[] = [
     path: "/plants/eusideroxylon-zwageri",
     items: [16, 18, 20],
     works:
-      "Text, family and IUCN status are in. The photo gallery is item 18 (Sprint 2) and real maps are item 20 (Sprint 2).",
+      "Text, family, IUCN status and the photo gallery are in. Real maps are item 20 (Sprint 2).",
   },
   {
     title: "Scan a tag",
@@ -72,8 +72,8 @@ export const staffScreens: Screen[] = [
   {
     title: "Edit a species",
     path: "/dashboard/species/eusideroxylon-zwageri/edit",
-    items: [14],
-    works: "The same form filled in from Supabase. The scientific name can’t change, since the public page link uses it.",
+    items: [14, 18],
+    works: "The same form filled in from Supabase. The scientific name can’t change, since the public page link uses it. Under the form, photos can be uploaded, removed or made the main one.",
   },
   {
     title: "Delete a species",
