@@ -91,7 +91,7 @@ export const staffScreens: Screen[] = [
     title: "Reports",
     path: "/dashboard/reports",
     items: [21],
-    works: "The CSV download works with the mock records. PDF reports and charts are item 21 (Sprint 2), so they have tape on them.",
+    works: "Counts of the plant records in Supabase by IUCN status, condition, species and month, filtered by date. It prints or saves as a PDF, and the server builds the CSV download after checking the role.",
   },
   {
     title: "Sensors",

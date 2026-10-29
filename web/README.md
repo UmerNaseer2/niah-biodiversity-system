@@ -98,12 +98,12 @@ src/
       records/          the records table, and [id]/edit and [id]/delete
       review/           approve or reject records sent from the mobile app
       species/          the species table, new/ to add one, and [slug]/edit and [slug]/delete
-      reports/          the CSV export
+      reports/          counts, charts and the print view, and csv/ for the download
       sensors/          alerts, the sensor nodes and their map
       users/            who has an account and what each role can do
   components/           shared pieces: park map, tree tag, photo gallery, planned tape, icons...
   data/                 mock species, records, people and sensors, plus the screen list
-  lib/                  Supabase and sign in, species and record form checks, photos, IUCN labels, the location grid
+  lib/                  Supabase and sign in, species and record form checks, photos, IUCN labels, the location grid, report counts and the CSV
 ```
 
 ## Planned features
@@ -118,7 +118,6 @@ planned for, so it's clear what's real during the demo. The item numbers match t
 | 2 | Invites and changing someone's role | Users and roles |
 | 12 | QR codes that really scan, printed for each tag | Scan a tag, tag pages |
 | 19 | Saving approve and reject decisions | Review queue |
-| 21 | PDF reports and charts | Reports |
 | 28, 29 | Live readings from the ESP32 sensor nodes | Sensors |
 | 30 to 32 | The monitoring dashboard, alerts sent to the patrol team and the sensor map | Sensors, overview |
 
@@ -152,9 +151,10 @@ planned for, so it's clear what's real during the demo. The item numbers match t
   `src/lib/auth.ts`, and a new staff page needs it too. The check in `dashboard/layout.tsx` isn't
   enough on its own. Next renders a page and its layout at the same time, so a layout that shows
   "No access" doesn't stop the page's data from reaching the browser.
-- Staff pages do send exact points to the browser (review queue, reports and the overview map), so
-  the reports CSV should be built on the server (item 21). The database checks roles too (006,
-  item 4), so the staff views give anyone else nothing.
+- Staff pages do send exact points to the browser (the review queue and the overview map). The
+  reports page doesn't. Its CSV is built in `dashboard/reports/csv/route.ts`, which checks the role
+  again before it sends anything. The database checks roles too (006, item 4), so the staff views
+  give anyone else nothing.
 - Sign in and the species forms post to server actions, so nothing anyone types ends up in the
   address bar. The other wireframe forms don't have `name` attributes and never submit anywhere.
   The plant search keeps `?q=` in the URL on purpose, so a search can be shared.

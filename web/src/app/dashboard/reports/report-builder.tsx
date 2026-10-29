@@ -2,170 +2,62 @@
 
 import { useState } from "react";
 import { Icon } from "@/components/icon";
-import { CONDITION_LABEL, type Condition } from "@/lib/condition";
-import { formatCoords, MOCK_NOW, plural } from "@/lib/format";
-import { IUCN, type IucnCode } from "@/lib/iucn";
+import { plural } from "@/lib/format";
+import type { ReportFilters } from "@/lib/reports";
 
-export type ReportRow = {
+/** One row of the preview. No coordinates, those only go into the file. */
+export type PreviewRow = {
   id: string;
   code: string;
-  commonName: string;
-  scientificName: string;
-  family: string;
-  iucn: IucnCode;
-  hidesLocation: boolean;
+  name: string;
   status: "published" | "waiting";
-  heightM: number;
-  condition: Condition;
-  recordedBy: string;
+  condition: string;
   recordedAt: string;
-  recordedAtLabel: string;
-  lat: number | null;
-  lng: number | null;
-  accuracyM: number | null;
-  notes: string | null;
+  hidesLocation: boolean;
+  hasGps: boolean;
 };
 
-type Scope = "published" | "all";
-
-const FILE_NAME = `niah-plant-records-${MOCK_NOW.slice(0, 10)}.csv`;
-
-const HEADERS = [
-  "Tag code",
-  "Common name",
-  "Scientific name",
-  "Family",
-  "IUCN status",
-  "Review status",
-  "Height (m)",
-  "Condition",
-  "Recorded by",
-  "Recorded at",
-  "Location",
-  "Latitude",
-  "Longitude",
-  "GPS accuracy (m)",
-  "Notes",
-];
+// Enough to check the file looks right without a page that goes on forever
+const PREVIEW_ROWS = 20;
 
 /**
- * One CSV cell. Text starting with = + - @ or a tab gets a ' in front so
- * Excel shows it instead of running it as a formula, since notes come from
- * whatever the ranger typed.
+ * A plain GET form to /dashboard/reports/csv. The server checks the role and
+ * sends the file back as a download, so the browser stays on this page.
  */
-function csvCell(value: string | number | null) {
-  if (value === null) return "";
-  let text = String(value);
-  if (typeof value === "string" && /^[=+\-@\t\r]/.test(text)) text = `'${text}`;
-  return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
-}
-
-function locationOf(row: ReportRow, includeExact: boolean) {
-  if (row.lat === null || row.lng === null) return "No GPS point";
-  if (row.hidesLocation && !includeExact) return "Hidden";
-  return "Exact";
-}
-
-function buildCsv(rows: ReportRow[], includeExact: boolean) {
-  const lines = rows.map((row) => {
-    const location = locationOf(row, includeExact);
-    const showPoint = location === "Exact";
-    return [
-      row.code,
-      row.commonName,
-      row.scientificName,
-      row.family,
-      `${IUCN[row.iucn].label} (${row.iucn})`,
-      row.status === "published" ? "Public" : "Waiting for review",
-      row.heightM,
-      CONDITION_LABEL[row.condition],
-      row.recordedBy,
-      row.recordedAt,
-      location,
-      showPoint ? row.lat : null,
-      showPoint ? row.lng : null,
-      showPoint ? row.accuracyM : null,
-      row.notes,
-    ]
-      .map(csvCell)
-      .join(",");
-  });
-  return [HEADERS.map(csvCell).join(","), ...lines].join("\r\n");
-}
-
-export function ReportBuilder({ rows }: { rows: ReportRow[] }) {
-  const [scope, setScope] = useState<Scope>("published");
+export function ReportBuilder({
+  filters,
+  rows,
+}: {
+  filters: ReportFilters;
+  rows: PreviewRow[];
+}) {
   const [includeExact, setIncludeExact] = useState(false);
   const [announcement, setAnnouncement] = useState("");
 
-  const chosen = scope === "all" ? rows : rows.filter((r) => r.status === "published");
-  const publishedCount = rows.filter((r) => r.status === "published").length;
-  const hiddenCount = chosen.filter(
-    (r) => r.hidesLocation && r.lat !== null,
-  ).length;
-
-  function download() {
-    // The BOM makes Excel open the file as UTF-8
-    const blob = new Blob([`\uFEFF${buildCsv(chosen, includeExact)}`], {
-      type: "text/csv;charset=utf-8",
-    });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = FILE_NAME;
-    document.body.append(link);
-    link.click();
-    link.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-    setAnnouncement(`Downloaded ${FILE_NAME} with ${plural(chosen.length, "record")}.`);
-  }
+  const hiddenCount = rows.filter((r) => r.hidesLocation && r.hasGps).length;
+  const shown = rows.slice(0, PREVIEW_ROWS);
 
   return (
-    <div className="mt-8 grid gap-8 xl:grid-cols-[20rem_minmax(0,1fr)]">
-      <div className="max-w-md space-y-7">
-        <fieldset>
-          <legend className="font-bold">Which records</legend>
-          <div className="mt-3 space-y-3">
-            <div className="flex items-start gap-3">
-              <input
-                id="scope-published"
-                type="radio"
-                name="scope"
-                value="published"
-                checked={scope === "published"}
-                onChange={() => setScope("published")}
-                className="mt-0.5 size-5 shrink-0 accent-forest"
-              />
-              <label htmlFor="scope-published">
-                <span className="font-bold">Public records</span>{" "}
-                <span className="text-moss">({publishedCount})</span>
-              </label>
-            </div>
-            <div className="flex items-start gap-3">
-              <input
-                id="scope-all"
-                type="radio"
-                name="scope"
-                value="all"
-                checked={scope === "all"}
-                onChange={() => setScope("all")}
-                className="mt-0.5 size-5 shrink-0 accent-forest"
-              />
-              <label htmlFor="scope-all">
-                <span className="font-bold">All records</span>{" "}
-                <span className="text-moss">
-                  ({rows.length}, including ones waiting for review)
-                </span>
-              </label>
-            </div>
-          </div>
-        </fieldset>
+    <div className="mt-6 grid gap-8 xl:grid-cols-[20rem_minmax(0,1fr)]">
+      <form
+        method="get"
+        action="/dashboard/reports/csv"
+        onSubmit={() =>
+          setAnnouncement(`Downloading a CSV file with ${plural(rows.length, "record")}.`)
+        }
+        className="max-w-md space-y-6"
+      >
+        {filters.scope === "all" && <input type="hidden" name="scope" value="all" />}
+        {filters.from && <input type="hidden" name="from" value={filters.from} />}
+        {filters.to && <input type="hidden" name="to" value={filters.to} />}
 
         <div>
           <div className="flex items-start gap-3">
             <input
               id="include-exact"
               type="checkbox"
+              name="exact"
+              value="1"
               checked={includeExact}
               onChange={(event) => setIncludeExact(event.target.checked)}
               aria-describedby="include-exact-hint"
@@ -177,6 +69,7 @@ export function ReportBuilder({ rows }: { rows: ReportRow[] }) {
               </label>
               <p id="include-exact-hint" className="text-sm text-moss">
                 Left off, those rows say Hidden and the coordinates are blank.
+                Plants not matched to a species yet stay hidden too.
               </p>
             </div>
           </div>
@@ -192,26 +85,26 @@ export function ReportBuilder({ rows }: { rows: ReportRow[] }) {
         </div>
 
         <div className="border-t border-line pt-6">
-          <button type="button" onClick={download} className="btn btn-primary w-full">
+          <button type="submit" className="btn btn-primary w-full">
             <Icon name="download" className="size-4" />
             Download CSV
           </button>
           <p className="mt-2 text-center text-sm text-moss">
-            {FILE_NAME}, {plural(chosen.length, "row")}
+            {plural(rows.length, "row")}, opens in Excel or Google Sheets
           </p>
           <p role="status" className="sr-only">
             {announcement}
           </p>
         </div>
-      </div>
+      </form>
 
       <section aria-labelledby="preview-heading" className="min-w-0">
-        <h2 id="preview-heading" className="text-xl font-bold tracking-tight">
+        <h3 id="preview-heading" className="text-lg font-bold tracking-tight">
           Preview
-        </h2>
+        </h3>
         <p className="text-sm text-moss">
-          The file also has the family, IUCN status, height, who recorded it,
-          GPS accuracy and notes.
+          The file also has the scientific name, family, IUCN status, height,
+          who recorded it, GPS accuracy and notes.
           {hiddenCount > 0 &&
             !includeExact &&
             ` ${plural(hiddenCount, "row")} will say Hidden.`}
@@ -234,45 +127,43 @@ export function ReportBuilder({ rows }: { rows: ReportRow[] }) {
               </tr>
             </thead>
             <tbody className="divide-y divide-line">
-              {chosen.map((row) => {
-                const location = locationOf(row, includeExact);
-                return (
-                  <tr key={row.id}>
-                    <td className="whitespace-nowrap px-4 py-3 font-mono font-bold">
-                      {row.code}
-                    </td>
-                    <td className="px-4 py-3">{row.commonName}</td>
-                    <td className="px-4 py-3">
-                      {row.status === "published" ? (
-                        <span className="font-bold text-ok">Public</span>
-                      ) : (
-                        <span className="font-bold text-warn">Waiting</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3">{CONDITION_LABEL[row.condition]}</td>
-                    <td className="whitespace-nowrap px-4 py-3">
-                      {row.recordedAtLabel}
-                    </td>
-                    <td className="px-4 py-3">
-                      {location === "Exact" && row.lat !== null && row.lng !== null ? (
-                        <span className="font-mono">
-                          {formatCoords(row.lat, row.lng)}
-                        </span>
-                      ) : location === "Hidden" ? (
-                        <span className="inline-flex items-center gap-1.5 font-bold text-moss">
-                          <Icon name="lock" className="size-4" />
-                          Hidden
-                        </span>
-                      ) : (
-                        <span className="text-moss">No GPS point</span>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
+              {shown.map((row) => (
+                <tr key={row.id}>
+                  <td className="whitespace-nowrap px-4 py-3 font-mono font-bold">
+                    {row.code}
+                  </td>
+                  <td className="px-4 py-3">{row.name}</td>
+                  <td className="px-4 py-3">
+                    {row.status === "published" ? (
+                      <span className="font-bold text-ok">Published</span>
+                    ) : (
+                      <span className="font-bold text-warn">Waiting</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3">{row.condition}</td>
+                  <td className="whitespace-nowrap px-4 py-3">{row.recordedAt}</td>
+                  <td className="px-4 py-3">
+                    {!row.hasGps ? (
+                      <span className="text-moss">No GPS point</span>
+                    ) : row.hidesLocation && !includeExact ? (
+                      <span className="inline-flex items-center gap-1.5 font-bold text-moss">
+                        <Icon name="lock" className="size-4" />
+                        Hidden
+                      </span>
+                    ) : (
+                      "Exact"
+                    )}
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
+        {rows.length > shown.length && (
+          <p className="mt-2 text-sm text-moss">
+            And {rows.length - shown.length} more in the file.
+          </p>
+        )}
       </section>
     </div>
   );

@@ -15,7 +15,7 @@ export const metadata: Metadata = {
 const WORKS_NOW = [
   "Every page is clickable and links to the others.",
   "Plant search, the tag lookup, the review queue and the sensor alerts all respond as you use them.",
-  "The CSV download on the reports page is built from the mock records.",
+  "The reports page counts the real plant records and prints or saves as a PDF. The server builds its CSV download after checking the role, and hidden spots stay blank unless an officer asks for them.",
   "Threatened and protected plants only show a rough area on public pages. Their exact points never leave the server.",
   "Staff sign in with Supabase, and only conservation officers and administrators can open the dashboard. Every staff page checks that on the server.",
   "Officers can add, edit and delete species on the dashboard.",
@@ -24,7 +24,7 @@ const WORKS_NOW = [
 ];
 
 const NOT_REAL_YET = [
-  "On the dashboard, the overview lists, review queue, reports, sensor readings and the users list still come from mock files in web/src/data.",
+  "On the dashboard, the overview lists, review queue, sensor readings and the users list still come from mock files in web/src/data.",
   "Staff accounts are made by hand in Supabase. Inviting people and changing roles on the website are item 2.",
   "Apart from species, record edits and photos, nothing is saved yet. Refreshing a page puts it back how it was.",
   "The squares on the tags don’t scan yet (item 12).",
