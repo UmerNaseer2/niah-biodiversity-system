@@ -314,6 +314,38 @@
   display: none;
 }
 
+/* A plant dot that's a link. The link is bigger than the dot so it's easier to hit. */
+.map-dot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  border-radius: 999px;
+  /* Leaflet turns clicks off on markers, so the link turns them back on */
+  pointer-events: auto;
+}
+
+.map-dot::before {
+  content: "";
+  width: 17px;
+  height: 17px;
+  border: 2.5px solid #fff;
+  border-radius: 999px;
+  background-color: var(--color-forest);
+}
+
+.map-dot:hover::before {
+  background-color: var(--color-forest-deep);
+  transform: scale(1.15);
+}
+
+/* Dots close together overlap, so the one with focus comes to the front.
+   Leaflet sets the z-index inline, which is why this needs !important. */
+.leaflet-marker-icon:has(> .map-dot:focus-visible) {
+  z-index: 1000 !important;
+}
+
 .map-sensor span {
   display: block;
   width: 100%;

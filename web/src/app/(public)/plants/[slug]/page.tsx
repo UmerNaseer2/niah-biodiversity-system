@@ -256,7 +256,7 @@ export default async function PlantPage({
                     title={`Map of where ${name} has been tagged`}
                     description={
                       !hidden
-                        ? `A map of the park around park HQ with a dot for each tagged ${name}.`
+                        ? `A map of the park around park HQ with a dot for each tagged ${name}. Each dot is a link to its tag page.`
                         : areas.length === 1
                           ? `A map of the park around park HQ. The shaded square marks the rough area, about 440 m across, that holds the tagged ${name}. The exact spot is not shown.`
                           : `A map of the park around park HQ. The shaded squares mark the rough areas, each about 440 m across, that hold the tagged ${name}. The exact spots are not shown.`
@@ -265,7 +265,11 @@ export default async function PlantPage({
                     points={
                       hidden
                         ? []
-                        : located.map((p) => ({ ...p, label: p.id }))
+                        : located.map((p) => ({
+                            ...p,
+                            label: p.id,
+                            link: { href: `/tag/${p.id}`, text: `Tag ${p.id}` },
+                          }))
                     }
                     className="mt-8"
                   />
