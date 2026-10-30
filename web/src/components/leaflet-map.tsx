@@ -5,7 +5,14 @@ import type { LatLngTuple, Map as LeafletMapType } from "leaflet";
 import { useEffect, useRef, useState } from "react";
 import { PARK_HQ, type Area } from "@/lib/geo";
 
-export type MapPoint = { id: string; lat: number; lng: number; label: string };
+export type MapPoint = {
+  id: string;
+  lat: number;
+  lng: number;
+  label: string;
+  // Where the dot goes when it's clicked, and what a screen reader says for it
+  link?: { href: string; text: string };
+};
 export type MapArea = Area & { id: string };
 export type MapSensor = {
   id: string;
@@ -75,6 +82,13 @@ export function LeafletMap({
 
         const corners: LatLngTuple[] = [[PARK_HQ.lat, PARK_HQ.lng]];
 
+        // The map can be dragged by a dot too. A dot moves with the map, so a
+        // drag that starts on one ends on it, and that shouldn't open the link.
+        let dragged = false;
+        map.on("dragstart", () => {
+          dragged = true;
+        });
+
         for (const area of areas) {
           const bounds: [LatLngTuple, LatLngTuple] = [
             [area.south, area.west],
@@ -140,19 +154,58 @@ export function LeafletMap({
         }
 
         for (const point of points) {
-          corners.push([point.lat, point.lng]);
-          L.circleMarker([point.lat, point.lng], {
-            radius: 7,
-            color: "#ffffff",
-            weight: 2.5,
-            fillColor: FOREST,
-            fillOpacity: 1,
+          const at: LatLngTuple = [point.lat, point.lng];
+          corners.push(at);
+          if (!point.link) {
+            L.circleMarker(at, {
+              radius: 7,
+              color: "#ffffff",
+              weight: 2.5,
+              fillColor: FOREST,
+              fillOpacity: 1,
+              interactive: false,
+            })
+              .bindTooltip(label(point.label), {
+                permanent: true,
+                direction: "right",
+                offset: [8, 0],
+                className: "map-label",
+              })
+              .addTo(map);
+            continue;
+          }
+
+          // A dot with somewhere to go is a real link, so it can be tabbed to
+          // and opened with the keyboard as well as clicked
+          const link = document.createElement("a");
+          link.href = point.link.href;
+          link.className = "map-dot";
+          const name = label(point.link.text);
+          name.className = "sr-only";
+          link.append(name);
+          // Tabbing to a dot that's been panned out of sight brings it back
+          link.addEventListener("focus", () => {
+            if (map && !map.getBounds().contains(at)) map.panTo(at);
+          });
+          link.addEventListener("pointerdown", () => {
+            dragged = false;
+          });
+          link.addEventListener("click", (event) => {
+            // Enter gives a click with no pointer (detail 0), so it always opens
+            if (dragged && event.detail > 0) event.preventDefault();
+          });
+          // The link already says it, so screen readers don't hear it twice
+          const shown = label(point.label);
+          shown.setAttribute("aria-hidden", "true");
+          L.marker(at, {
+            icon: L.divIcon({ html: link, className: "", iconSize: [24, 24] }),
             interactive: false,
+            keyboard: false,
           })
-            .bindTooltip(label(point.label), {
+            .bindTooltip(shown, {
               permanent: true,
               direction: "right",
-              offset: [8, 0],
+              offset: [10, 0],
               className: "map-label",
             })
             .addTo(map);

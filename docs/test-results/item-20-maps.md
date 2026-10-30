@@ -3,7 +3,8 @@
 Round 1 was on 29 Oct 2026 on Umer's Mac (Node 22) on the `item-20-maps` branch. The hosted
 Supabase project doesn't have the SQL files after 002 yet, so the pages were tried against the
 Supabase stand-in in `supabase/tests/stand-in.js` (see `web/README.md`), with the stand-in's own
-sample records.
+sample records. Round 2, on the same day on the `map-dot-links` branch, made the plant dots into
+links.
 
 ## What it does
 
@@ -36,6 +37,8 @@ sample records.
 | Exact spots on the overview | Yes, from `records_staff` | Only officers and admins can open the overview, and `records_staff` only answers them (006). Rejected records are left off because they aren't plants we know are there |
 | Zoom on scroll | Off, the buttons still zoom | Otherwise scrolling down a plant page gets stuck zooming the map |
 | How far the map zooms in to start | At most zoom 15 | Closer than that and the map lost the park around a single square |
+| How a dot opens its record (round 2) | A real `<a>` link inside a Leaflet marker, not a click handler on the marker | A link already works with Tab, Enter, middle click and "open in new tab", and screen readers call it a link |
+| Where a dot goes (round 2) | The record's edit page on the overview, the tag page on a plant page. The tag page's own dot isn't a link | Those are the pages the lists next to the maps already link to. A link to the page you're on would do nothing |
 
 ## Automated checks
 
@@ -63,20 +66,38 @@ already covered by the database tests, and nothing in the database changed in th
 | Plant page at phone width (375 px): the map fits, there's no sideways scrolling and the legend wraps | Pass |
 | No errors in the browser console after a fresh load of the maps | Pass |
 
+## Round 2: the dots are links
+
+| Test | Result |
+| --- | --- |
+| Overview: all 9 plant dots are links with names like "Edit NNP-D00D02, Strangler fig". The label beside each dot is hidden from screen readers so the name isn't read out twice | Pass |
+| Tab from the map goes through the dots one at a time, then the zoom buttons. The focused dot gets the green focus ring and comes in front of any dot it overlaps | Pass |
+| Clicking the Keruing sarawak dot opens that record's edit page | Pass |
+| Enter on the focused Strangler fig dot opens that record's edit page | Pass |
+| Dragging the map with the pointer starting on a dot moves the map and stays on the overview | Pass |
+| A click that ends a drag started on a dot is blocked, but a plain click or Enter straight after still opens the record. Checked with mouse events fired from the browser console, since a slow hand drag can't be done in the test browser | Pass |
+| Stand-in tree plant page (exact point): one dot, a link named "Tag NNP-D00D01", and Enter on it opens the tag page. The map's description says each dot is a link | Pass |
+| Tapang plant page (protected, rough area only): no dots and no links on the map, so no link gives away a hidden spot | Pass |
+| Tag NNP-D00D01: its one dot stays a plain dot | Pass |
+| No errors in the browser console from clicking or pressing Enter on the dots | Pass |
+
 ## Not tested yet
 
 - The "The map didn’t load" message. It shows if Leaflet's code can't be fetched, which is hard to
   cause on purpose in the dev server.
-- A screen reader. The region names and descriptions were checked in the page, but not read out.
+- A screen reader. The region names, descriptions and dot link names were checked in the page, but
+  not read out.
+- Dots on a touch screen. They're 24 px across, which is smaller than the 44 px the rest of the site
+  uses for things to tap, so a phone may need a zoom in first.
 - The pages against the hosted project, which needs 003 to 009 run first.
 - A slow or offline phone in the park, where tiles may not load at all.
 
 ## Known limits
 
-- **Labels can overlap** when plants are close together, like on the overview. Zooming in with the
-  buttons spreads them out.
-- **The dots aren't buttons.** They can't be focused or clicked to open a record. Plant pages list
-  their records in text as well, and staff have the records page.
+- **Labels and dots can overlap** when plants are close together, like on the overview. Zooming in
+  with the buttons spreads them out. A dot hidden under another one can still be reached with Tab.
+- **Fixed on 29 Oct:** the dots used to be pictures only, so they couldn't be focused or clicked to
+  open a record. Now each plant dot is a link. See round 2 above.
 - **The tiles come from openstreetmap.org.** Every visitor's browser asks OSM for them directly, so
   OSM sees their IP address. OSM's tile policy is fine with light use like ours, but a real launch
   would need a tile provider that allows more traffic.

@@ -84,6 +84,10 @@ export default async function OverviewPage() {
               lat: r.gps.lat,
               lng: r.gps.lng,
               label: plantName(r) || r.tagCode,
+              link: {
+                href: `/dashboard/records/${r.id}/edit`,
+                text: `Edit ${r.tagCode}, ${plantName(r) || "no species yet"}`,
+              },
             },
           ]
         : [],
@@ -317,7 +321,7 @@ export default async function OverviewPage() {
           description={`A map of the park around park HQ with ${plural(
             mapped.length,
             "tagged plant",
-          )} and ${plural(sensors.length, "sensor")}. Sensors with an alert are circled.`}
+          )} and ${plural(sensors.length, "sensor")}. Sensors with an alert are circled. Each plant’s dot is a link to its record.`}
           points={mapped}
           sensors={sensors.map((s) => ({
             id: s.id,
