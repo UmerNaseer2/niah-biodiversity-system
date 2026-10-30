@@ -75,4 +75,6 @@ leaves `tag_code` out of the comparison.
   already in `docs/sync-design.md` under "Known limits", and the delete page says so. A synced
   record stays deleted.
 - **No history.** Nothing records who edited or deleted a record.
-- **Two people editing the same record:** the last save wins, like the species forms.
+- **Fixed on 29 Oct:** two people editing the same record or species used to mean the last save
+  won. Now a save that comes after someone else's is refused and the form says so. See
+  [edit-conflicts.md](edit-conflicts.md).

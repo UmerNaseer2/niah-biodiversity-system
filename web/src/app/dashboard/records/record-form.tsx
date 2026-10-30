@@ -45,9 +45,10 @@ const LABEL = "font-bold";
 const HINT = "text-sm text-moss";
 const OPTIONAL = <span className="font-normal text-moss"> (optional)</span>;
 
-type Props = { id: string; tag: string; initial: Values };
+// version is the record's updated_at when the page loaded (src/lib/edit-version.ts)
+type Props = { id: string; tag: string; initial: Values; version: string };
 
-export function RecordForm({ id, tag, initial }: Props) {
+export function RecordForm({ id, tag, initial, version: loadedVersion }: Props) {
   const [state, formAction, pending] = useActionState(editRecord, INITIAL);
   // Without JavaScript the browser posts the form itself, and the page comes
   // back with the server's answer as the first state, so it starts from that
@@ -60,6 +61,12 @@ export function RecordForm({ id, tag, initial }: Props) {
   );
   const [formError, setFormError] = useState(() =>
     state.status === "error" ? state.message : null,
+  );
+  // An answer from the server carries the version to check against next. After
+  // someone else saved first it stays the old one, so the form can't save over
+  // their changes until the page is reloaded.
+  const [version, setVersion] = useState(() =>
+    state.status === "saved" || state.status === "error" ? state.version : loadedVersion,
   );
   const [saved, setSaved] = useState(() => state.status === "saved");
   const [handled, setHandled] = useState(state);
@@ -75,6 +82,7 @@ export function RecordForm({ id, tag, initial }: Props) {
       setFocusRequest({ elementId: "error-summary" });
     } else if (state.status === "saved") {
       setValues(state.values);
+      setVersion(state.version);
       setSaved(true);
       setFocusRequest({ elementId: "record-saved" });
     }
@@ -160,6 +168,7 @@ export function RecordForm({ id, tag, initial }: Props) {
       className="mt-8 max-w-2xl space-y-7"
     >
       <input type="hidden" name="id" value={id} />
+      <input type="hidden" name="version" value={version} />
 
       {(errorList.length > 0 || formError) && (
         <section

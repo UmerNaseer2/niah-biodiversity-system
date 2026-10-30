@@ -82,6 +82,7 @@ export default async function EditSpeciesPage({
         slug={slug}
         initial={valuesFromSpecies(species, about)}
         photo={mainPhoto(species.photos)?.src ?? null}
+        version={String(data.updated_at ?? "")}
       />
       <PhotoManager slug={slug} name={name} photos={species.photos} />
     </div>

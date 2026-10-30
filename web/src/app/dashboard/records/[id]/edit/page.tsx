@@ -100,7 +100,12 @@ export default async function EditRecordPage({
           </>
         }
       />
-      <RecordForm id={record.id} tag={record.tagCode} initial={valuesFromRecord(record)} />
+      <RecordForm
+        id={record.id}
+        tag={record.tagCode}
+        initial={valuesFromRecord(record)}
+        version={String(data.updated_at ?? "")}
+      />
 
       <section
         aria-labelledby="field-photos-heading"

@@ -60,10 +60,11 @@ const HINT = "text-sm text-moss";
 const OPTIONAL = <span className="font-normal text-moss"> (optional)</span>;
 
 // The add page passes the names already in the database, and the edit page
-// passes the species as it is now, with its main photo for the preview
+// passes the species as it is now, with its main photo for the preview and its
+// updated_at as the version (src/lib/edit-version.ts)
 type Props =
   | { mode: "add"; existingNames: string[] }
-  | { mode: "edit"; slug: string; initial: Values; photo: string | null };
+  | { mode: "edit"; slug: string; initial: Values; photo: string | null; version: string };
 
 export function SpeciesForm(props: Props) {
   const adding = props.mode === "add";
@@ -97,6 +98,17 @@ export function SpeciesForm(props: Props) {
   const [focusRequest, setFocusRequest] = useState<{ elementId: string } | null>(
     null,
   );
+  // The version the edit form checks against when it saves, with the details
+  // the species had at that version. After someone else saved first it stays
+  // the old one, so the form can't save over their changes until the page is
+  // reloaded.
+  const loaded = props.mode === "edit" ? { version: props.version, values: props.initial } : null;
+  const [base, setBase] = useState(() => ({
+    version: state.status === "idle" ? (loaded?.version ?? "") : (state.version ?? ""),
+    values: loaded?.values ?? EMPTY,
+  }));
+  const [seenVersion, setSeenVersion] = useState(loaded?.version);
+  let nextBase = base;
 
   // A new answer from the server. It's picked up while rendering rather than
   // in an effect, so the page never draws the old answer first.
@@ -111,8 +123,24 @@ export function SpeciesForm(props: Props) {
       setValues(state.values);
       setSaved(state);
       setFocusRequest({ elementId: "species-saved" });
+      if (state.version) nextBase = { version: state.version, values: state.values };
     }
   }
+
+  // Changing a photo below moves updated_at too, and the page comes back with
+  // the new one. The form moves on to it while the details are still the ones
+  // it has, so its own photo change doesn't stop it saving, but someone else
+  // changing the details does.
+  if (loaded && loaded.version !== seenVersion) {
+    setSeenVersion(loaded.version);
+    if (
+      loaded.version === nextBase.version ||
+      JSON.stringify(loaded.values) === JSON.stringify(nextBase.values)
+    ) {
+      nextBase = loaded;
+    }
+  }
+  if (nextBase !== base) setBase(nextBase);
 
   useEffect(() => {
     if (focusRequest) document.getElementById(focusRequest.elementId)?.focus();
@@ -243,7 +271,10 @@ export function SpeciesForm(props: Props) {
         className="max-w-2xl space-y-7"
       >
         {props.mode === "edit" && (
-          <input type="hidden" name="slug" value={props.slug} />
+          <>
+            <input type="hidden" name="slug" value={props.slug} />
+            <input type="hidden" name="version" value={base.version} />
+          </>
         )}
 
         {(errorList.length > 0 || formError) && (
