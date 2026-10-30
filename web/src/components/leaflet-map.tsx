@@ -258,9 +258,11 @@ export function LeafletMap({
 
         for (const sensor of sensors) {
           corners.push([sensor.lat, sensor.lng]);
+          // An element rather than HTML, so it can tell when it's pointed at
+          const square = document.createElement("span");
           const marker = L.marker([sensor.lat, sensor.lng], {
             icon: L.divIcon({
-              html: "<span></span>",
+              html: square,
               className: [
                 "map-sensor",
                 sensor.online ? "" : "map-sensor-offline",
@@ -279,7 +281,29 @@ export function LeafletMap({
             })
             .addTo(map);
           remember(2, marker);
+
+          // A sensor isn't a link, but pointing at it shows its name like a
+          // plant dot. A finger leaves the screen as soon as it taps, so a
+          // tap keeps the name showing until the next tap somewhere else.
+          const tooltip = marker.getTooltip();
+          square.addEventListener("pointerenter", () => {
+            pointed = tooltip;
+            declutter();
+          });
+          square.addEventListener("pointerleave", (event) => {
+            if (event.pointerType !== "mouse" || pointed !== tooltip) return;
+            pointed = undefined;
+            declutter();
+          });
         }
+        // Leaflet doesn't count a drag as a click, so moving the map keeps a
+        // tapped sensor's name showing
+        map.on("click", (event) => {
+          const target = event.originalEvent.target as Element;
+          if (!pointed || target.closest(".map-sensor, .map-dot")) return;
+          pointed = undefined;
+          declutter();
+        });
 
         for (const point of points) {
           const at: LatLngTuple = [point.lat, point.lng];
