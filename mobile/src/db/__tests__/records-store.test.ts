@@ -4,7 +4,6 @@ import type { SpeciesOption } from '@/data/species-list';
 import { DATABASE_NAME } from '@/db/database';
 import {
   EMPTY_SPECIES_LIST,
-  NO_SUCH_RECORD,
   NOT_DELETED,
   openRecordsStore,
   SPECIES_TRIES,
@@ -208,14 +207,12 @@ describe('records waiting to sync', () => {
     ).rejects.toThrow('CHECK constraint failed');
   });
 
-  it('says so when no record has that ID', async () => {
+  it('changes nothing when the record was removed while it was on its way', async () => {
+    const before = await store.loadRecords();
     const missing = '99999999-0000-4000-8000-000000000009';
-    await expect(store.saveUploadOutcome(missing, { kind: 'synced' })).rejects.toThrow(
-      NO_SUCH_RECORD,
-    );
-    await expect(
-      store.saveUploadOutcome(missing, { kind: 'problem', problem: 'rejected' }),
-    ).rejects.toThrow(NO_SUCH_RECORD);
+    await store.saveUploadOutcome(missing, { kind: 'synced' });
+    await store.saveUploadOutcome(missing, { kind: 'problem', problem: 'rejected' });
+    expect(await store.loadRecords()).toEqual(before);
   });
 
   it('remembers the outcome after it is closed and opened again', async () => {

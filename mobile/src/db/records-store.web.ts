@@ -32,7 +32,7 @@ export async function openRecordsStore(): Promise<RecordsStore> {
       }
       const index = saved.findIndex((record) => record.id === id);
       if (index === -1) {
-        throw new Error('No record with that ID is saved on this phone.');
+        return;
       }
       const record = saved[index];
       if (outcome.kind === 'synced') {
