@@ -12,11 +12,11 @@ kept, and you can fix the problem and run it again.
 | File | What it does | Item | Safe to run again? |
 | --- | --- | --- | --- |
 | `001_initial_schema.sql` | The tables (profiles, species, records, iot_nodes), Row Level Security, and the public `botanical-photos` bucket | 14 | No, it stops on the policies that are already there |
-| `002_seed_data.sql` | The species and the sample records | 14 | Yes, then run 007 again |
-| `003_profiles_read_own.sql` | Lets a signed in user read their own profile, so the website can see their role | 15 | Yes |
+| `002_seed_data.sql` | The species and the sample records | 14 | Only on a new project. It writes the sample species' facts and photos back over any changes made on the website. If it does run again, run 007 again after it |
+| `003_profiles_read_own.sql` | Lets a signed in user read their own profile, so the website can see their role, and takes out an old view from 001 that nothing uses | 15 | Yes |
 | `004_security_hardening.sql` | Role checks on writes, the public views and the staff views | 4, 14, 15, 16 | No, it stops on the policies that are already there |
 | `005_phone_sync.sql` | Lets the phone upload records, and adds the private `record-photos` bucket | 3 | No, it stops on its first line and changes nothing |
-| `006_role_based_access.sql` | What each role can read and change, checked by the database: Row Level Security, column grants and a review trigger | 4 | Yes, then run 007 and 008 again |
+| `006_role_based_access.sql` | What each role can read and change, checked by the database: Row Level Security, column grants and a review trigger | 4 | Yes, then run 007 and 008 again. The public still can't see the exact spot of a plant set to rough area only in between |
 | `007_species_fixes.sql` | The rough area only switch for a species, the public views that use it, checked facts for the sample species, and a trigger that sets `updated_at` when a species is edited | 14 | Yes |
 | `008_record_edits.sql` | `updated_at` on records, set by a trigger when a record is edited, and the staff view that shows it | 17 | Yes |
 | `009_species_photos.sql` | Checks what goes in `species.photos`, the `species_photos_public` view for the plant pages, and lets officers and admins delete record photos | 18 | Yes |
@@ -26,6 +26,12 @@ file at a time, in that order, and don't stop part way. The website's species pa
 and delete) and its public pages need 007, and 007 stops on its first line if 006 isn't there.
 Until then the public pages say "This page didn't load". Without 009 the plant pages show no
 photos. 003 is fine to run even if it turns out to be there already.
+
+Before running 004, open the `profiles` table in the Table Editor and check every role there is
+one an admin gave on purpose. Set any you don't recognise back to `visitor`. If nobody needs to
+sign up on the website or the app yet, turn sign ups off in the Supabase dashboard
+(Authentication, Sign In / Providers) until 003 to 009 are in. Staff accounts can still be added
+by hand there.
 
 If 005 stops with a check error (like `records_gps_check`), a record already on the hosted project
 breaks one of its new rules. Fix or delete that record in the Table Editor and run 005 again.
@@ -78,6 +84,9 @@ role key skips Row Level Security, so it never goes in the app, the website's br
 - Record photos go in the private `record-photos` bucket, never the public `botanical-photos` one.
 - Supabase gives `anon` and `authenticated` every privilege on a new table. Revoke them first,
   then grant only what each role needs, and let Row Level Security pick the rows.
+- Every file has to leave the database safe on its own, not just once the last file has run,
+  because the hosted project gets them one at a time. `tests/roles.test.js` checks the views after
+  each file from 003 on.
 - Never edit a file that's been run on the hosted project, because nobody will run it again. Add
   a new numbered file instead, then add it to the table above and to `SQL_FILES` in
   `tests/harness.js`.

@@ -68,6 +68,9 @@ SELECT
   updated_at
 FROM public.species;
 
+-- Until 006 runs, every published plant only shows the middle of its 0.004 degree grid square,
+-- the same square 006 and the website use. The notes and the name of whoever recorded the plant
+-- stay with the staff.
 CREATE OR REPLACE VIEW public.records_public
 WITH (security_invoker = false)
 AS
@@ -77,15 +80,13 @@ SELECT
   r.height_m,
   r.condition,
   r.photo_count,
-  r.notes,
-  r.recorded_by,
   r.recorded_at,
   r.status,
   CASE
     WHEN r.gps IS NULL THEN NULL
     ELSE jsonb_build_object(
-      'lat', round(((r.gps->>'lat')::numeric / 0.004) * 0.004, 3),
-      'lng', round(((r.gps->>'lng')::numeric / 0.004) * 0.004, 3),
+      'lat', round((floor((r.gps ->> 'lat')::numeric / 0.004) + 0.5) * 0.004, 3),
+      'lng', round((floor((r.gps ->> 'lng')::numeric / 0.004) + 0.5) * 0.004, 3),
       'accuracyM', 440
     )
   END AS gps
@@ -106,6 +107,9 @@ SELECT r.*
 FROM public.records AS r
 WHERE public.has_any_role(ARRAY['conservation_officer', 'admin']);
 
+-- Every view is only for reading, so the API only gets SELECT on them, like in 006.
+REVOKE ALL ON TABLE public.species_public, public.records_public, public.species_staff,
+  public.records_staff FROM PUBLIC, anon, authenticated;
 GRANT SELECT ON public.species_public, public.records_public
   TO anon, authenticated;
 GRANT SELECT ON public.species_staff, public.records_staff
