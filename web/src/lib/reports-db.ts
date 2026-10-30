@@ -137,30 +137,41 @@ export type ExactDownload = {
   exactCount: number;
 };
 
-// Plenty for an admin checking who took the exact spots lately
-const RECENT_DOWNLOADS = 20;
+// Plenty for an admin checking who took the exact spots lately. Older ones
+// are on the next page.
+export const DOWNLOADS_PER_PAGE = 20;
 
 const DOWNLOAD_COLUMNS =
   "id, downloaded_at, downloaded_by_name, scope, from_day, to_day, row_count, exact_count";
 
+export type DownloadPage = {
+  downloads: ExactDownload[];
+  /** 1 is the newest */
+  page: number;
+  /** True when there are older downloads than these */
+  hasOlder: boolean;
+};
+
 /**
- * The latest downloads with exact spots, newest first. Only admins get rows
- * back (an officer gets an empty list). Gives null if the query fails, like
- * when 011 hasn't been run yet.
+ * One page of the downloads with exact spots, newest first. It asks for one
+ * row more than a page holds to know if there are older ones. Only admins get
+ * rows back (an officer gets an empty list). Gives null if the query fails,
+ * like when 011 hasn't been run yet.
  */
-export async function loadExactDownloads(): Promise<ExactDownload[] | null> {
+export async function loadExactDownloads(page: number): Promise<DownloadPage | null> {
   const supabase = await createClient();
+  const from = (page - 1) * DOWNLOADS_PER_PAGE;
   const { data, error } = await supabase
     .from("exact_location_downloads")
     .select(DOWNLOAD_COLUMNS)
     .order("downloaded_at", { ascending: false })
     .order("id", { ascending: false })
-    .limit(RECENT_DOWNLOADS);
+    .range(from, from + DOWNLOADS_PER_PAGE);
   if (error) {
     console.error("Loading the downloads with exact spots failed:", error.message);
     return null;
   }
-  return data.map((row) => ({
+  const downloads = data.slice(0, DOWNLOADS_PER_PAGE).map((row) => ({
     id: Number(row.id),
     downloadedAt: parkTime(String(row.downloaded_at)),
     downloadedBy: String(row.downloaded_by_name),
@@ -172,4 +183,5 @@ export async function loadExactDownloads(): Promise<ExactDownload[] | null> {
     rowCount: Number(row.row_count),
     exactCount: Number(row.exact_count),
   }));
+  return { downloads, page, hasOlder: data.length > DOWNLOADS_PER_PAGE };
 }

@@ -4,6 +4,9 @@ Tested on 30 Oct 2026 on Umer's Mac (macOS, Node 22.22.3) on the `download-audit
 was tried on PGlite (`supabase/tests/`) and the website on the Supabase stand-in in
 `supabase/tests/stand-in.js`, not against the hosted project.
 
+Round 2, on 30 Oct on the `download-list-paging` branch, split the list into pages of 20 so
+admins can read back past the newest 20.
+
 ## What changed
 
 Item 21 had this known limit: a reports CSV with the exact spots of threatened and protected
@@ -69,10 +72,32 @@ scratchpad signed in the test accounts.
 | 8 | Opened the Reports page as the admin, still without 011 | The box saying the list didn't load and 011 may need running | Pass |
 | 9 | Started the stand-in again with 011 and opened the page as the admin | "Nobody has downloaded exact spots yet." | Pass |
 
+## Round 2: older downloads
+
+The list stopped at the newest 20, so an admin had to open the Table Editor to see anything
+older. Now it shows 20 at a time, with Older and Newer buttons under the table and a line saying
+which ones you're looking at, like "Downloads 21 to 40". The page number goes in the address as
+`?downloads=2`, so the report filters stay as they were and the link can be shared with another
+admin. The page asks for 21 rows to know if there's an older page, instead of counting them all.
+
+Tested on the stand-in as the test admin, after downloading 24 files with exact spots from the
+browser console so there was more than one page:
+
+| # | What we did | What should happen | Pass? |
+| --- | --- | --- | --- |
+| 1 | Opened the Reports page with "Published and waiting" picked | 20 rows, "Downloads 1 to 20" and only an Older button, which keeps the filter in its link | Pass |
+| 2 | Pressed Older | The page goes back down to the list, with 4 rows, "Downloads 21 to 24" and only a Newer button | Pass |
+| 3 | Pressed Newer | Back to the newest 20, and the address has no page number | Pass |
+| 4 | Typed `?downloads=9` in the address | "There are no downloads this far back." and a button back to the newest | Pass |
+| 5 | Typed `?downloads=abc` with a From day | The newest 20, and the Older link keeps the From day | Pass |
+| 6 | Changed the filters and pressed Update report | The list starts again from the newest | Pass |
+| 7 | Looked at page 2 at 375 px wide | The table scrolls sideways in its box, the buttons fit and the page doesn't scroll sideways | Pass |
+| 8 | Opened the Reports page as the test officer | Still no list of downloads | Pass |
+
 ## Known limits
 
-- **The list only shows the last 20.** Older rows stay in the table, and an admin can read them
-  all in the Table Editor.
+- **Fixed on 30 Oct:** the list only showed the last 20, so older rows were only in the Table
+  Editor. Now it has pages. See round 2 above.
 - **It keeps the filters, not the file.** The list says which records the file covered, but
   records edited or deleted since then mean the same filters might not give the same file again.
 
