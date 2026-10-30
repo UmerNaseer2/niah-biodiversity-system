@@ -127,10 +127,13 @@ function humanised(column: string) {
   return words.charAt(0).toUpperCase() + words.slice(1);
 }
 
-/** A stored value as words. Empty values are "", and lists are joined. */
+/**
+ * A stored value as words. Empty values are "", and lists are joined. A form's
+ * \r\n counts the same as \n, since nobody can see the difference.
+ */
 function text(value: unknown): string {
   if (value === null || value === undefined) return "";
-  if (typeof value === "string") return value.trim();
+  if (typeof value === "string") return value.replace(/\r\n?/g, "\n").trim();
   if (typeof value === "number" || typeof value === "boolean") {
     return String(value);
   }
@@ -168,6 +171,15 @@ function valueLine(column: Column, from: unknown, to: unknown): ChangeLine {
   const before = show(from);
   const after = show(to);
 
+  // A time only shows the minute and text is trimmed, so a change of a few
+  // seconds, a space or a line break can look the same before and after
+  if (before === after) {
+    const still = column.long
+      ? "only spaces or line breaks"
+      : `still ${after || "empty"}`;
+    return { kind: "short", text: `${label} changed slightly (${still})` };
+  }
+
   if (column.long) {
     if (!before) return { kind: "long", text: `${label} added`, from: "", to: after };
     if (!after) {
@@ -177,11 +189,6 @@ function valueLine(column: Column, from: unknown, to: unknown): ChangeLine {
   }
   if (!before) return { kind: "short", text: `${label} set to ${after}` };
   if (!after) return { kind: "short", text: `${label} taken off (was ${before})` };
-  // A time only shows the minute and text is trimmed, so a change of a few
-  // seconds or a space can look the same before and after
-  if (before === after) {
-    return { kind: "short", text: `${label} changed slightly (still ${after})` };
-  }
   return { kind: "short", text: `${label} changed from ${before} to ${after}` };
 }
 
