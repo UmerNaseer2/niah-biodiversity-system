@@ -21,6 +21,7 @@ import {
   MAX_PHOTOS,
   PHOTO_BUCKET,
   checkPhoto,
+  checkPhotoDetails,
   storedKey,
   storedPath,
   type PhotoErrors,
@@ -401,15 +402,33 @@ export async function managePhoto(
   });
 
   const intent = formData.get("intent");
-  if (intent !== "main" && intent !== "remove") return failed("Something went wrong. Reload the page.");
-  const notAllowed = await whyNotAllowed(
-    intent === "main" ? "pick the main photo" : "remove the photo",
-  );
+  if (intent !== "main" && intent !== "remove" && intent !== "details") {
+    return failed("Something went wrong. Reload the page.");
+  }
+  // "Sign in again, then ...", what failed, and what the page says after
+  const doing = {
+    main: { then: "pick the main photo", what: "pick the main photo", done: "Main photo changed." },
+    remove: { then: "remove the photo", what: "remove a photo", done: "Photo removed." },
+    details: {
+      then: "save the caption",
+      what: "change a photo’s caption",
+      done: "Caption and credit saved.",
+    },
+  }[intent];
+  const notAllowed = await whyNotAllowed(doing.then);
   if (notAllowed) return failed(notAllowed);
 
   const slug = slugFromFormData(formData);
   const key = String(formData.get("key") ?? "");
   const shownAt = Number(formData.get("index"));
+
+  // The page checks these first, so this only comes up without JavaScript
+  const caption = tidy(String(formData.get("caption") ?? ""));
+  const credit = tidy(String(formData.get("credit") ?? ""));
+  if (intent === "details") {
+    const problems = Object.values(checkPhotoDetails(caption, credit));
+    if (problems.length > 0) return failed(`Nothing was saved. ${problems.join(" ")}`);
+  }
 
   const supabase = await createClient();
   const current = await storedPhotos(supabase, slug);
@@ -429,14 +448,12 @@ export async function managePhoto(
   const after =
     intent === "main"
       ? before.map((photo, i) => ({ ...(photo as object), isPrimary: i === index }))
-      : before.filter((_, i) => i !== index);
-  const problem = await savePhotos(
-    supabase,
-    slug,
-    before,
-    after,
-    intent === "main" ? "pick the main photo" : "remove a photo",
-  );
+      : intent === "details"
+        ? before.map((photo, i) =>
+            i === index ? { ...(photo as object), caption, credit } : photo,
+          )
+        : before.filter((_, i) => i !== index);
+  const problem = await savePhotos(supabase, slug, before, after, doing.what);
   if (problem) return failed(problem);
 
   if (intent === "remove") {
@@ -452,9 +469,5 @@ export async function managePhoto(
   }
 
   refreshSpeciesPages();
-  return {
-    status: "done",
-    message: intent === "main" ? "Main photo changed." : "Photo removed.",
-    done: `${intent}-${key}-${Date.now()}`,
-  };
+  return { status: "done", message: doing.done, done: `${intent}-${key}-${Date.now()}` };
 }

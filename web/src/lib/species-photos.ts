@@ -118,6 +118,15 @@ export function checkPhoto(
   } else if (file.size > MAX_UPLOAD_BYTES) {
     errors["photo-file"] = "The photo has to be 4 MB or smaller.";
   }
+  return { ...errors, ...checkPhotoDetails(caption, credit) };
+}
+
+/**
+ * Checks the caption and credit, for a new photo or when an officer changes
+ * them on a photo that's already there.
+ */
+export function checkPhotoDetails(caption: string, credit: string): PhotoErrors {
+  const errors: PhotoErrors = {};
   if (!caption) {
     errors["photo-caption"] = "Add a caption that says what the photo shows.";
   } else if (caption.length > MAX_CAPTION) {
