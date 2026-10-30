@@ -9,7 +9,7 @@ import { releaseItem } from "@/lib/release";
 export const metadata: Metadata = {
   title: "Every screen",
   description:
-    "Every screen in the Niah Plant Records wireframe, in the order we demo them.",
+    "Every screen on the Niah Plant Records website, in the order we demo them.",
 };
 
 const WORKS_NOW = [
@@ -20,11 +20,12 @@ const WORKS_NOW = [
   "Staff sign in with Supabase, and only conservation officers and administrators can open the dashboard. Every staff page checks that on the server.",
   "Officers can add, edit and delete species on the dashboard.",
   "The home page, plant list, plant pages and tag pages read species and approved records from Supabase, or from the sample data when it isn’t set up.",
+  "The overview counts and lists the real plant records, and the badge in the staff menu counts the ones waiting for review.",
   "Maps are OpenStreetMap maps. Public maps only show a rough square for threatened and protected plants, and the overview map gives officers the exact spot of every record.",
 ];
 
 const NOT_REAL_YET = [
-  "On the dashboard, the overview lists, review queue, sensor readings and the users list still come from mock files in web/src/data.",
+  "On the dashboard, the review queue, the sensors and the users list still come from mock files in web/src/data.",
   "Staff accounts are made by hand in Supabase. Inviting people and changing roles on the website are item 2.",
   "Apart from species, record edits and photos, nothing is saved yet. Refreshing a page puts it back how it was.",
   "The squares on the tags don’t scan yet (item 12).",
@@ -95,7 +96,7 @@ export default function ScreensPage() {
       <PageHeader
         eyebrow="Demo running order"
         title="Every screen"
-        description="All the pages in this wireframe, in the order we’d walk through them. The chips under each one are its release items from our project plan."
+        description="All the pages on the site, in the order we’d walk through them. The chips under each one are its release items from our project plan."
       />
 
       <div className="mt-8 flex flex-col gap-3 rounded-xl border border-line bg-sheet p-4 sm:flex-row sm:items-center sm:gap-5">

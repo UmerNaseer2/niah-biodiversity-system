@@ -1,4 +1,4 @@
-// Every screen in the wireframe with the release items it belongs to. The
+// Every screen on the site with the release items it belongs to. The
 // numbers come from the Initial Release Schedule in our proposal, the same
 // ones docs/sprint-1.md uses. /screens lists these as the demo running order.
 
@@ -55,7 +55,7 @@ export const staffScreens: Screen[] = [
     title: "Overview",
     path: "/dashboard",
     items: [13, 20],
-    works: "What needs attention today, with links into each area, and a map of every plant record in Supabase.",
+    works: "Today's date, the records waiting for review, counts and the newest records from Supabase, and a map of every plant record. The sensor alerts are still made up.",
   },
   {
     title: "Species",

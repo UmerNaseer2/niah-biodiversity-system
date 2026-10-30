@@ -5,8 +5,8 @@ import type { ReactNode } from "react";
 import { Icon } from "@/components/icon";
 import { LogoMark } from "@/components/logo";
 import { DB_ROLE_LABEL, getSession, type DbRole } from "@/lib/auth";
-import { records } from "@/data/records";
 import { sensorAlerts } from "@/data/sensors";
+import { createClient } from "@/lib/supabase/server";
 import { signOut } from "../(public)/login/actions";
 import { StaffNav } from "./staff-nav";
 
@@ -26,7 +26,15 @@ export default async function DashboardLayout({
   if (session.status === "signed-out") redirect("/login");
   if (session.status === "no-access") return <NoAccess {...session} />;
   const me = session;
-  const waiting = records.filter((r) => r.status === "waiting").length;
+  // Only officers and admins get this far, and records_staff only answers them (supabase/006).
+  // If the count fails the badge is left off and the pages say what went wrong.
+  const supabase = await createClient();
+  const { count, error } = await supabase
+    .from("records_staff")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "waiting");
+  if (error) console.error("Counting the waiting records failed:", error.message);
+  const waiting = count ?? 0;
   const urgent = sensorAlerts.filter((a) => a.level === "urgent").length;
 
   return (

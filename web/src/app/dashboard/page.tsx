@@ -1,18 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Icon } from "@/components/icon";
-import { ConditionBadge } from "@/components/plant-bits";
+import { ConditionBadge, LatinName } from "@/components/plant-bits";
 import { ParkMap } from "@/components/park-map";
-import { getPerson } from "@/data/people";
 import { requireStaff } from "@/lib/auth";
-import { records } from "@/data/records";
 import { sensorAlerts, sensors } from "@/data/sensors";
-import { getSpecies, species } from "@/data/species";
 import { ALERT_LEVEL } from "@/lib/alert-level";
-import { formatDateTime, MOCK_TODAY_LABEL, plural } from "@/lib/format";
-import { recordFromRow } from "@/lib/records-staff";
+import { formatDateTime, formatLongDate, parkNow, plural } from "@/lib/format";
+import { recordFromRow, type StaffRecord } from "@/lib/records-staff";
 import { createClient } from "@/lib/supabase/server";
-import { tagCode } from "@/lib/tags";
 
 // The template in dashboard/layout.tsx only covers the pages below it, so
 // this page spells out its whole title to match the other staff pages
@@ -20,34 +16,57 @@ export const metadata: Metadata = {
   title: { absolute: "Overview · Staff · Niah Plant Records" },
 };
 
-function speciesName(slug: string) {
-  const found = getSpecies(slug);
-  if (!found) throw new Error(`Record points at a missing species: ${slug}`);
-  return found.commonNames[0];
+// How many records the latest list shows. The records page has the rest.
+const LATEST = 8;
+
+const WAITING_HREF = "/dashboard/records?status=waiting";
+
+function greeting(hour: number) {
+  if (hour < 12) return "Good morning";
+  if (hour < 18) return "Good afternoon";
+  return "Good evening";
+}
+
+/** "A", "A and B", "A, B and C" */
+function joinNames(names: string[]) {
+  if (names.length < 2) return names.join("");
+  return `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
+}
+
+function plantName(record: StaffRecord) {
+  return record.commonName || record.speciesName;
 }
 
 export default async function OverviewPage() {
   const me = await requireStaff();
   if (!me) return null;
   const firstName = me.name.split(" ")[0];
+  // Signing in reads the cookies, so this page is drawn for each request and
+  // the clock gives today, not the day the site was built
+  const now = parkNow();
 
-  const waiting = records.filter((r) => r.status === "waiting");
-  const published = records.filter((r) => r.status === "published");
-  const online = sensors.filter((s) => s.online).length;
-  const latest = [...records].sort((a, b) =>
-    b.recordedAt.localeCompare(a.recordedAt),
-  );
-
-  // The map's plants come from the database. records_staff only answers
-  // officers and admins (supabase/006), the same people who can open this
-  // page. A rejected record isn't a plant we know is there, so it's left off.
+  // records_staff and species_staff only answer officers and admins
+  // (supabase/006 and 007), the same people who can open this page
   const supabase = await createClient();
-  const { data: mapRows, error: mapError } = await supabase
-    .from("records_staff")
-    .select("*");
-  if (mapError) console.error("Loading the records for the map failed:", mapError.message);
-  const mapped = (mapRows ?? [])
-    .map(recordFromRow)
+  const [recordsResult, speciesResult] = await Promise.all([
+    supabase.from("records_staff").select("*").order("recorded_at", { ascending: false }),
+    supabase.from("species_staff").select("id", { count: "exact", head: true }),
+  ]);
+  if (recordsResult.error) {
+    console.error("Loading the records for the overview failed:", recordsResult.error.message);
+  }
+  if (speciesResult.error) {
+    console.error("Counting the species failed:", speciesResult.error.message);
+  }
+  const recordsFailed = Boolean(recordsResult.error);
+  const all = (recordsResult.data ?? []).map(recordFromRow);
+  const waiting = all.filter((r) => r.status === "waiting");
+  const published = all.filter((r) => r.status === "published");
+  const latest = all.slice(0, LATEST);
+  const online = sensors.filter((s) => s.online).length;
+
+  // A rejected record isn't a plant we know is there, so the map leaves it off
+  const mapped = all
     .filter((r) => r.status !== "rejected")
     .flatMap((r) =>
       r.gps
@@ -56,30 +75,48 @@ export default async function OverviewPage() {
               id: r.id,
               lat: r.gps.lat,
               lng: r.gps.lng,
-              label: r.commonName || r.speciesName || r.tagCode,
+              label: plantName(r) || r.tagCode,
             },
           ]
         : [],
     );
 
-  const counts = [
-    { label: "Species", value: String(species.length) },
-    { label: "Public records", value: String(published.length) },
-    { label: "Waiting for review", value: String(waiting.length) },
+  const shown = waiting.slice(0, 3).map((r) => `${plantName(r) || "No species yet"} (${r.tagCode})`);
+  const others = waiting.length - shown.length;
+  const waitingNames = joinNames(others > 0 ? [...shown, plural(others, "other")] : shown);
+
+  const counts: { label: string; value: string | null }[] = [
+    {
+      label: "Species",
+      value: speciesResult.count == null ? null : String(speciesResult.count),
+    },
+    { label: "Public records", value: recordsFailed ? null : String(published.length) },
+    { label: "Waiting for review", value: recordsFailed ? null : String(waiting.length) },
     { label: "Sensors online", value: `${online} of ${sensors.length}` },
   ];
 
   return (
     <div className="space-y-12">
       <header>
-        <p className="eyebrow">{MOCK_TODAY_LABEL}</p>
+        <p className="eyebrow">{formatLongDate(now)}</p>
         <h1 className="mt-1 text-3xl font-bold tracking-tight">
-          Good morning, {firstName}
+          {greeting(Number(now.slice(11, 13)))}, {firstName}
         </h1>
         <p className="mt-1 text-moss">
-          Here’s what needs you today. Everything below is mock data, apart
-          from the plants on the map.
+          Here’s what needs you today. The records and counts come from the
+          database. The sensors and their alerts are still made up.
         </p>
+        {recordsFailed && (
+          <p
+            role="alert"
+            className="mt-6 flex max-w-2xl items-start gap-2.5 rounded-xl border-2 border-bad bg-sheet p-4 font-bold text-bad"
+          >
+            <Icon name="alert" className="mt-0.5 size-4 shrink-0" />
+            The plant records didn’t load, so this page leaves them out.
+            Refresh the page, and if it keeps happening, ask an administrator
+            to check the database is up to date (supabase/README.md).
+          </p>
+        )}
       </header>
 
       <section aria-labelledby="today-heading">
@@ -87,28 +124,30 @@ export default async function OverviewPage() {
           Needs you today
         </h2>
         <ul className="mt-4 divide-y divide-line rounded-xl border border-line bg-sheet">
-          <li className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:gap-5 sm:p-5">
-            <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-forest-soft text-forest-deep">
-              <Icon name="inbox" />
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="font-bold">
-                {plural(waiting.length, "new record")} to review
-              </p>
-              <p className="text-sm text-moss">
-                {waiting
-                  .map((r) => `${speciesName(r.speciesSlug)} (${tagCode(r.id)})`)
-                  .join(" and ")}
-                , sent in from the mobile app.
-              </p>
-            </div>
-            <Link
-              href="/dashboard/review"
-              className="btn btn-primary self-start sm:self-auto"
-            >
-              Open the review queue
-            </Link>
-          </li>
+          {!recordsFailed && (
+            <li className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:gap-5 sm:p-5">
+              <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-forest-soft text-forest-deep">
+                <Icon name={waiting.length ? "inbox" : "check"} />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="font-bold">
+                  {waiting.length
+                    ? `${plural(waiting.length, "record")} waiting for review`
+                    : "No records are waiting for review"}
+                </p>
+                <p className="text-sm text-moss">
+                  {waiting.length
+                    ? `${waitingNames}, sent in from the mobile app.`
+                    : "New records from the mobile app will show up here."}
+                </p>
+              </div>
+              {waiting.length > 0 && (
+                <Link href={WAITING_HREF} className="btn btn-primary self-start sm:self-auto">
+                  See waiting records
+                </Link>
+              )}
+            </li>
+          )}
           {sensorAlerts.map((alert) => (
             <li
               key={alert.id}
@@ -156,7 +195,9 @@ export default async function OverviewPage() {
             <div key={count.label} className="flex flex-col bg-sheet p-4 sm:p-5">
               <dt className="text-sm text-moss">{count.label}</dt>
               <dd className="order-first text-2xl font-bold tracking-tight">
-                {count.value}
+                {count.value ?? (
+                  <span className="text-base text-moss">Didn’t load</span>
+                )}
               </dd>
             </div>
           ))}
@@ -168,7 +209,7 @@ export default async function OverviewPage() {
           Latest records
         </h2>
         <p className="text-moss">
-          Everything that came in from the mobile app, newest first.
+          The newest records from the mobile app. The records page has all of them.
         </p>
         <div
           role="region"
@@ -188,13 +229,32 @@ export default async function OverviewPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-line">
+              {latest.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="px-4 py-6 text-moss">
+                    {recordsFailed
+                      ? "The records didn’t load."
+                      : "There aren’t any records in the database yet."}
+                  </td>
+                </tr>
+              )}
               {latest.map((record) => (
                 <tr key={record.id}>
-                  <td className="whitespace-nowrap px-4 py-3 font-mono font-bold">
-                    {tagCode(record.id)}
+                  <th scope="row" className="whitespace-nowrap px-4 py-3 text-left font-mono font-bold">
+                    <Link
+                      href={`/dashboard/records/${record.id}/edit`}
+                      className="underline decoration-line underline-offset-4 hover:decoration-ink"
+                    >
+                      {record.tagCode}
+                    </Link>
+                  </th>
+                  <td className="px-4 py-3">
+                    {record.commonName ?? <LatinName name={record.speciesName} />}
+                    {!record.speciesSlug && (
+                      <span className="block text-xs font-bold text-moss">No species yet</span>
+                    )}
                   </td>
-                  <td className="px-4 py-3">{speciesName(record.speciesSlug)}</td>
-                  <td className="px-4 py-3">{getPerson(record.recordedBy).name}</td>
+                  <td className="px-4 py-3">{record.recordedBy ?? "Not given"}</td>
                   <td className="whitespace-nowrap px-4 py-3">
                     {formatDateTime(record.recordedAt)}
                   </td>
@@ -202,15 +262,19 @@ export default async function OverviewPage() {
                     <ConditionBadge condition={record.condition} />
                   </td>
                   <td className="px-4 py-3">
-                    {record.status === "published" ? (
+                    {record.status === "published" && (
                       <span className="font-bold text-ok">Public</span>
-                    ) : (
+                    )}
+                    {record.status === "waiting" && (
                       <Link
-                        href="/dashboard/review"
+                        href={WAITING_HREF}
                         className="font-bold text-warn underline decoration-warn/40 underline-offset-4 hover:decoration-warn"
                       >
                         Waiting
                       </Link>
+                    )}
+                    {record.status === "rejected" && (
+                      <span className="font-bold text-moss">Rejected</span>
                     )}
                   </td>
                 </tr>
@@ -218,6 +282,16 @@ export default async function OverviewPage() {
             </tbody>
           </table>
         </div>
+        {all.length > LATEST && (
+          <p className="mt-3">
+            <Link
+              href="/dashboard/records"
+              className="font-bold underline decoration-line underline-offset-4 hover:decoration-ink"
+            >
+              See all {plural(all.length, "record")}
+            </Link>
+          </p>
+        )}
       </section>
 
       <section aria-labelledby="map-heading">
@@ -229,17 +303,6 @@ export default async function OverviewPage() {
           threatened plants included. The plants come from the database. The
           sensors are still made up.
         </p>
-        {mapError && (
-          <p
-            role="alert"
-            className="mt-4 flex max-w-2xl items-start gap-2.5 rounded-xl border-2 border-bad bg-sheet p-4 font-bold text-bad"
-          >
-            <Icon name="alert" className="mt-0.5 size-4 shrink-0" />
-            The plant records didn’t load, so the map only shows the sensors.
-            Refresh the page, and if it keeps happening, ask an administrator
-            to check the database is up to date (supabase/README.md).
-          </p>
-        )}
         <ParkMap
           id="overview-map"
           title="Map of tagged plants and sensors around park HQ"

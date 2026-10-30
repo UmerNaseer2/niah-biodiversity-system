@@ -1,6 +1,6 @@
-// Mock dates are written in park time (Sarawak, UTC+8) with no offset, and
-// we format them by hand so the server and the browser always print the same
-// thing. Intl can differ between the two and cause hydration errors.
+// Dates are kept in park time (Sarawak, UTC+8) with no offset, and we format
+// them by hand so the server and the browser always print the same thing.
+// Intl can differ between the two and cause hydration errors.
 
 const MONTHS = [
   "Jan",
@@ -17,9 +17,22 @@ const MONTHS = [
   "Dec",
 ];
 
-// The wireframe pretends it is this morning
-export const MOCK_NOW = "2026-10-04T09:00";
-export const MOCK_TODAY_LABEL = "Sunday 4 October 2026";
+const FULL_MONTHS = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+];
+
+const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
 const PARK_OFFSET_MS = 8 * 60 * 60 * 1000;
 
@@ -33,6 +46,15 @@ export function parkTime(iso: string) {
   const ms = Date.parse(iso);
   if (Number.isNaN(ms)) return iso;
   return new Date(ms + PARK_OFFSET_MS).toISOString().slice(0, 16);
+}
+
+/**
+ * The time at the park right now, with no offset. It reads the clock, so only
+ * call it from a route handler or a server component that already waits for
+ * the request (cookies or connection()). Never call it in a client component.
+ */
+export function parkNow() {
+  return parkTime(new Date().toISOString());
 }
 
 function parts(iso: string) {
@@ -52,6 +74,13 @@ function parts(iso: string) {
 export function formatDate(iso: string) {
   const { year, month, day } = parts(iso);
   return `${day} ${MONTHS[month - 1]} ${year}`;
+}
+
+/** Thursday 29 October 2026 */
+export function formatLongDate(iso: string) {
+  const { year, month, day } = parts(iso);
+  const weekday = DAYS[new Date(Date.UTC(year, month - 1, day)).getUTCDay()];
+  return `${weekday} ${day} ${FULL_MONTHS[month - 1]} ${year}`;
 }
 
 /** 2:14 am */

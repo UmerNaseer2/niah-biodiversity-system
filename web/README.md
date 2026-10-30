@@ -6,8 +6,9 @@ species and keep an eye on the sensors. It's built with Next.js 16 (App Router) 
 
 The original item 13 wireframe is still the visual baseline. Staff sign in, the species pages on
 the dashboard (add, edit and delete) and the public pages (home, plant list, plant pages and tag
-pages) now use Supabase (items 14 to 16), and so do the dashboard records pages (item 17) and the
-photos (item 18). The other dashboard screens still use mock data, and refreshing them puts them
+pages) now use Supabase (items 14 to 16), and so do the dashboard records pages (item 17), the
+photos (item 18), the maps (item 20), reports (item 21) and the overview's records and counts. The
+review queue, the sensors and the users list still use mock data, and refreshing them puts them
 back how they were.
 
 | Side | Screens |
@@ -177,11 +178,12 @@ planned for, so it's clear what's real during the demo. The item numbers match t
 - Photos are plain `<img>` tags, not `next/image`, because the image optimizer won't fetch from
   a local address like the stand-in's.
 - Dates are formatted by hand in `src/lib/format.ts`, so the server and the browser print the same
-  thing. The wireframe pretends it's 9 am on 4 Oct 2026 (`MOCK_NOW`). Don't call `new Date()` or
-  `Date.now()` while a page renders. In a client component it causes hydration errors, and in a
-  server component the date gets frozen at build time. Supabase sends times in UTC, so pass them
-  through `parkTime()` first. Niah is 8 hours ahead, so a plant recorded at 4:30 pm UTC on 27 Sep
-  was recorded on 28 Sep at the park.
+  thing. Don't call `new Date()` or `Date.now()` while a page renders. In a client component it
+  causes hydration errors, and in a server component that doesn't read the cookies the date gets
+  frozen at build time. For today's date use `parkNow()`, and only in a route handler or a server
+  component that already reads the cookies, like the overview. Supabase sends times in UTC, so
+  pass them through `parkTime()` first. Niah is 8 hours ahead, so a plant recorded at 4:30 pm UTC
+  on 27 Sep was recorded on 28 Sep at the park.
 - The six mock records have the same IDs and tag codes as `mobile/src/data/mock-records.ts` (for
   example the Belian is NNP-3F2A9C in both). If you change one file, change the other. The seed
   records in `supabase/002_seed_data.sql` only partly match: NNP-5E9A2C is approved there but
