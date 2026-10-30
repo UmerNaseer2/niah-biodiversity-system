@@ -86,7 +86,7 @@ tests weren't touched.
   bytes of the file.
 - A screen reader. The chart tables, headings and the download status were checked in the page,
   but not read out.
-- The page against the hosted project, which needs 003 to 009 run first.
+- The page against the hosted project, which needs 003 to 012 run first.
 - A big park's worth of records. The stand-in has 10.
 
 ## Known limits
@@ -97,9 +97,9 @@ tests weren't touched.
   ([download list results](download-audit.md)).
 - **The preview stops at 20 rows.** The file always has every row, and the page says how many more
   there are.
-- **Counting happens on the web server.** The page loads every record and counts them in
-  `lib/reports.ts`. That's fine for hundreds of records, but thousands would be better counted in
-  the database.
+- **Fixed on 30 Oct:** the page used to load every record and count them on the web server. The
+  database counts them now, and the page only loads the 20 rows the preview shows
+  ([report counts results](report-counts.md)).
 - **Fixed on 29 Oct:** the sidebar's waiting badge used to come from the mock records, and the
   wireframe banner said the site used mock data. The badge now counts `records_staff` and the
   banner says only some staff screens show sample data

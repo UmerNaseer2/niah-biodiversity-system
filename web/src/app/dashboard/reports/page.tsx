@@ -10,12 +10,10 @@ import {
   datesLabel,
   filtersFrom,
   filtersQuery,
-  hiddenSpotCount,
   SCOPE_LABEL,
-  summarise,
   type ReportScope,
 } from "@/lib/reports";
-import { loadExactDownloads, loadReportRecords } from "@/lib/reports-db";
+import { loadExactDownloads, loadReport } from "@/lib/reports-db";
 import { BarTable } from "./bar-table";
 import { DownloadList } from "./download-list";
 import { PrintButton } from "./print-button";
@@ -43,8 +41,8 @@ export default async function ReportsPage({
   const filters = filtersFrom(await searchParams);
   const query = filtersQuery(filters).toString();
   const isAdmin = session.role === "admin";
-  const [rows, downloads] = await Promise.all([
-    loadReportRecords(filters),
+  const [report, downloads] = await Promise.all([
+    loadReport(filters, PREVIEW_ROWS),
     isAdmin ? loadExactDownloads() : null,
   ]);
   // Only admins can read the list, so officers don't get the section at all
@@ -55,7 +53,7 @@ export default async function ReportsPage({
       eyebrow="Records"
       title="Reports"
       description="Counts of the plant records for SFC, by IUCN status, condition, species and month. Print it or save it as a PDF, or download the records as a spreadsheet."
-      aside={rows && rows.length > 0 ? <PrintButton /> : undefined}
+      aside={report && report.summary.total > 0 ? <PrintButton /> : undefined}
     />
   );
 
@@ -120,7 +118,7 @@ export default async function ReportsPage({
     </Form>
   );
 
-  if (!rows) {
+  if (!report) {
     return (
       <div>
         {header}
@@ -133,11 +131,13 @@ export default async function ReportsPage({
           ask an administrator to check the database is up to date
           (supabase/README.md).
         </p>
+        {/* The list comes from its own table, so it can still load */}
+        {downloadList}
       </div>
     );
   }
 
-  const summary = summarise(rows);
+  const { summary } = report;
 
   if (summary.total === 0) {
     return (
@@ -182,9 +182,10 @@ export default async function ReportsPage({
     },
   ];
 
-  // Only the rows the preview shows go to the browser, so a big report doesn't
-  // send thousands of rows nobody sees. The CSV reads them all again itself.
-  const preview: PreviewRow[] = rows.slice(0, PREVIEW_ROWS).map((r) => ({
+  // Only the rows the preview shows are loaded and sent to the browser, so a
+  // big report doesn't send thousands of rows nobody sees. The CSV reads them
+  // all itself.
+  const preview: PreviewRow[] = report.preview.map((r) => ({
     id: r.id,
     code: r.code,
     name: r.commonName ?? r.scientificName,
@@ -315,8 +316,8 @@ export default async function ReportsPage({
         <ReportBuilder
           filters={filters}
           rows={preview}
-          total={rows.length}
-          hiddenCount={hiddenSpotCount(rows)}
+          total={summary.total}
+          hiddenCount={summary.hiddenSpots}
         />
       </section>
 

@@ -148,6 +148,17 @@ export async function startStandIn({
     if (!columns.has(row.table_name)) columns.set(row.table_name, new Set());
     columns.get(row.table_name).add(row.column_name);
   }
+  // ... and the functions in public that /rest/v1/rpc/ can call, with each argument's type
+  const functions = new Map();
+  const listed = await db.query(
+    `SELECT p.proname AS name, p.proargnames AS args,
+       array(SELECT format_type(t, NULL) FROM unnest(p.proargtypes) AS t) AS types
+     FROM pg_proc AS p JOIN pg_namespace AS n ON n.oid = p.pronamespace
+     WHERE n.nspname = 'public' AND p.prokind = 'f'`,
+  );
+  for (const row of listed.rows) {
+    functions.set(row.name, new Map((row.args ?? []).map((arg, i) => [arg, row.types[i]])));
+  }
 
   const auth = new Auth(tokenSeconds);
   // Uploaded files, by bucket and path. storage.objects keeps who uploaded them, like on Supabase
@@ -163,7 +174,7 @@ export async function startStandIn({
   };
 
   const server = createServer((req, res) => {
-    handle(req, res, { auth, columns, db, files, linkSecret, maxRows, oneAtATime })
+    handle(req, res, { auth, columns, db, files, functions, linkSecret, maxRows, oneAtATime })
       .catch((error) => {
         console.error(error);
         if (!res.headersSent) send(res, 500, { message: 'The stand-in broke. See its terminal.' });
@@ -623,9 +634,12 @@ function columnsToSet(method, body, table, known) {
   return { names: names.map((name) => `"${name}"`).join(', '), json: JSON.stringify(rows) };
 }
 
-async function rest(req, res, url, body, { auth, columns, db, maxRows, oneAtATime }) {
+async function rest(req, res, url, body, { auth, columns, db, functions, maxRows, oneAtATime }) {
   // The API checks the JWT before anything else
   const user = whoIsAsking(req, auth);
+  if (url.pathname.startsWith('/rest/v1/rpc/')) {
+    return rpc(req, res, url, body, user, { db, functions, oneAtATime });
+  }
 
   const table = url.pathname.slice('/rest/v1/'.length);
   if (!IDENT.test(table) || !columns.has(table)) {
@@ -722,6 +736,44 @@ async function rest(req, res, url, body, { auth, columns, db, maxRows, oneAtATim
   const status = method === 'POST' ? 201 : wantsRows ? 200 : 204;
   if (!wantsRows) return send(res, status, undefined, headers);
   return send(res, status, oneObject ? rows[0] : rows, headers);
+}
+
+/**
+ * Calls a function in public, like supabase.rpc(name, args) does. The stand-in only takes what
+ * supabase.rpc() sends by default: a POST with the arguments by name in a JSON object. It sends
+ * back the one value the function gives, so it doesn't do functions that give back rows.
+ */
+async function rpc(req, res, url, body, user, { db, functions, oneAtATime }) {
+  if (req.method !== 'POST') {
+    throw new Refusal(405, 'PGRST117', `Unsupported HTTP method: ${req.method}`);
+  }
+  const args = body ?? {};
+  if (typeof args !== 'object' || Array.isArray(args)) {
+    throw new Refusal(400, 'PGRST102', 'The body has to be a JSON object');
+  }
+  const name = url.pathname.slice('/rest/v1/rpc/'.length);
+  const known = IDENT.test(name) ? functions.get(name) : undefined;
+  const names = Object.keys(args);
+  // Only names the function really has get into the SQL
+  if (!known || !names.every((arg) => known.has(arg))) {
+    throw new Refusal(404, 'PGRST202',
+      `Could not find the function public.${name}(${names.join(', ')}) in the schema cache`);
+  }
+  const list = names.map((arg, i) => `"${arg}" => $${i + 1}::${known.get(arg)}`).join(', ');
+  const params = names.map((arg) =>
+    args[arg] !== null && typeof args[arg] === 'object' ? JSON.stringify(args[arg]) : args[arg]);
+
+  let rows;
+  try {
+    ({ rows } = await oneAtATime(() =>
+      asUser(db, user, (tx) => tx.query(`SELECT public."${name}"(${list}) AS value`, params)),
+    ));
+  } catch (error) {
+    if (typeof error.code !== 'string') throw error;
+    throw new Refusal(statusFor(error.code, user !== null), error.code, error.message,
+      error.detail ?? null, error.hint ?? null);
+  }
+  return send(res, 200, rows[0].value);
 }
 
 // ----- Storage -----
