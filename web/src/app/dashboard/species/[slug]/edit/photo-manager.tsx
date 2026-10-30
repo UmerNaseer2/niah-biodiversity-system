@@ -76,8 +76,12 @@ export function PhotoManager({
   const [handledUpload, setHandledUpload] = useState(upload);
   const [handledManage, setHandledManage] = useState(manage);
   // Which photo's Remove is asking first. It goes by place, since two outside
-  // links can be the same
-  const [confirming, setConfirming] = useState<number | null>(null);
+  // links can be the same. Without JavaScript the server says which one.
+  const [confirming, setConfirming] = useState<number | null>(() =>
+    manage.status === "confirm" && photos[manage.index]?.key === manage.key
+      ? manage.index
+      : null,
+  );
   // Which photo's caption form has a problem, and what it is
   const [detailErrors, setDetailErrors] = useState<{
     index: number;
@@ -110,7 +114,13 @@ export function PhotoManager({
   if (manage !== handledManage) {
     setHandledManage(manage);
     setConfirming(null);
-    if (manage.status === "error") {
+    if (manage.status === "confirm") {
+      // Only without JavaScript, but if it ever comes back here, ask the same way
+      if (photos[manage.index]?.key === manage.key) {
+        setConfirming(manage.index);
+        setFocusRequest({ elementId: `photo-${manage.index}-confirm` });
+      }
+    } else if (manage.status === "error") {
       setManageError(manage.message);
       setFocusRequest({ elementId: "photo-manage-error" });
     } else if (manage.status === "done") {
@@ -213,7 +223,8 @@ export function PhotoManager({
   }
 
   function askFirst(event: MouseEvent<HTMLButtonElement>, index: number) {
-    // With JavaScript, Remove asks first. Without it the button just removes.
+    // With JavaScript, Remove asks here. Without it the server sends the page
+    // back asking.
     event.preventDefault();
     setConfirming(index);
     setFocusRequest({ elementId: `photo-${index}-confirm` });
@@ -378,6 +389,7 @@ export function PhotoManager({
                       <input type="hidden" name="key" value={photo.key} />
                       <input type="hidden" name="index" value={index} />
                       <input type="hidden" name="intent" value="remove" />
+                      <input type="hidden" name="confirmed" value="yes" />
                       <p id={`photo-${index}-confirm`} tabIndex={-1} className="text-sm font-bold">
                         Remove this photo?
                         {photo.path && " Its file is deleted too."}
@@ -386,13 +398,17 @@ export function PhotoManager({
                         <button type="submit" aria-disabled={busy} className="btn btn-danger">
                           {managing ? "Removing…" : "Remove"}
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => keep(index)}
+                        {/* Without JavaScript it loads the page again, which isn't asking */}
+                        <a
+                          href={`/dashboard/species/${slug}/edit#photos`}
+                          onClick={(event) => {
+                            event.preventDefault();
+                            keep(index);
+                          }}
                           className="btn btn-secondary"
                         >
                           Keep it
-                        </button>
+                        </a>
                       </div>
                     </form>
                   ) : (

@@ -63,7 +63,9 @@ export type PhotoState =
       fieldErrors: PhotoErrors;
     }
   // done changes each time, so the page can tell two in a row apart
-  | { status: "done"; message: string; done: string };
+  | { status: "done"; message: string; done: string }
+  // Remove sent without JavaScript, so the page asks about this photo first
+  | { status: "confirm"; key: string; index: number };
 
 /**
  * Anyone can send a request straight to a server action, so each one checks
@@ -434,6 +436,12 @@ export async function managePhoto(
   const slug = slugFromFormData(formData);
   const key = String(formData.get("key") ?? "");
   const shownAt = Number(formData.get("index"));
+
+  // With JavaScript the page asks before it sends a remove. Without it the
+  // first press comes here, so the page comes back asking instead.
+  if (intent === "remove" && formData.get("confirmed") !== "yes") {
+    return { status: "confirm", key, index: shownAt };
+  }
 
   // The page checks these first, so this only comes up without JavaScript
   const caption = tidy(String(formData.get("caption") ?? ""));
