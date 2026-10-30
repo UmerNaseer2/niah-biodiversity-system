@@ -13,8 +13,9 @@ export type SyncStatus = 'pending' | 'synced';
  * - tag-clash: a different record on the server already has this tag code.
  * - not-allowed: this account isn't allowed to upload records. Nothing is wrong with the record.
  * - rejected: the server turned the record down because a value broke one of its rules.
+ * - deleted: an officer deleted this record on the website, so the server won't take it again.
  */
-export const UPLOAD_PROBLEMS = ['tag-clash', 'not-allowed', 'rejected'] as const;
+export const UPLOAD_PROBLEMS = ['tag-clash', 'not-allowed', 'rejected', 'deleted'] as const;
 
 export type UploadProblem = (typeof UPLOAD_PROBLEMS)[number];
 

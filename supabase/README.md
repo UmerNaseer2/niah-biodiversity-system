@@ -20,17 +20,19 @@ kept, and you can fix the problem and run it again.
 | `007_species_fixes.sql` | The rough area only switch for a species, the public views that use it, checked facts for the sample species, and a trigger that sets `updated_at` when a species is edited | 14 | Yes |
 | `008_record_edits.sql` | `updated_at` on records, set by a trigger when a record is edited, and the staff view that shows it | 17 | Yes |
 | `009_species_photos.sql` | Checks what goes in `species.photos`, the `species_photos_public` view for the plant pages, and lets officers and admins delete record photos | 18 | Yes |
+| `010_deleted_records.sql` | Keeps the ID of every deleted record, with who deleted it and when, so a phone can't upload it again | 3, 17 | Yes |
 
-As of 16 Oct 2026 the hosted project has 001 and 002. Run 003, 004, 005, 006, 007, 008 and 009 next, one
-file at a time, in that order, and don't stop part way. The website's species pages (add, edit
-and delete) and its public pages need 007, and 007 stops on its first line if 006 isn't there.
-Until then the public pages say "This page didn't load". Without 009 the plant pages show no
-photos. 003 is fine to run even if it turns out to be there already.
+As of 16 Oct 2026 the hosted project has 001 and 002. Run 003, 004, 005, 006, 007, 008, 009 and
+010 next, one file at a time, in that order, and don't stop part way. The website's species pages
+(add, edit and delete) and its public pages need 007, and 007 stops on its first line if 006 isn't
+there. Until then the public pages say "This page didn't load". Without 009 the plant pages show
+no photos. Without 010 a phone that hadn't synced a record can upload it again after an officer
+deletes it. 003 is fine to run even if it turns out to be there already.
 
 Before running 004, open the `profiles` table in the Table Editor and check every role there is
 one an admin gave on purpose. Set any you don't recognise back to `visitor`. If nobody needs to
 sign up on the website or the app yet, turn sign ups off in the Supabase dashboard
-(Authentication, Sign In / Providers) until 003 to 009 are in. Staff accounts can still be added
+(Authentication, Sign In / Providers) until 003 to 010 are in. Staff accounts can still be added
 by hand there.
 
 If 005 stops with a check error (like `records_gps_check`), a record already on the hosted project
@@ -114,10 +116,11 @@ npm install
 npm test
 ```
 
-- `tests/sync.test.js` checks phone uploads and record photos (item 3), `tests/roles.test.js`
-  checks what each role can read and change (item 4), `tests/species.test.js` checks 007
-  and adding, editing and deleting a species the way the website does (item 14), and
-  `tests/photos.test.js` checks 009 and saving photos the way the website does (item 18).
+- `tests/sync.test.js` checks phone uploads and record photos (item 3) and 010,
+  `tests/roles.test.js` checks what each role can read and change (item 4),
+  `tests/species.test.js` checks 007 and adding, editing and deleting a species the way the
+  website does (item 14), and `tests/photos.test.js` checks 009 and saving photos the way the
+  website does (item 18).
 - `tests/stand-in.js` is a stand-in for our Supabase project that runs on your computer, for
   trying the website without a real project. The
   [web README](../web/README.md#trying-sign-in-without-a-supabase-project) says how, and

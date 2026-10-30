@@ -57,6 +57,48 @@ export const MIGRATIONS: readonly string[] = [
     upload_problem IS NULL
     OR (sync_status = 'pending' AND upload_problem IN ('tag-clash', 'not-allowed', 'rejected'))
   );`,
+
+  // Version 4: a fourth upload problem, 'deleted', for a record an officer deleted on the website
+  // (supabase/010_deleted_records.sql). SQLite can't change a CHECK on a column, so this makes the
+  // table again with the new rule and copies every record across. The rest of the table is the
+  // same as after version 3, and the columns are named so nothing lands in the wrong one.
+  `CREATE TABLE plant_records_new (
+    id TEXT PRIMARY KEY NOT NULL,
+    tag_code TEXT NOT NULL UNIQUE,
+    species_name TEXT NOT NULL CHECK (species_name <> ''),
+    species_slug TEXT,
+    common_name TEXT,
+    height_m REAL CHECK (height_m IS NULL OR height_m > 0),
+    condition TEXT NOT NULL CHECK (condition IN ('healthy', 'damaged', 'diseased', 'dead')),
+    notes TEXT,
+    latitude REAL CHECK (latitude BETWEEN -90 AND 90),
+    longitude REAL CHECK (longitude BETWEEN -180 AND 180),
+    accuracy_m REAL CHECK (accuracy_m >= 0),
+    captured_at TEXT,
+    photo_count INTEGER NOT NULL DEFAULT 0 CHECK (photo_count >= 0),
+    recorded_at TEXT NOT NULL,
+    sync_status TEXT NOT NULL DEFAULT 'pending' CHECK (sync_status IN ('pending', 'synced')),
+    upload_problem TEXT CHECK (
+      upload_problem IS NULL
+      OR (sync_status = 'pending'
+        AND upload_problem IN ('tag-clash', 'not-allowed', 'rejected', 'deleted'))
+    ),
+    CHECK (
+      (latitude IS NULL AND longitude IS NULL AND accuracy_m IS NULL AND captured_at IS NULL)
+      OR (latitude IS NOT NULL AND longitude IS NOT NULL AND accuracy_m IS NOT NULL
+        AND captured_at IS NOT NULL)
+    )
+  ) STRICT;
+  INSERT INTO plant_records_new (id, tag_code, species_name, species_slug, common_name, height_m,
+    condition, notes, latitude, longitude, accuracy_m, captured_at, photo_count, recorded_at,
+    sync_status, upload_problem)
+  SELECT id, tag_code, species_name, species_slug, common_name, height_m, condition, notes,
+    latitude, longitude, accuracy_m, captured_at, photo_count, recorded_at, sync_status,
+    upload_problem
+  FROM plant_records;
+  DROP TABLE plant_records;
+  ALTER TABLE plant_records_new RENAME TO plant_records;
+  CREATE INDEX plant_records_recorded_at ON plant_records (recorded_at);`,
 ];
 
 /**

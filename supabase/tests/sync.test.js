@@ -1,17 +1,20 @@
 // Checks 005_phone_sync.sql: who can upload records and photos, what the database turns down, and
 // the errors the phone gets back, since the phone decides what to do next from them (see
-// docs/sync-design.md).
+// docs/sync-design.md). Also checks 010_deleted_records.sql, which turns down a record an officer
+// deleted.
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { after, before, describe, test } from 'node:test';
 import {
   addUser,
+  asUser,
   idStartingWith,
   insertAs,
   newDatabase,
   readFixture,
   readSql,
   selectAs,
+  SQL_FILES,
 } from './harness.js';
 
 const { uploads } = readFixture('phone-upload.json');
@@ -259,6 +262,163 @@ describe('uploading records from the phone', () => {
     const saved = await storedRecord(row.id);
     assert.equal(saved.species_slug, null);
     assert.equal(saved.species_name, 'Ficus benjamina');
+  });
+});
+
+describe('a record an officer deleted', () => {
+  /** Deletes a record the way the website's delete page does, and says how many rows went. */
+  async function deleteAs(user, id) {
+    const result = await asUser(db, user, (tx) =>
+      tx.query('DELETE FROM public.records WHERE id = $1', [id]),
+    );
+    return result.affectedRows;
+  }
+
+  async function storedDeletion(id) {
+    const { rows } = await db.query('SELECT * FROM public.deleted_records WHERE id = $1', [id]);
+    return rows[0];
+  }
+
+  test('is remembered with who deleted it and when, and nothing else', async () => {
+    const row = freshRow();
+    await upload(botanist, row);
+    assert.equal(await deleteAs(officer, row.id), 1);
+
+    const deletion = await storedDeletion(row.id);
+    assert.deepEqual(Object.keys(deletion).sort(), ['deleted_at', 'deleted_by', 'id']);
+    assert.equal(deletion.deleted_by, officer.id);
+    assert.ok(deletion.deleted_at instanceof Date);
+    assert.equal(await storedRecord(row.id), undefined);
+  });
+
+  test("can't be uploaded again, and the phone can tell why", async () => {
+    const row = freshRow();
+    await upload(botanist, row);
+    await deleteAs(admin, row.id);
+
+    // The phone reads "deleted_records_pkey" as "an officer deleted this", where "records_pkey"
+    // would mean it went up before.
+    for (const user of [botanist, officer]) {
+      await assert.rejects(
+        upload(user, row),
+        {
+          code: '23505',
+          constraint: 'deleted_records_pkey',
+          message: /"deleted_records_pkey"/,
+        },
+        user.name,
+      );
+    }
+    assert.equal(await storedRecord(row.id), undefined);
+  });
+
+  test("a botanist can't delete their own record, so it isn't remembered", async () => {
+    const row = freshRow();
+    await upload(botanist, row);
+    assert.equal(await deleteAs(botanist, row.id), 0);
+    assert.equal(await storedDeletion(row.id), undefined);
+    assert.ok(await storedRecord(row.id));
+  });
+
+  test('only officers and admins can see the deleted records', async () => {
+    const row = freshRow();
+    await upload(botanist, row);
+    await deleteAs(officer, row.id);
+
+    const sql = 'SELECT id FROM public.deleted_records WHERE id = $1';
+    for (const user of [officer, admin]) {
+      assert.equal((await selectAs(db, user, sql, [row.id])).length, 1, user.name);
+    }
+    for (const user of [botanist, visitor]) {
+      assert.equal((await selectAs(db, user, sql, [row.id])).length, 0, user.name);
+    }
+    await assert.rejects(selectAs(db, null, sql, [row.id]), {
+      code: '42501',
+      message: /permission denied/,
+    });
+  });
+
+  test('nobody can change the list through the API', async () => {
+    const row = freshRow();
+    await upload(botanist, row);
+    await deleteAs(officer, row.id);
+
+    const notAllowed = { code: '42501', message: /permission denied/ };
+    for (const user of [admin, officer, botanist]) {
+      await assert.rejects(
+        insertAs(db, user, 'public.deleted_records', { id: randomUUID() }),
+        notAllowed,
+        `${user.name} adds`,
+      );
+      await assert.rejects(
+        selectAs(db, user, 'DELETE FROM public.deleted_records WHERE id = $1', [row.id]),
+        notAllowed,
+        `${user.name} removes`,
+      );
+      await assert.rejects(
+        selectAs(db, user, 'UPDATE public.deleted_records SET deleted_by = NULL WHERE id = $1', [
+          row.id,
+        ]),
+        notAllowed,
+        `${user.name} changes`,
+      );
+    }
+    assert.equal((await storedDeletion(row.id)).deleted_by, officer.id);
+
+    const { rows } = await db.query(
+      `SELECT has_function_privilege('authenticated', 'public.check_deleted_record()', 'EXECUTE')
+                AS check_it,
+              has_function_privilege('authenticated', 'public.remember_deleted_record()',
+                'EXECUTE') AS remember_it`,
+    );
+    assert.deepEqual(rows, [{ check_it: false, remember_it: false }]);
+  });
+
+  test('putting it back in the SQL editor takes it off the list', async () => {
+    const row = freshRow();
+    await upload(botanist, row);
+    await deleteAs(officer, row.id);
+
+    // As the postgres user, like the SQL editor
+    const restored = { ...row, recorded_by: botanist.name, submitted_by: botanist.id };
+    const columns = Object.keys(restored).join(', ');
+    await db.query(
+      `INSERT INTO public.records (${columns})
+       SELECT ${columns} FROM json_populate_record(null::public.records, $1::json)`,
+      [JSON.stringify(restored)],
+    );
+    assert.equal(await storedDeletion(row.id), undefined);
+    assert.ok(await storedRecord(row.id));
+    // So the phone hears it went up before
+    await assert.rejects(upload(botanist, row), { code: '23505', constraint: 'records_pkey' });
+  });
+
+  test('running 010 again keeps the list, and 002 still runs after it', async () => {
+    const row = freshRow();
+    await upload(botanist, row);
+    await deleteAs(officer, row.id);
+
+    await db.exec(readSql('010_deleted_records.sql'));
+    await db.exec(readSql('002_seed_data.sql'));
+    assert.equal((await storedDeletion(row.id)).deleted_by, officer.id);
+    await assert.rejects(upload(botanist, row), { constraint: 'deleted_records_pkey' });
+  });
+
+  test("010 stops and changes nothing if 009 hasn't been run", async () => {
+    const upTo008 = SQL_FILES.slice(0, SQL_FILES.indexOf('009_species_photos.sql'));
+    const without009 = await newDatabase(upTo008);
+    try {
+      await assert.rejects(
+        without009.exec(readSql('010_deleted_records.sql')),
+        /010 needs 009_species_photos\.sql to be run first/,
+      );
+      const { rows } = await without009.query(
+        "SELECT to_regclass('public.deleted_records') AS deleted",
+      );
+      assert.deepEqual(rows, [{ deleted: null }]);
+    } finally {
+      await without009.close();
+    }
   });
 });
 
