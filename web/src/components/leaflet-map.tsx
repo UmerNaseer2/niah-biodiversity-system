@@ -1,7 +1,13 @@
 "use client";
 
 import "leaflet/dist/leaflet.css";
-import type { LatLngTuple, Map as LeafletMapType } from "leaflet";
+import type {
+  CircleMarker,
+  LatLngTuple,
+  Map as LeafletMapType,
+  Marker,
+  Tooltip,
+} from "leaflet";
 import { useEffect, useRef, useState } from "react";
 import { PARK_HQ, type Area } from "@/lib/geo";
 
@@ -82,6 +88,69 @@ export function LeafletMap({
 
         const corners: LatLngTuple[] = [[PARK_HQ.lat, PARK_HQ.lng]];
 
+        // Every label, with the dot it belongs to if it has one. Plants come
+        // first when two labels want the same space, then park HQ, sensors
+        // and rough areas. Leaflet only draws a dot once the map has a view,
+        // so it's looked up each time instead of kept here.
+        const labels: {
+          rank: number;
+          tooltip: Tooltip;
+          layer?: Marker | CircleMarker;
+        }[] = [];
+        const remember = (rank: number, layer: Marker | CircleMarker) => {
+          const tooltip = layer.getTooltip();
+          if (tooltip) labels.push({ rank, tooltip, layer });
+        };
+        // The labels of the dot under the pointer and the dot with focus.
+        // They always show, and the others make room for them.
+        let pointed: Tooltip | undefined;
+        let focused: Tooltip | undefined;
+        const featured = (tooltip: Tooltip) =>
+          tooltip === pointed || tooltip === focused;
+
+        // Plants close together would have their labels on top of each other
+        // and on top of the dots, so a label that would cover another label or
+        // another dot is hidden until zooming in makes room for it.
+        const declutter = () => {
+          const dots = new Map(
+            labels.map((item) => [
+              item,
+              item.layer?.getElement()?.getBoundingClientRect(),
+            ]),
+          );
+          const kept: DOMRect[] = [];
+          const order = [...labels].sort(
+            (a, b) => Number(featured(b.tooltip)) - Number(featured(a.tooltip)),
+          );
+          for (const item of order) {
+            const element = item.tooltip.getElement();
+            if (!element) continue;
+            // The line is a little taller than the letters, so a label can
+            // touch something above or below it by 2 pixels
+            const line = element.getBoundingClientRect();
+            const box = new DOMRect(
+              line.x,
+              line.y + 2,
+              line.width,
+              line.height - 4,
+            );
+            const covers = (other?: DOMRect) =>
+              other !== undefined &&
+              box.left < other.right &&
+              other.left < box.right &&
+              box.top < other.bottom &&
+              other.top < box.bottom;
+            const hidden =
+              !featured(item.tooltip) &&
+              (kept.some(covers) ||
+                labels.some(
+                  (other) => other !== item && covers(dots.get(other)),
+                ));
+            element.classList.toggle("map-label-hidden", hidden);
+            if (!hidden) kept.push(box);
+          }
+        };
+
         // The map can be dragged by a dot too. A dot moves with the map, so a
         // drag that starts on one ends on it, and that shouldn't open the link.
         let dragged = false;
@@ -105,7 +174,7 @@ export function LeafletMap({
           }).addTo(map);
           // In the top left corner, like the sketch maps had it, so it stays
           // clear of a dot or park HQ in the middle
-          L.tooltip({
+          const tooltip = L.tooltip({
             permanent: true,
             direction: "right",
             offset: [2, 12],
@@ -114,9 +183,10 @@ export function LeafletMap({
             .setLatLng([area.north, area.west])
             .setContent(label("Rough area"))
             .addTo(map);
+          labels.push({ rank: 3, tooltip });
         }
 
-        L.marker([PARK_HQ.lat, PARK_HQ.lng], {
+        const hq = L.marker([PARK_HQ.lat, PARK_HQ.lng], {
           icon: L.divIcon({ html: HQ_ICON, className: "", iconSize: [18, 18] }),
           interactive: false,
           keyboard: false,
@@ -128,10 +198,11 @@ export function LeafletMap({
             className: "map-label",
           })
           .addTo(map);
+        remember(1, hq);
 
         for (const sensor of sensors) {
           corners.push([sensor.lat, sensor.lng]);
-          L.marker([sensor.lat, sensor.lng], {
+          const marker = L.marker([sensor.lat, sensor.lng], {
             icon: L.divIcon({
               html: "<span></span>",
               className: [
@@ -151,13 +222,14 @@ export function LeafletMap({
               className: "map-label",
             })
             .addTo(map);
+          remember(2, marker);
         }
 
         for (const point of points) {
           const at: LatLngTuple = [point.lat, point.lng];
           corners.push(at);
           if (!point.link) {
-            L.circleMarker(at, {
+            const dot = L.circleMarker(at, {
               radius: 7,
               color: "#ffffff",
               weight: 2.5,
@@ -172,6 +244,7 @@ export function LeafletMap({
                 className: "map-label",
               })
               .addTo(map);
+            remember(0, dot);
             continue;
           }
 
@@ -197,7 +270,7 @@ export function LeafletMap({
           // The link already says it, so screen readers don't hear it twice
           const shown = label(point.label);
           shown.setAttribute("aria-hidden", "true");
-          L.marker(at, {
+          const marker = L.marker(at, {
             icon: L.divIcon({ html: link, className: "", iconSize: [24, 24] }),
             interactive: false,
             keyboard: false,
@@ -209,7 +282,36 @@ export function LeafletMap({
               className: "map-label",
             })
             .addTo(map);
+          remember(0, marker);
+
+          // Pointing at a dot or tabbing to it shows its label, even if
+          // another one was in the way
+          const tooltip = marker.getTooltip();
+          link.addEventListener("focus", () => {
+            focused = tooltip;
+            declutter();
+          });
+          link.addEventListener("blur", () => {
+            if (focused === tooltip) focused = undefined;
+            declutter();
+          });
+          link.addEventListener("pointerenter", () => {
+            pointed = tooltip;
+            declutter();
+          });
+          link.addEventListener("pointerleave", () => {
+            if (pointed === tooltip) pointed = undefined;
+            declutter();
+          });
         }
+
+        labels.sort((a, b) => a.rank - b.rank);
+        // fitBounds fires zoomend, so this runs once the map is first drawn too
+        map.on("zoomend resize", declutter);
+        // A label gets wider when the web font arrives
+        document.fonts.ready.then(() => {
+          if (!cancelled) declutter();
+        });
 
         map.fitBounds(L.latLngBounds(corners), { padding: [48, 48], maxZoom: 15 });
         setState("ready");
