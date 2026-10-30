@@ -91,9 +91,10 @@ tests weren't touched.
 
 ## Known limits
 
-- **Exact spot downloads only go to the server log.** There's no table in the database that keeps
-  who downloaded what, and hosted logs aren't kept for long. A proper audit table would be a later
-  item.
+- **Fixed on 30 Oct:** exact spot downloads used to only go to the server log, and hosted logs
+  aren't kept for long. Every download with exact spots now goes on a list in the database first,
+  and admins see it at the bottom of the Reports page
+  ([download list results](download-audit.md)).
 - **The preview stops at 20 rows.** The file always has every row, and the page says how many more
   there are.
 - **Counting happens on the web server.** The page loads every record and counts them in

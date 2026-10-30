@@ -2,7 +2,7 @@ import type { NextRequest } from "next/server";
 import { getSession } from "@/lib/auth";
 import { parkNow } from "@/lib/format";
 import { buildCsv, filtersFrom } from "@/lib/reports";
-import { loadReportRecords } from "@/lib/reports-db";
+import { loadReportRecords, recordExactDownload } from "@/lib/reports-db";
 
 function refuse(status: number, message: string) {
   return new Response(message, {
@@ -18,7 +18,8 @@ function refuse(status: number, message: string) {
  * The reports CSV (item 21), built here on the server so exact spots only go
  * into the file, never into the reports page. Takes the same scope, from and
  * to as the page, plus exact=1 to include the exact spots of threatened and
- * protected plants.
+ * protected plants. A download with exact=1 goes on a list admins can see
+ * first (supabase/011).
  */
 export async function GET(request: NextRequest) {
   // The proxy already sends anyone signed out to the sign in page. This
@@ -38,10 +39,13 @@ export async function GET(request: NextRequest) {
   const rows = await loadReportRecords(filters);
   if (!rows) return refuse(500, "The records didn’t load. Go back and try again.");
 
-  if (includeExact) {
-    // There's no audit table yet, so the server log is the only trace of who
-    // took the exact spots
-    console.info(`Report with exact spots downloaded by user ${session.id}`);
+  // Nobody gets the exact spots without a row on the list admins check
+  if (includeExact && !(await recordExactDownload(filters, rows))) {
+    return refuse(
+      500,
+      "The download couldn’t be recorded, so the file with exact spots wasn’t made. " +
+        "Go back and try again, or download it without exact spots.",
+    );
   }
 
   // Today in park time. Fine here, since nothing is rendered in the browser.

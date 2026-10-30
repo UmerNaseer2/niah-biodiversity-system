@@ -79,7 +79,8 @@ export function ReportBuilder({
               <Icon name="alert" className="mt-0.5 size-4" />
               <span>
                 <strong>Only share this file with SFC staff.</strong> Anyone
-                who has it can walk straight to these plants.
+                who has it can walk straight to these plants. Your name goes
+                on a list of these downloads that administrators can see.
               </span>
             </p>
           )}

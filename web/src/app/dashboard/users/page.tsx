@@ -35,6 +35,7 @@ const PERMISSIONS: { label: string; roles: Role[] }[] = [
   { label: "Download reports", roles: ["officer", "admin"] },
   { label: "See sensor readings and alerts", roles: ["officer", "admin"] },
   { label: "Manage users and roles", roles: ["admin"] },
+  { label: "See who downloaded exact spots", roles: ["admin"] },
 ];
 
 export default async function UsersPage() {
