@@ -88,6 +88,37 @@ describe('My records', () => {
     expect(screen.queryByText('Synced')).toBeNull();
   });
 
+  it('offers to remove a record an officer deleted, and asks first', async () => {
+    const store = await openRecordsStore();
+    try {
+      await store.saveUploadOutcome(stuck.id, { kind: 'problem', problem: 'deleted' });
+    } finally {
+      await store.close();
+    }
+    await renderList();
+    fireEvent.press(screen.getByRole('link', { name: /^Ficus benjamina, Weeping fig/ }));
+    expect(await screen.findByText(uploadProblemMessage('deleted'))).toBeVisible();
+
+    // Keep it puts the button back and changes nothing.
+    fireEvent.press(screen.getByRole('button', { name: 'Remove from this phone' }));
+    expect(screen.getByText(/gone for good\. Remove it\?$/)).toBeVisible();
+    fireEvent.press(screen.getByRole('button', { name: 'Keep it' }));
+    expect(screen.queryByText(/gone for good/)).toBeNull();
+
+    fireEvent.press(screen.getByRole('button', { name: 'Remove from this phone' }));
+    fireEvent.press(screen.getByRole('button', { name: 'Remove it' }));
+    expect(await screen.findByRole('heading', { name: 'My records' })).toBeVisible();
+    expect(screen.getByText(`${MOCK_RECORDS.length} records on this phone`)).toBeVisible();
+    expect(screen.queryByRole('link', { name: /^Ficus benjamina, Weeping fig/ })).toBeNull();
+  });
+
+  it("doesn't offer to remove a record with any other problem", async () => {
+    await renderList();
+    fireEvent.press(screen.getByRole('link', { name: /^Ficus benjamina, Weeping fig/ }));
+    expect(await screen.findByText(uploadProblemMessage('tag-clash'))).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Remove from this phone' })).toBeNull();
+  });
+
   it("says on the record's page why it couldn't upload", async () => {
     await renderList();
     fireEvent.press(screen.getByRole('link', { name: /^Ficus benjamina, Weeping fig/ }));

@@ -21,6 +21,11 @@ export type RecordsStore = {
    * nothing gets marked as synced by mistake.
    */
   saveUploadOutcome: (id: string, outcome: UploadOutcome) => Promise<void>;
+  /**
+   * Takes a record off the phone once the server has said an officer deleted it, so it won't
+   * take it again. Fails for any other record, so nothing that still has to go up is lost.
+   */
+  removeDeleted: (id: string) => Promise<void>;
   /** The species from the last download, in the same order. Empty if there hasn't been one. */
   loadSpecies: () => Promise<SpeciesOption[]>;
   /**
@@ -32,6 +37,7 @@ export type RecordsStore = {
 };
 
 export const NO_SUCH_RECORD = 'No record with that ID is saved on this phone.';
+export const NOT_DELETED = 'Only a record an officer deleted on the website can be removed.';
 
 // Row level security on Supabase hands back no rows instead of an error when the account can't
 // read a table, so an empty download is much more likely to be that than every species being gone.
@@ -176,6 +182,16 @@ export async function openRecordsStore(): Promise<RecordsStore> {
             });
       if (changes === 0) {
         throw new Error(NO_SUCH_RECORD);
+      }
+    },
+
+    async removeDeleted(id) {
+      const { changes } = await db.runAsync(
+        "DELETE FROM plant_records WHERE id = $id AND upload_problem = 'deleted'",
+        { $id: id },
+      );
+      if (changes === 0) {
+        throw new Error(NOT_DELETED);
       }
     },
 

@@ -4,6 +4,8 @@ Tested on 29 Oct 2026 on Umer's Mac (macOS, Node 22.22.3) on the `deleted-record
 SQL was tried on PGlite (`supabase/tests/`) and the Supabase stand-in in
 `supabase/tests/stand-in.js`, not against the hosted project.
 
+Round 2, on 30 Oct on the `phone-remove-deleted` branch, let the phone remove its own copy.
+
 ## What changed
 
 Item 17 and `docs/sync-design.md` both had this known limit: if an officer deleted a record
@@ -26,7 +28,8 @@ Now:
   purpose. The ID then comes off the list, so the phone that recorded it is told it's synced.
 - The phone has a fourth upload problem, `deleted`. The record stays on the phone and its page
   says: "An officer deleted this record on the website, so the server won't take it again. It's
-  still on this phone. Ask an officer if you think it should be put back."
+  still on this phone. Ask an officer if you think it should be put back, or remove it from this
+  phone if not." Round 2 added the last part and a button for it.
 - The phone's database had a rule listing the problems, and SQLite can't change that rule on a
   column, so step 4 in `mobile/src/db/database.ts` makes the records table again with the new rule
   and copies every record across.
@@ -77,10 +80,39 @@ added through the stand-in's API, so the sample data wasn't touched.
 | 5 | Deleted another record on the website's delete page, posting the form the way a browser without JavaScript does, then uploaded it again | Turned down with `deleted_records_pkey` | Pass |
 | 6 | Opened a record's delete page as the officer | The last bullet says the server turns it down at the next sync and the phone says an officer deleted it | Pass |
 
+## Round 2: removing it from the phone
+
+Tested on 30 Oct 2026. A record the server turned down because an officer deleted it used to stay
+in My records for good, still counted as waiting. Now its page has a "Remove from this phone"
+button under the message. Tapping it asks first, since the server doesn't have the record either,
+so it's gone for good after that. "Keep it" puts the button back and "Remove it" takes the record
+off the phone and goes back to My records. The phone only takes off a record with the `deleted`
+problem, so a record that still has to go up can't be lost this way, even if the screen asked for
+it.
+
+| Check | Command | Result |
+| --- | --- | --- |
+| Phone tests | `cd mobile && npx jest` | 330 of 330 pass |
+| Phone types and lint | `cd mobile && npx tsc --noEmit && npx expo lint` | Pass |
+
+The new phone tests check that:
+
+- the store takes off a record with the `deleted` problem and leaves the rest, and it's still
+  gone after the database is opened again
+- it turns down a record with another problem, one with no problem, a synced one and an ID that
+  isn't saved, and nothing changes
+- the records list drops it and the waiting count goes down by one, and for any other record it
+  throws and the list stays the same
+- the record's page only shows the button for the `deleted` problem, "Keep it" changes nothing,
+  and "Remove it" goes back to My records with one record fewer
+
+Not tried on a real phone yet. The web build of the phone app keeps records in memory and can't
+get a `deleted` answer without item 10's sync, so the button was only checked in the tests.
+
 ## Known limits
 
-- **The phone can't remove its own copy yet.** The record stays in My records with the message
-  until item 10 adds a way to clear it.
+- **Fixed on 30 Oct:** the phone couldn't remove its own copy, so the record stayed in My records
+  with the message for good. Now its page has a button to remove it. See round 2 above.
 - **Only the ID is kept.** A deleted record can't be looked at again from the list. Putting one
   back needs the whole record from somewhere else, like the phone that recorded it.
 - **A delete in the Table Editor counts too.** It goes on the list with no `deleted_by`. To let a

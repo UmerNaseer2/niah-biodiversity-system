@@ -5,6 +5,7 @@ import { DATABASE_NAME } from '@/db/database';
 import {
   EMPTY_SPECIES_LIST,
   NO_SUCH_RECORD,
+  NOT_DELETED,
   openRecordsStore,
   SPECIES_TRIES,
   type RecordsStore,
@@ -228,6 +229,52 @@ describe('records waiting to sync', () => {
       [second.id, 'not-allowed'],
       [sameTime.id, 'tag-clash'],
     ]);
+  });
+});
+
+describe('removing a record an officer deleted', () => {
+  const deleted = withId(
+    { ...full, uploadProblem: 'deleted' },
+    '55555555-0000-4000-8000-000000000005',
+  );
+  const stuck = withId(
+    { ...full, uploadProblem: 'rejected' },
+    '66666666-0000-4000-8000-000000000006',
+  );
+  const waiting = withId(full, '77777777-0000-4000-8000-000000000007');
+  const synced = withId(bare, '88888888-0000-4000-8000-000000000008');
+
+  beforeEach(async () => {
+    for (const record of [deleted, stuck, waiting, synced]) {
+      await store.saveRecord(record);
+    }
+  });
+
+  it('takes it off the phone and leaves the rest', async () => {
+    await store.removeDeleted(deleted.id);
+    expect((await store.loadRecords()).map((record) => record.id).sort()).toEqual(
+      [stuck.id, waiting.id, synced.id].sort(),
+    );
+    expect((await store.loadWaiting()).map((record) => record.id)).not.toContain(deleted.id);
+  });
+
+  it("won't take off a record with another problem, no problem, or that's synced", async () => {
+    const before = await store.loadRecords();
+    for (const record of [stuck, waiting, synced]) {
+      await expect(store.removeDeleted(record.id)).rejects.toThrow(NOT_DELETED);
+    }
+    await expect(store.removeDeleted('99999999-0000-4000-8000-000000000009')).rejects.toThrow(
+      NOT_DELETED,
+    );
+    expect(await store.loadRecords()).toEqual(before);
+  });
+
+  it('is still gone after it is closed and opened again', async () => {
+    await store.removeDeleted(deleted.id);
+    await store.close();
+
+    store = await openRecordsStore();
+    expect((await store.loadRecords()).map((record) => record.id)).not.toContain(deleted.id);
   });
 });
 

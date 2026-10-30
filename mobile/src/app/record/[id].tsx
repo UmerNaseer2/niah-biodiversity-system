@@ -1,5 +1,6 @@
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { StyleSheet, View } from 'react-native';
+import { useState } from 'react';
+import { AccessibilityInfo, Platform, StyleSheet, View } from 'react-native';
 
 import { LocationSummary } from '@/components/location-summary';
 import { Screen } from '@/components/screen';
@@ -13,6 +14,64 @@ import { Spacing } from '@/constants/theme';
 import { conditionLabel, formatHeight, formatRecordedAt } from '@/lib/format';
 import { useRecords } from '@/state/records-context';
 import { uploadProblemMessage } from '@/sync/upload-row';
+
+const REMOVE_FAILED = "Couldn't remove the record from this phone. Try again.";
+
+/**
+ * Takes a record an officer deleted on the website off the phone. It asks first, because the
+ * server doesn't have the record either, so after this it's gone for good.
+ */
+function RemoveDeleted({ id }: { id: string }) {
+  const router = useRouter();
+  const { removeDeleted } = useRecords();
+  const [asking, setAsking] = useState(false);
+  const [removing, setRemoving] = useState(false);
+  const [failed, setFailed] = useState(false);
+
+  async function remove() {
+    setRemoving(true);
+    setFailed(false);
+    try {
+      await removeDeleted(id);
+      router.dismissTo('/records');
+    } catch (error) {
+      console.warn("Couldn't remove the record.", error);
+      setFailed(true);
+      setRemoving(false);
+      // On the web the role="alert" below does the same job.
+      if (Platform.OS !== 'web') {
+        AccessibilityInfo.announceForAccessibility(REMOVE_FAILED);
+      }
+    }
+  }
+
+  if (!asking) {
+    return (
+      <Button label="Remove from this phone" variant="outline" onPress={() => setAsking(true)} />
+    );
+  }
+
+  return (
+    <View style={styles.ask}>
+      <ThemedText type="smallBold">
+        The server doesn&apos;t have this record any more, so once it&apos;s off this phone
+        it&apos;s gone for good. Remove it?
+      </ThemedText>
+      <Button label="Remove it" onPress={remove} disabled={removing} />
+      <Button
+        label="Keep it"
+        variant="outline"
+        onPress={() => setAsking(false)}
+        disabled={removing}
+      />
+      {failed ? (
+        <ThemedText type="small" themeColor="danger" role="alert">
+          {REMOVE_FAILED}
+        </ThemedText>
+      ) : null}
+    </View>
+  );
+}
 
 export default function RecordScreen() {
   const router = useRouter();
@@ -62,6 +121,7 @@ export default function RecordScreen() {
       {record.uploadProblem ? (
         <Card title="Couldn't upload" icon="warning">
           <ThemedText>{uploadProblemMessage(record.uploadProblem)}</ThemedText>
+          {record.uploadProblem === 'deleted' ? <RemoveDeleted id={record.id} /> : null}
         </Card>
       ) : null}
 
@@ -115,5 +175,8 @@ const styles = StyleSheet.create({
   },
   recordId: {
     gap: 2,
+  },
+  ask: {
+    gap: Spacing.two,
   },
 });
