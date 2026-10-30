@@ -44,6 +44,16 @@ describe('formatRecordedAt', () => {
   it('shows the date for anything older', () => {
     expect(formatRecordedAt(at(9, 1, 10, 5), now)).toBe('1 Oct, 10:05 am');
   });
+
+  it('adds the year when it is not this year', () => {
+    const lastYear = new Date(2025, 11, 28, 16, 10).toISOString();
+    expect(formatRecordedAt(lastYear, now)).toBe('28 Dec 2025, 4:10 pm');
+    // Yesterday still says Yesterday on the first of January.
+    const newYear = new Date(2026, 0, 1, 8, 0);
+    expect(formatRecordedAt(new Date(2025, 11, 31, 22, 0).toISOString(), newYear)).toBe(
+      'Yesterday, 10:00 pm',
+    );
+  });
 });
 
 describe('isToday', () => {

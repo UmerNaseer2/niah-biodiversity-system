@@ -23,7 +23,7 @@ export function formatTime(iso: string) {
   return `${hours % 12 || 12}:${minutes} ${hours < 12 ? 'am' : 'pm'}`;
 }
 
-/** "Today, 9:41 am", "Yesterday, 3:20 pm" or "1 Oct, 10:05 am" */
+/** "Today, 9:41 am", "Yesterday, 3:20 pm", "1 Oct, 10:05 am", or "28 Dec 2025, 4:10 pm" */
 export function formatRecordedAt(iso: string, now = new Date()) {
   const date = new Date(iso);
   const yesterday = new Date(now);
@@ -35,7 +35,10 @@ export function formatRecordedAt(iso: string, now = new Date()) {
   if (sameDay(date, yesterday)) {
     return `Yesterday, ${formatTime(iso)}`;
   }
-  return `${date.getDate()} ${MONTHS[date.getMonth()]}, ${formatTime(iso)}`;
+  // The year only shows when it isn't this year, so a record from last December doesn't look
+  // like it's from a few weeks ahead.
+  const year = date.getFullYear() === now.getFullYear() ? '' : ` ${date.getFullYear()}`;
+  return `${date.getDate()} ${MONTHS[date.getMonth()]}${year}, ${formatTime(iso)}`;
 }
 
 /** "3.81402° N, 113.77861° E" */

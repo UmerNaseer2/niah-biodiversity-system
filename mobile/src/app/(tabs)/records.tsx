@@ -7,9 +7,8 @@ import { ListScreen } from '@/components/screen';
 import { ThemedText } from '@/components/themed-text';
 import { Button } from '@/components/ui/button';
 import { Chip, ChipRow } from '@/components/ui/chip';
-import { Icon } from '@/components/ui/icon';
-import { Radius, Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
+import { SyncBanner } from '@/components/ui/sync-badge';
+import { Spacing } from '@/constants/theme';
 import { plural } from '@/lib/format';
 import { useRecords } from '@/state/records-context';
 import type { SyncStatus } from '@/types/plant-record';
@@ -24,8 +23,9 @@ const FILTERS: { value: Filter; label: string; empty: string }[] = [
 
 export default function RecordsScreen() {
   const router = useRouter();
-  const theme = useTheme();
   const { records, pendingCount, syncedCount } = useRecords();
+  // Records the server turned down are still pending, but they won't go up by waiting for signal.
+  const problemCount = records.filter((record) => record.uploadProblem).length;
   const [filter, setFilter] = useState<Filter>('all');
 
   const counts = {
@@ -43,25 +43,7 @@ export default function RecordsScreen() {
       subtitle={`${plural(records.length, 'record')} on this phone`}
       header={
         <>
-          {pendingCount > 0 ? (
-            <View style={[styles.banner, { backgroundColor: theme.warningSoft }]}>
-              <View style={styles.bannerTitle}>
-                <Icon name="pending" size={20} color={theme.warning} />
-                <ThemedText
-                  type="heading"
-                  themeColor="warning"
-                  role="heading"
-                  style={styles.flex}>
-                  {plural(pendingCount, 'record')} waiting to sync
-                </ThemedText>
-              </View>
-              <ThemedText type="small" themeColor="warning">
-                They are saved on this phone and safe to leave until you have signal. Uploading
-                comes in item 10.
-              </ThemedText>
-              <Button label="Sync now" icon="sync" variant="outline" disabled />
-            </View>
-          ) : null}
+          <SyncBanner waiting={pendingCount - problemCount} problems={problemCount} />
 
           <ChipRow label="Filter records">
             {FILTERS.map((option) => (
@@ -97,19 +79,6 @@ export default function RecordsScreen() {
 }
 
 const styles = StyleSheet.create({
-  banner: {
-    gap: 12,
-    padding: Spacing.three,
-    borderRadius: Radius.lg,
-  },
-  bannerTitle: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.two,
-  },
-  flex: {
-    flex: 1,
-  },
   empty: {
     gap: 12,
     paddingVertical: Spacing.four,

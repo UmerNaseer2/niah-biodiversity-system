@@ -59,7 +59,11 @@ describe('My records', () => {
   it('lists every record with how its upload is going', async () => {
     await renderList();
     expect(screen.getByText(`${MOCK_RECORDS.length + 1} records on this phone`)).toBeVisible();
-    expect(screen.getByText(`${samplesPending + 1} records waiting to sync`)).toBeVisible();
+    // The record with a problem won't go up by waiting for signal, so it's counted on its own.
+    expect(
+      screen.getByRole('heading', { name: `${samplesPending} records waiting to sync` }),
+    ).toBeVisible();
+    expect(screen.getByText(/^1 record also couldn't upload last time/)).toBeVisible();
 
     const row = screen.getByRole('link', { name: /^Ficus benjamina, Weeping fig/ });
     expect(row).toHaveAccessibleName(/, couldn't upload, /);
