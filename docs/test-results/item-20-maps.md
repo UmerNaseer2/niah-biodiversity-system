@@ -5,6 +5,7 @@ Supabase project doesn't have the SQL files after 002 yet, so the pages were tri
 Supabase stand-in in `supabase/tests/stand-in.js` (see `web/README.md`), with the stand-in's own
 sample records. Round 2, on the same day on the `map-dot-links` branch, made the plant dots into
 links. Round 3, on 30 Oct on the `map-label-overlap` branch, stopped the labels overlapping.
+Round 4, on 30 Oct on the `map-without-js` branch, added a map for browsers with JavaScript off.
 
 ## What it does
 
@@ -100,6 +101,41 @@ when another label was in the way, and that label steps aside until the pointer 
 | Sensors page: all 5 sensor names and park HQ show, since nothing is in the way | Pass |
 | Tapang and Slipper orchid plant pages: "Rough area" and "Park HQ" both show | Pass |
 
+## Round 4: a map without JavaScript
+
+Tested on 30 Oct 2026. A browser with JavaScript turned off used to get a box saying the map needs
+JavaScript, and nothing else. Now it gets a still map, drawn on the server by
+`web/src/components/static-map.tsx`:
+
+- It has the same OSM tiles, rough squares, park HQ, sensors and plant dots as the Leaflet map, at
+  the closest zoom that fits them all (at most 15, the same as the Leaflet map).
+- A plant dot that's a link on the Leaflet map is a plain link here too, so it still opens the
+  record or the tag page.
+- Labels go in the same order as round 3: plants, park HQ, sensors, then rough areas. A label moves
+  to the other side of its dot when that keeps it on a phone's screen or out of the way, and is left
+  off if it would cover another label or a dot on both sides. A plant link with no label still has
+  its name as a tooltip.
+- A note in the bottom right corner says to turn JavaScript on to zoom and move the map, with the
+  OSM attribution under it. It's at the bottom so the planned tape on the overview can't cover it.
+- It's inside a `<noscript>`, so a browser with JavaScript never loads its tiles and gets the
+  Leaflet map the same as before.
+- It's given the same data as the Leaflet map, so a hidden species still only gets rough squares.
+
+The test browser can't turn JavaScript off, so each page's HTML was loaded with its scripts taken
+out and the `<noscript>` shown, which is what a browser without JavaScript does.
+
+| Test | Result |
+| --- | --- |
+| Overview at desktop width: tiles, 9 plant dots, 5 sensors and park HQ. 9 of the 15 labels show, and none of them touch another label or a dot | Pass (at first the Slipper orchid label touched the S-05 label by 3 px, since the label height guess was too short. It's now the real 18 px) |
+| The 9 plant dots are links named like the Leaflet ones, for example "Edit NNP-D00D02, Strangler fig". The 6 with no label have their name as a tooltip | Pass |
+| Overview at phone width (375 px): the same 9 labels, all inside the map with at least 55 px to spare, no sideways scrolling, and the planned tape doesn't cover the note | Pass |
+| Stand-in tree plant page: one dot with its label, linking to tag NNP-D00D01 | Pass |
+| Slipper orchid plant page (rough area only): one shaded square, "Rough area" and "Park HQ", and no dots or links | Pass |
+| Tag NNP-D00D01: its one dot stays a plain dot | Pass |
+| Tag NNP-2A1B0C (hidden): still no map, and no tiles or coordinates anywhere in the page | Pass |
+| Sensors page: all 5 sensors with their names, and park HQ | Pass |
+| With JavaScript on: the Leaflet map loads as before, none of the still map's tiles are in the page, and moving between map pages in a fresh tab gives no errors in the browser console | Pass |
+
 ## Not tested yet
 
 - The "The map didn’t load" message. It shows if Leaflet's code can't be fetched, which is hard to
@@ -108,7 +144,7 @@ when another label was in the way, and that label steps aside until the pointer 
   not read out.
 - Dots on a touch screen. They're 24 px across, which is smaller than the 44 px the rest of the site
   uses for things to tap, so a phone may need a zoom in first.
-- The pages against the hosted project, which needs 003 to 009 run first.
+- The pages against the hosted project, which needs 003 to 012 run first.
 - A slow or offline phone in the park, where tiles may not load at all.
 
 ## Known limits
@@ -120,14 +156,22 @@ when another label was in the way, and that label steps aside until the pointer 
   and a dot under another one can still be reached with Tab, which also shows its name.
 - **A sensor's name has no way to show on its own.** Plant names show when you point at the dot,
   but a hidden sensor name only comes back after zooming in. The sensors page lists them all.
-- **A label near the edge of the map gets cut off,** for example on a phone. Dragging the map
-  brings it back in.
+- **A label near the edge of the Leaflet map gets cut off,** for example on a phone. Dragging the
+  map brings it back in. The map without JavaScript moves those labels to the other side instead.
 - **Fixed on 29 Oct:** the dots used to be pictures only, so they couldn't be focused or clicked to
   open a record. Now each plant dot is a link. See round 2 above.
 - **The tiles come from openstreetmap.org.** Every visitor's browser asks OSM for them directly, so
   OSM sees their IP address. OSM's tile policy is fine with light use like ours, but a real launch
   would need a tile provider that allows more traffic.
-- **No map without JavaScript.** The box says the map needs JavaScript turned on.
+- **Fixed on 30 Oct:** there was no map without JavaScript, just a box saying to turn it on. Now
+  there's a still map. See round 4 above.
+- **The map without JavaScript can't zoom or move,** so it only shows the labels that fit at its
+  one zoom. Turning JavaScript on gives the full map.
+- **Its label sizes are guesses.** The server can't measure text, so each label's width comes from
+  its number of letters, on the wide side. A name full of wide letters could still touch the next
+  label.
+- **Its label check doesn't know about the note in the corner,** so on a busy map a label in the
+  bottom right could end up under it. None do with the stand-in's data.
 - **Park HQ may be in the wrong place.** The `PARK_HQ` point in `lib/geo.ts` (shared with the
   mobile app) lands in the forest on the real map, not on the HQ buildings. It needs checking
   against the real HQ before the "m from park HQ" directions mean much.
