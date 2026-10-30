@@ -154,4 +154,6 @@ outside link has no small file next to it.
 - **Fixed on 29 Oct:** photos couldn't be edited, so changing a caption meant uploading the photo
   again. The caption and credit can now be changed (round 2). The photo itself still can't be
   swapped or cropped, so a new picture is still a new upload.
-- **No history.** Nothing records who added or removed a photo.
+- **Fixed on 30 Oct:** nothing recorded who added or removed a photo. Since
+  `supabase/013_edit_history.sql` the species edit page shows who added, removed or changed each
+  photo, and when. See [edit-history.md](edit-history.md).

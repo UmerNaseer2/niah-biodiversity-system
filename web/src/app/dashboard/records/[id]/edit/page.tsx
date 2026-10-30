@@ -2,9 +2,11 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Icon } from "@/components/icon";
+import { EditHistory } from "@/components/edit-history";
 import { PageHeader } from "@/components/page-header";
 import { requireStaff } from "@/lib/auth";
 import { plural } from "@/lib/format";
+import { loadHistory } from "@/lib/history";
 import { RECORD_ID } from "@/lib/record-form";
 import { recordPhotoLinks, type RecordPhoto } from "@/lib/record-photos";
 import { recordFromRow, STATUS_LABEL, valuesFromRecord } from "@/lib/records-staff";
@@ -80,9 +82,12 @@ export default async function EditRecordPage({
   if (!data) notFound();
 
   const record = recordFromRow(data);
-  const photos: RecordPhoto[] | null = record.submittedBy
-    ? await recordPhotoLinks(supabase, record.submittedBy, record.id)
-    : [];
+  const [photos, history] = await Promise.all([
+    record.submittedBy
+      ? recordPhotoLinks(supabase, record.submittedBy, record.id)
+      : ([] as RecordPhoto[]),
+    loadHistory(supabase, "record", record.id),
+  ]);
 
   return (
     <div>
@@ -150,6 +155,8 @@ export default async function EditRecordPage({
           </p>
         )}
       </section>
+
+      <EditHistory history={history} what="record" />
     </div>
   );
 }
