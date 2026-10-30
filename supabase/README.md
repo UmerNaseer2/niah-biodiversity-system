@@ -66,6 +66,17 @@ Git ignores both files. Never commit them, and never paste a key into an issue o
 The anon key is fine in an app, because Row Level Security decides what it can do. The service
 role key skips Row Level Security, so it never goes in the app, the website's browser code or git.
 
+## When someone leaves the team
+
+Set their `role` in the `profiles` table back to `visitor` in the Table Editor, instead of
+deleting their account. A visitor can still sign in, but the database won't show them anything a
+member of the public can't see, and the website won't open the staff pages for them.
+
+Deleting the account works, but it loses things. Their records stay, with `submitted_by` cleared,
+and their record photos stay in a folder named after the account. Without `submitted_by` the
+website can't find those photos, so the record edit page doesn't show them and deleting the record
+leaves them in the bucket.
+
 ## Rules from our design
 
 - Row Level Security is on for every table.
