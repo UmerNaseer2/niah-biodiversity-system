@@ -12,7 +12,7 @@ export function LoginForm({ configured }: { configured: boolean }) {
   return (
     <form action={action} className="mt-6 space-y-4">
       <div>
-        <label htmlFor="email" className="text-sm font-bold text-pencil">
+        <label htmlFor="email" className="text-sm font-bold">
           Email
         </label>
         <input
@@ -27,7 +27,7 @@ export function LoginForm({ configured }: { configured: boolean }) {
         />
       </div>
       <div>
-        <label htmlFor="password" className="text-sm font-bold text-pencil">
+        <label htmlFor="password" className="text-sm font-bold">
           Password
         </label>
         <input

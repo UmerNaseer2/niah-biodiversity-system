@@ -593,13 +593,13 @@ export function SpeciesForm(props: Props) {
             )}
             <div className="p-4">
               <p className="text-lg font-bold leading-snug">
-                {previewName || <span className="text-pencil">Common name</span>}
+                {previewName || <span className="text-moss">Common name</span>}
               </p>
               <p className="text-sm">
                 {tidy(values.scientificName) ? (
                   <LatinName name={tidy(values.scientificName)} />
                 ) : (
-                  <span className="font-latin italic text-pencil">
+                  <span className="font-latin italic text-moss">
                     Genus species
                   </span>
                 )}

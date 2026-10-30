@@ -138,45 +138,52 @@ export default async function HomePage() {
             </Link>
           </div>
 
-          <ul className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {recent.map(({ record, plant, name }) => (
-              <li key={record.id}>
-                <Link
-                  href={`/tag/${record.tagCode}`}
-                  className="card group flex h-full flex-col overflow-hidden transition-colors hover:border-pencil"
-                >
-                  <div
-                    aria-hidden="true"
-                    className="hatch flex aspect-[4/3] items-center justify-center border-b border-line text-pencil"
+          {recent.length === 0 ? (
+            <p className="card mt-6 p-5 text-moss">
+              No plants are public yet. They show up here once a conservation
+              officer has checked them.
+            </p>
+          ) : (
+            <ul className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              {recent.map(({ record, plant, name }) => (
+                <li key={record.id}>
+                  <Link
+                    href={`/tag/${record.tagCode}`}
+                    className="card group flex h-full flex-col overflow-hidden transition-colors hover:border-pencil"
                   >
-                    <Icon name="camera" className="size-6" />
-                  </div>
-                  <div className="flex flex-1 flex-col p-4">
-                    <p className="font-mono text-xs font-bold text-moss">
-                      {record.tagCode}
-                    </p>
-                    <h3 className="mt-1 text-lg font-bold leading-snug group-hover:underline">
-                      {name}
-                    </h3>
-                    {plant ? (
-                      <LatinName name={plant.scientificName} className="text-moss" />
-                    ) : (
-                      record.speciesName !== name && (
-                        <span className="text-moss">{record.speciesName}</span>
-                      )
-                    )}
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {plant && <IucnChip code={plant.iucn} />}
-                      {(!plant || hidesLocation(plant)) && <HiddenLocationBadge />}
+                    <div
+                      aria-hidden="true"
+                      className="hatch flex aspect-[4/3] items-center justify-center border-b border-line text-pencil"
+                    >
+                      <Icon name="camera" className="size-6" />
                     </div>
-                    <p className="mt-auto pt-4 text-sm text-moss">
-                      Recorded {formatDate(record.recordedAt)}
-                    </p>
-                  </div>
-                </Link>
-              </li>
-            ))}
-          </ul>
+                    <div className="flex flex-1 flex-col p-4">
+                      <p className="font-mono text-xs font-bold text-moss">
+                        {record.tagCode}
+                      </p>
+                      <h3 className="mt-1 text-lg font-bold leading-snug group-hover:underline">
+                        {name}
+                      </h3>
+                      {plant ? (
+                        <LatinName name={plant.scientificName} className="text-moss" />
+                      ) : (
+                        record.speciesName !== name && (
+                          <span className="text-moss">{record.speciesName}</span>
+                        )
+                      )}
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {plant && <IucnChip code={plant.iucn} />}
+                        {(!plant || hidesLocation(plant)) && <HiddenLocationBadge />}
+                      </div>
+                      <p className="mt-auto pt-4 text-sm text-moss">
+                        Recorded {formatDate(record.recordedAt)}
+                      </p>
+                    </div>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       </section>
 

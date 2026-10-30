@@ -85,7 +85,7 @@ function Sparkline({ sensor }: { sensor: Sensor }) {
       </svg>
       <figcaption
         aria-hidden="true"
-        className="mt-1 flex justify-between font-mono text-[0.6875rem] text-pencil"
+        className="mt-1 flex justify-between font-mono text-[0.6875rem] text-moss"
       >
         <span>24 h ago</span>
         <span className="flex gap-3">

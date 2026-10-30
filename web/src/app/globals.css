@@ -223,7 +223,8 @@
   width: 100%;
   min-height: 2.75rem;
   padding: 0.625rem 0.75rem;
-  border: 1px solid var(--color-line);
+  /* pencil, not line, so the edge of a field stands out from the page enough to find (3:1) */
+  border: 1px solid var(--color-pencil);
   border-radius: 0.5rem;
   background-color: var(--color-sheet);
   color: var(--color-ink);
@@ -235,7 +236,7 @@
   }
 
   &:hover:not(:disabled) {
-    border-color: var(--color-pencil);
+    border-color: var(--color-moss);
   }
 
   &:focus-visible {

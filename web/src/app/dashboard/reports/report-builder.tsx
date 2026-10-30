@@ -17,9 +17,6 @@ export type PreviewRow = {
   hasGps: boolean;
 };
 
-// Enough to check the file looks right without a page that goes on forever
-const PREVIEW_ROWS = 20;
-
 /**
  * A plain GET form to /dashboard/reports/csv. The server checks the role and
  * sends the file back as a download, so the browser stays on this page.
@@ -27,15 +24,19 @@ const PREVIEW_ROWS = 20;
 export function ReportBuilder({
   filters,
   rows,
+  total,
+  hiddenCount,
 }: {
   filters: ReportFilters;
+  /** The first few rows. The page only sends what the preview shows. */
   rows: PreviewRow[];
+  /** How many rows the file has */
+  total: number;
+  /** How many rows of the file say Hidden unless exact spots are included */
+  hiddenCount: number;
 }) {
   const [includeExact, setIncludeExact] = useState(false);
   const [announcement, setAnnouncement] = useState("");
-
-  const hiddenCount = rows.filter((r) => r.hidesLocation && r.hasGps).length;
-  const shown = rows.slice(0, PREVIEW_ROWS);
 
   return (
     <div className="mt-6 grid gap-8 xl:grid-cols-[20rem_minmax(0,1fr)]">
@@ -43,7 +44,7 @@ export function ReportBuilder({
         method="get"
         action="/dashboard/reports/csv"
         onSubmit={() =>
-          setAnnouncement(`Downloading a CSV file with ${plural(rows.length, "record")}.`)
+          setAnnouncement(`Downloading a CSV file with ${plural(total, "record")}.`)
         }
         className="max-w-md space-y-6"
       >
@@ -90,7 +91,7 @@ export function ReportBuilder({
             Download CSV
           </button>
           <p className="mt-2 text-center text-sm text-moss">
-            {plural(rows.length, "row")}, opens in Excel or Google Sheets
+            {plural(total, "row")}, opens in Excel or Google Sheets
           </p>
           <p role="status" className="sr-only">
             {announcement}
@@ -127,7 +128,7 @@ export function ReportBuilder({
               </tr>
             </thead>
             <tbody className="divide-y divide-line">
-              {shown.map((row) => (
+              {rows.map((row) => (
                 <tr key={row.id}>
                   <td className="whitespace-nowrap px-4 py-3 font-mono font-bold">
                     {row.code}
@@ -159,9 +160,9 @@ export function ReportBuilder({
             </tbody>
           </table>
         </div>
-        {rows.length > shown.length && (
+        {total > rows.length && (
           <p className="mt-2 text-sm text-moss">
-            And {rows.length - shown.length} more in the file.
+            And {total - rows.length} more in the file.
           </p>
         )}
       </section>
