@@ -9,6 +9,7 @@ Round 4, on 30 Oct on the `map-without-js` branch, added a map for browsers with
 Round 5, on 30 Oct on the `map-label-flip` branch, stopped labels getting cut off at the edge.
 Round 6, on 30 Oct on the `sensor-names` branch, let a hidden sensor name show when it's pointed at.
 Round 7, on 30 Oct on the `static-map-notes` branch, moved the still map's notes off the map.
+Round 8, on 30 Oct on the `map-label-controls` branch, kept labels out from under the map buttons.
 
 ## What it does
 
@@ -193,6 +194,26 @@ go under them. On a phone the strip takes two lines, so the map part is about 40
 | With JavaScript on: the Leaflet map loads as before | Pass |
 | `npx tsc --noEmit`, `npx eslint` and `npx prettier --check` on the changed file | Pass |
 
+## Round 8: the zoom buttons and OSM note
+
+Tested on 30 Oct 2026. The Leaflet map's zoom buttons (top left) and OSM attribution (bottom right)
+sit on top of the map, but the label check didn't know about them, so after moving the map a label
+could end up under them. It also only checked the left and right edges. Now the buttons and the
+attribution count as taken, like another label, and a label past the top or bottom edge counts as
+cut off. A label that's pointed at still shows even if it's in the way, but it takes a side that's
+clear if it has one.
+
+| Test | Result |
+| --- | --- |
+| Overview at desktop width: the same 9 labels show at the start as before | Pass |
+| Moved to the bottom right with the arrow keys: Park HQ and Belian hide rather than going under the attribution | Pass |
+| Moved to the top left: the labels under the zoom buttons and the ones past the top edge hide | Pass |
+| After every move in both tests: no label that shows is under the buttons, the attribution or past an edge | Pass |
+| Pointing at each plant dot: its name shows, on a clear side when it has one. In the close group both sides are blocked, so it shows on its home side | Pass |
+| Overview at phone width (375 px): the same 9 labels show, none under the buttons or the attribution, and pointing at S-05 still works like in round 6 | Pass |
+| At phone width, moved up, left, down and right: no label that shows is under the buttons, the attribution or past an edge | Pass |
+| `npx tsc --noEmit` and `npx eslint` on the changed file | Pass |
+
 ## Not tested yet
 
 - The "The map didn’t load" message. It shows if Leaflet's code can't be fetched, which is hard to
@@ -217,6 +238,8 @@ go under them. On a phone the strip takes two lines, so the map part is about 40
 - **Fixed on 30 Oct:** a label near the edge of the Leaflet map used to get cut off, for example on
   a phone. Now it moves to the other side of its dot, or hides if neither side has room. See round
   5 above.
+- **Fixed on 30 Oct:** after moving the Leaflet map, a label could end up under the zoom buttons or
+  the OSM note. Now those count as taken, so the label moves or hides. See round 8 above.
 - **Fixed on 29 Oct:** the dots used to be pictures only, so they couldn't be focused or clicked to
   open a record. Now each plant dot is a link. See round 2 above.
 - **The tiles come from openstreetmap.org.** Every visitor's browser asks OSM for them directly, so
