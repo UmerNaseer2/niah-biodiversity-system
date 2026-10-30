@@ -16,13 +16,13 @@ import { RecordForm } from "../../record-form";
 export const metadata: Metadata = { title: "Edit a record" };
 
 /** What the photos section says when there's nothing to show */
-function noPhotosText(photoCount: number, submittedBy: string | null) {
+function noPhotosText(photoCount: number, photoFolder: string | null) {
   if (photoCount === 0) return "No photos came with this record.";
-  if (!submittedBy) {
+  if (!photoFolder) {
     return (
       `The record says it has ${plural(photoCount, "photo")}, but it didn’t ` +
-      "come from the app, or the account that sent it was deleted, so they " +
-      "can’t be found."
+      "come from the app, or the account that sent it was deleted before " +
+      "014_photo_folder.sql was run, so they can’t be found."
     );
   }
   return (
@@ -83,8 +83,8 @@ export default async function EditRecordPage({
 
   const record = recordFromRow(data);
   const [photos, history] = await Promise.all([
-    record.submittedBy
-      ? recordPhotoLinks(supabase, record.submittedBy, record.id)
+    record.photoFolder
+      ? recordPhotoLinks(supabase, record.photoFolder, record.id)
       : ([] as RecordPhoto[]),
     loadHistory(supabase, "record", record.id),
   ]);
@@ -151,7 +151,7 @@ export default async function EditRecordPage({
           </ul>
         ) : (
           <p className="mt-5 rounded-xl border border-dashed border-line p-4 text-moss">
-            {noPhotosText(record.photoCount, record.submittedBy)}
+            {noPhotosText(record.photoCount, record.photoFolder)}
           </p>
         )}
       </section>

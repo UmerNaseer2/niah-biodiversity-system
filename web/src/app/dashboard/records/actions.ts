@@ -19,7 +19,7 @@ import {
   type Errors,
   type Values,
 } from "@/lib/record-form";
-import { RECORD_PHOTO_BUCKET, recordPhotoPaths } from "@/lib/record-photos";
+import { photoFolderOf, RECORD_PHOTO_BUCKET, recordPhotoPaths } from "@/lib/record-photos";
 import { authConfigured } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
 
@@ -217,7 +217,9 @@ export async function deleteRecord(
     const { from, to } = versionRange(version);
     query = query.gte("updated_at", from).lt("updated_at", to);
   }
-  const { data, error } = await query.select("tag_code, submitted_by");
+  // All the columns, not photo_folder by name, so deleting still works
+  // before 014 is run
+  const { data, error } = await query.select("*");
 
   if (error) {
     return { status: "error", message: messageFor(error.code, error.message, "delete records") };
@@ -233,9 +235,9 @@ export async function deleteRecord(
 
   // Its photos go too. The record is already gone, so photos that won't
   // delete only get logged.
-  const submittedBy = data[0].submitted_by;
-  if (typeof submittedBy === "string") {
-    const paths = await recordPhotoPaths(supabase, submittedBy, id);
+  const photoFolder = photoFolderOf(data[0]);
+  if (photoFolder) {
+    const paths = await recordPhotoPaths(supabase, photoFolder, id);
     if (paths && paths.length > 0) {
       const removed = await supabase.storage.from(RECORD_PHOTO_BUCKET).remove(paths);
       if (removed.error) {

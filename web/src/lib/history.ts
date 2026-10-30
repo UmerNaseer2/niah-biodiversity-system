@@ -86,6 +86,7 @@ const RECORD_COLUMNS: Record<string, Column> = {
   photo_count: { label: "Number of photos" },
   photo_urls: { label: "Photo links", noValues: true },
   submitted_by: { label: "Account that sent it", noValues: true },
+  photo_folder: { label: "Photo folder", noValues: true },
   uploaded_at: { label: "Uploaded", show: parkDateTime },
 };
 
