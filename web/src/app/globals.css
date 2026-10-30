@@ -353,13 +353,24 @@
   z-index: 1000 !important;
 }
 
+/* Pointing at a sensor shows its name, so it turns the pointer back on like
+   .map-dot does */
 .map-sensor span {
+  position: relative;
   display: block;
   width: 100%;
   height: 100%;
   border: 2px solid var(--color-ink);
   border-radius: 2px;
   background-color: var(--color-ink);
+  pointer-events: auto;
+}
+
+/* 24 px across like a plant dot link, so it's easier to hit */
+.map-sensor span::before {
+  content: "";
+  position: absolute;
+  inset: -7px;
 }
 
 .map-sensor-offline span {

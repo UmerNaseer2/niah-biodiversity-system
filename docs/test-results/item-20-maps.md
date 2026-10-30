@@ -7,6 +7,7 @@ sample records. Round 2, on the same day on the `map-dot-links` branch, made the
 links. Round 3, on 30 Oct on the `map-label-overlap` branch, stopped the labels overlapping.
 Round 4, on 30 Oct on the `map-without-js` branch, added a map for browsers with JavaScript off.
 Round 5, on 30 Oct on the `map-label-flip` branch, stopped labels getting cut off at the edge.
+Round 6, on 30 Oct on the `sensor-names` branch, let a hidden sensor name show when it's pointed at.
 
 ## What it does
 
@@ -157,6 +158,24 @@ after every zoom and every move.
 | Sensors page at phone width: all 5 sensor names and park HQ show, inside the map | Pass |
 | `npx tsc --noEmit` and `npx eslint` on the changed file | Pass |
 
+## Round 6: sensor names
+
+Tested on 30 Oct 2026. A sensor's name used to only come back after zooming in once it was hidden,
+since a sensor isn't a link and couldn't be pointed at. Now pointing at a sensor shows its name the
+same way it does for a plant dot, and the label in the way steps aside. A finger leaves the screen
+as soon as it taps, so on a touch screen a tap keeps the name showing until the next tap somewhere
+else on the map. Moving the map doesn't count as a tap. The part of a sensor that can be pointed at
+is 24 px across, a little bigger than the square.
+
+| Test | Result |
+| --- | --- |
+| Overview at phone width (375 px): S-05's name is hidden behind the Slipper orchid label. Pointing at the S-05 square shows "S-05", and the Slipper orchid label hides | Pass |
+| Moving the pointer off the square puts both back | Pass |
+| A tap, sent as touch pointer events from the browser console since the test browser only has a mouse: "S-05" shows and stays after the finger lifts and after the tap's click | Pass |
+| A tap somewhere else on the map after that hides "S-05" again | Pass |
+| Each sensor square takes the pointer at its middle and up to 11 px out from it, but not 13 px | Pass |
+| `npx tsc --noEmit` and `npx eslint` on the changed file | Pass |
+
 ## Not tested yet
 
 - The "The map didn’t load" message. It shows if Leaflet's code can't be fetched, which is hard to
@@ -175,8 +194,9 @@ after every zoom and every move.
   See round 3 above.
 - **Dots can still overlap** when plants are only a few metres apart. Zooming in spreads them out,
   and a dot under another one can still be reached with Tab, which also shows its name.
-- **A sensor's name has no way to show on its own.** Plant names show when you point at the dot,
-  but a hidden sensor name only comes back after zooming in. The sensors page lists them all.
+- **Fixed on 30 Oct:** a hidden sensor name used to only come back after zooming in. Now pointing
+  at the sensor or tapping it shows it. See round 6 above. Sensors still can't be reached with
+  Tab, since they aren't links, but the sensors page lists them all.
 - **Fixed on 30 Oct:** a label near the edge of the Leaflet map used to get cut off, for example on
   a phone. Now it moves to the other side of its dot, or hides if neither side has room. See round
   5 above.
