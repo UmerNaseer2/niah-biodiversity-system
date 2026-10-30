@@ -1,6 +1,12 @@
 import { deleteDatabaseAsync, openDatabaseAsync, type SQLiteDatabase } from 'expo-sqlite';
 
-import { DATABASE_NAME, migrate, MIGRATIONS, openDatabase } from '@/db/database';
+import {
+  DATABASE_NAME,
+  DatabaseTooNewError,
+  migrate,
+  MIGRATIONS,
+  openDatabase,
+} from '@/db/database';
 
 // expo-sqlite needs a phone, so the tests run on sql.js instead (jest/expo-sqlite.js). It's the
 // same SQLite underneath, so the SQL and the rules in the tables behave the same.
@@ -110,10 +116,13 @@ describe('openDatabase', () => {
     await setup.execAsync(`PRAGMA user_version = ${newer}`);
     await setup.closeAsync();
 
-    await expect(openDatabase()).rejects.toThrow(
+    const opening = openDatabase();
+    await expect(opening).rejects.toThrow(
       `The database on this phone is version ${newer}, but this app only knows up to version ` +
         `${MIGRATIONS.length}. Update the app.`,
     );
+    // The screen uses the kind of error to say update instead of try again.
+    await expect(opening).rejects.toBeInstanceOf(DatabaseTooNewError);
 
     const check = await openDatabaseAsync(DATABASE_NAME);
     expect(await versionOf(check)).toBe(newer);

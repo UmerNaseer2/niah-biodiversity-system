@@ -14,7 +14,7 @@ import { AccessibilityInfo, Text } from 'react-native';
 
 import { MOCK_RECORDS } from '@/data/mock-records';
 import { SPECIES_LIST, type SpeciesOption } from '@/data/species-list';
-import { DATABASE_NAME } from '@/db/database';
+import { DATABASE_NAME, MIGRATIONS } from '@/db/database';
 import { EMPTY_SPECIES_LIST, NO_SUCH_RECORD, openRecordsStore } from '@/db/records-store';
 import { tagCodeFor } from '@/lib/id';
 import { RecordsProvider, useRecords } from '@/state/records-context';
@@ -232,6 +232,24 @@ describe('RecordsProvider', () => {
       open.mockRestore();
       warn.mockRestore();
       hideSplash.mockRestore();
+    }
+  });
+
+  it('says to update the app when a newer copy saved the records, with no Try again', async () => {
+    const setup = await SQLite.openDatabaseAsync(DATABASE_NAME);
+    await setup.execAsync(`PRAGMA user_version = ${MIGRATIONS.length + 1}`);
+    await setup.closeAsync();
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      renderApp();
+      const message = 'Update the app to open the records saved on this phone.';
+      expect(await screen.findByRole('alert')).toHaveTextContent(message);
+      expect(AccessibilityInfo.announceForAccessibility).toHaveBeenCalledWith(message);
+      expect(screen.getByText(/nothing has been changed/)).toBeVisible();
+      expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull();
+      expect(screen.queryByText('The app')).toBeNull();
+    } finally {
+      warn.mockRestore();
     }
   });
 

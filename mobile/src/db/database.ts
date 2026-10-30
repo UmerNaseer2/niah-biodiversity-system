@@ -3,6 +3,9 @@ import { openDatabaseAsync, type SQLiteDatabase } from 'expo-sqlite';
 /** The SQLite file on the phone that holds the records. */
 export const DATABASE_NAME = 'niah.db';
 
+/** How long a write waits for one on another connection to finish before it fails. */
+export const BUSY_TIMEOUT_MS = 5000;
+
 /**
  * Each step takes the database up one version, and `PRAGMA user_version` remembers how many steps
  * have run on the phone. Never change a step once it's on someone's phone, because a phone that
@@ -57,6 +60,20 @@ export const MIGRATIONS: readonly string[] = [
 ];
 
 /**
+ * The database was made by a newer copy of the app. Trying again won't help, only updating will,
+ * so the app tells these apart from other errors.
+ */
+export class DatabaseTooNewError extends Error {
+  constructor(version: number, known: number) {
+    super(
+      `The database on this phone is version ${version}, but this app only knows up to version ` +
+        `${known}. Update the app.`,
+    );
+    this.name = 'DatabaseTooNewError';
+  }
+}
+
+/**
  * Runs the steps this phone hasn't run yet. Each one runs in a transaction together with the
  * version bump, so a step that fails leaves the database the way it was before that step.
  */
@@ -65,10 +82,7 @@ export async function migrate(db: SQLiteDatabase, steps: readonly string[] = MIG
   const version = row?.user_version ?? 0;
   if (version > steps.length) {
     // An older copy of the app can't know what a newer one changed, so it doesn't touch the file.
-    throw new Error(
-      `The database on this phone is version ${version}, but this app only knows up to version ` +
-        `${steps.length}. Update the app.`,
-    );
+    throw new DatabaseTooNewError(version, steps.length);
   }
   if (version === 0) {
     // A brand new file. WAL lets the app read while it writes, and the file keeps the setting.
@@ -89,8 +103,9 @@ export async function openDatabase() {
   try {
     // Replacing the species list writes on a second connection (see records-store.ts). If a
     // record is saved while that's happening, this waits up to 5 seconds for it to finish instead
-    // of failing straight away. It only lasts while the connection is open, so it isn't a step.
-    await db.execAsync('PRAGMA busy_timeout = 5000');
+    // of failing straight away. It only lasts while the connection is open, so it isn't a step,
+    // and the second connection has to set it again for itself.
+    await db.execAsync(`PRAGMA busy_timeout = ${BUSY_TIMEOUT_MS}`);
     await migrate(db);
     return db;
   } catch (error) {

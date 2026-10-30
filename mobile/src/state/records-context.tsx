@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { SAMPLE_RECORDS } from '@/data/mock-records';
 import { SPECIES_LIST, type SpeciesOption } from '@/data/species-list';
+import { DatabaseTooNewError } from '@/db/database';
 import { openRecordsStore, type RecordsStore } from '@/db/records-store';
 import { useTheme } from '@/hooks/use-theme';
 import { matchesTag, newId, tagCodeFor } from '@/lib/id';
@@ -45,10 +46,12 @@ type RecordsContextValue = {
 
 type StoreState =
   | { status: 'loading' }
-  | { status: 'failed' }
+  /** tooNew means a newer copy of the app saved the records, so trying again won't help. */
+  | { status: 'failed'; tooNew: boolean }
   | { status: 'ready'; store: RecordsStore; saved: PlantRecord[]; species: SpeciesOption[] };
 
 const OPEN_FAILED = "Couldn't open the records saved on this phone.";
+const APP_TOO_OLD = 'Update the app to open the records saved on this phone.';
 
 const RecordsContext = createContext<RecordsContextValue | null>(null);
 
@@ -93,7 +96,7 @@ export function RecordsProvider({ children }: { children: ReactNode }) {
         (error: unknown) => {
           if (active) {
             console.warn("Couldn't open the records database.", error);
-            setState({ status: 'failed' });
+            setState({ status: 'failed', tooNew: error instanceof DatabaseTooNewError });
           }
         },
       );
@@ -103,6 +106,8 @@ export function RecordsProvider({ children }: { children: ReactNode }) {
     };
   }, [attempt]);
 
+  const failedMessage = state.status === 'failed' && state.tooNew ? APP_TOO_OLD : OPEN_FAILED;
+
   useEffect(() => {
     if (state.status === 'failed') {
       // The splash screen only goes away by itself once the screens show, and they don't show
@@ -110,10 +115,10 @@ export function RecordsProvider({ children }: { children: ReactNode }) {
       SplashScreen.hideAsync().catch(() => undefined);
       // On the web the role="alert" below does the same job.
       if (Platform.OS !== 'web') {
-        AccessibilityInfo.announceForAccessibility(OPEN_FAILED);
+        AccessibilityInfo.announceForAccessibility(failedMessage);
       }
     }
-  }, [state.status]);
+  }, [state.status, failedMessage]);
 
   if (state.status === 'loading') {
     return (
@@ -128,18 +133,28 @@ export function RecordsProvider({ children }: { children: ReactNode }) {
       <View style={[styles.centered, { backgroundColor: theme.background }]}>
         <View style={styles.problem}>
           <ThemedText type="subtitle" role="alert">
-            {OPEN_FAILED}
+            {failedMessage}
           </ThemedText>
-          <ThemedText themeColor="textSecondary">
-            Try again. If it keeps happening, close the app and open it again.
-          </ThemedText>
-          <Button
-            label="Try again"
-            onPress={() => {
-              setState({ status: 'loading' });
-              setAttempt((current) => current + 1);
-            }}
-          />
+          {state.tooNew ? (
+            // Trying again would only fail the same way, so there's no button for it.
+            <ThemedText themeColor="textSecondary">
+              A newer copy of the app saved them, and this one can&apos;t read them. They are
+              still on this phone and nothing has been changed.
+            </ThemedText>
+          ) : (
+            <>
+              <ThemedText themeColor="textSecondary">
+                Try again. If it keeps happening, close the app and open it again.
+              </ThemedText>
+              <Button
+                label="Try again"
+                onPress={() => {
+                  setState({ status: 'loading' });
+                  setAttempt((current) => current + 1);
+                }}
+              />
+            </>
+          )}
         </View>
       </View>
     );
