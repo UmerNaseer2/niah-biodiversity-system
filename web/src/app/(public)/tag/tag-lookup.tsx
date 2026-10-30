@@ -8,17 +8,20 @@ import { normaliseTag } from "@/lib/tags";
 export function TagLookup() {
   const router = useRouter();
   const [value, setValue] = useState("");
-  const [invalid, setInvalid] = useState(false);
+  // How many times in a row a bad code was sent, so the error is put back in
+  // the page and read out again each time, not just the first
+  const [badTries, setBadTries] = useState(0);
+  const invalid = badTries > 0;
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const code = normaliseTag(value);
     if (!code) {
-      setInvalid(true);
+      setBadTries((tries) => tries + 1);
       document.getElementById("tag-code")?.focus();
       return;
     }
-    setInvalid(false);
+    setBadTries(0);
     router.push(`/tag/${code}`);
   }
 
@@ -32,7 +35,9 @@ export function TagLookup() {
       </p>
       {invalid && (
         <p
+          key={badTries}
           id="tag-code-error"
+          role="alert"
           className="mt-2 flex items-start gap-2 text-sm font-bold text-bad"
         >
           <Icon name="alert" className="mt-px size-4" />

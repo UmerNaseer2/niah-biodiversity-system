@@ -3,6 +3,8 @@
 Round 1 was on 29 Oct 2026 on Umer's Mac (macOS, Node 22.22.3) on the `web-review-fixes`
 branch. The pages were tried against the Supabase stand-in in `supabase/tests/stand-in.js` (see
 `web/README.md`), with the stand-in's own sample records and test accounts, not the hosted project.
+Round 2, on 30 Oct, fixed what a second review of the whole project found, one branch per fix. See
+round 2 below.
 
 ## What changed
 
@@ -62,6 +64,21 @@ being checked.
 | Uploading a photo to Belian, making it main, making the first one main again, then removing the new one | Pass, every step. Belian is back to its one photo |
 | Each photo form on the edit page sends its place on the page | Pass |
 | No errors in the dev server log | Pass |
+
+## Round 2: second review
+
+A second review on 30 Oct read every page again, this time looking for crashes on missing data,
+screen reader problems and anything that could show a hidden plant's spot. Nothing showed a
+hidden spot. Each fix below was tried on the stand-in the same way as round 1.
+
+| Branch | What was wrong | Now |
+| --- | --- | --- |
+| `tag-error-alert` | On the Scan a tag page, typing a bad code and pressing Enter showed an error that a screen reader never read out, since the field already had focus and nothing moved | The error is an alert, and it's put back in the page each time a bad code is sent, so it's read out every time |
+
+| Test | Result |
+| --- | --- |
+| Typed `NNP-12` in the tag code box and pressed Enter | The error shows with `role="alert"`, the box is marked invalid and keeps focus |
+| Pressed Enter again with the same code | A new error is put in the page, so it's read out again. The page stays on `/tag` |
 
 ## Not tested yet
 
