@@ -266,6 +266,8 @@ describe('removing a record an officer deleted', () => {
     expect(await store.loadRecords()).toEqual(before);
   });
 
+  // The stand-in for SQLite keeps the database in memory, so this can only show that a new
+  // connection doesn't see the record. It can't show the delete reached a real phone's storage.
   it('is still gone after it is closed and opened again', async () => {
     await store.removeDeleted(deleted.id);
     await store.close();

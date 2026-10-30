@@ -10,7 +10,7 @@ import { DATABASE_NAME } from '@/db/database';
 import { openRecordsStore } from '@/db/records-store';
 import { RecordsProvider } from '@/state/records-context';
 import { uploadProblemMessage } from '@/sync/upload-row';
-import type { PlantRecord } from '@/types/plant-record';
+import { UPLOAD_PROBLEMS, type PlantRecord, type UploadProblem } from '@/types/plant-record';
 
 function TestLayout() {
   return (
@@ -46,17 +46,17 @@ async function renderList() {
   await screen.findByRole('heading', { name: 'My records' });
 }
 
-/** Opens the record's page, after an officer has deleted it on the website. */
-async function openDeleted() {
+/** Opens the record's page, after its last upload came back with this problem. */
+async function openWith(problem: UploadProblem) {
   const store = await openRecordsStore();
   try {
-    await store.saveUploadOutcome(stuck.id, { kind: 'problem', problem: 'deleted' });
+    await store.saveUploadOutcome(stuck.id, { kind: 'problem', problem });
   } finally {
     await store.close();
   }
   await renderList();
   fireEvent.press(screen.getByRole('link', { name: /^Ficus benjamina, Weeping fig/ }));
-  expect(await screen.findByText(uploadProblemMessage('deleted'))).toBeVisible();
+  expect(await screen.findByText(uploadProblemMessage(problem))).toBeVisible();
 }
 
 const removeFailed = "Couldn't remove the record from this phone. Try again.";
@@ -106,7 +106,7 @@ describe('My records', () => {
   });
 
   it('offers to remove a record an officer deleted, and asks first', async () => {
-    await openDeleted();
+    await openWith('deleted');
 
     // Keep it puts the button back and changes nothing.
     fireEvent.press(screen.getByRole('button', { name: 'Remove from this phone' }));
@@ -126,7 +126,7 @@ describe('My records', () => {
   });
 
   it("says so when the record can't be removed, and Keep it clears that", async () => {
-    await openDeleted();
+    await openWith('deleted');
     const failure = jest
       .spyOn(SQLiteDatabase.prototype, 'runAsync')
       .mockRejectedValueOnce(new Error('database is locked'));
@@ -154,7 +154,7 @@ describe('My records', () => {
   });
 
   it('only removes the record once when Remove it is tapped twice quickly', async () => {
-    await openDeleted();
+    await openWith('deleted');
     const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
     try {
       fireEvent.press(screen.getByRole('button', { name: 'Remove from this phone' }));
@@ -173,12 +173,14 @@ describe('My records', () => {
     }
   });
 
-  it("doesn't offer to remove a record with any other problem", async () => {
-    await renderList();
-    fireEvent.press(screen.getByRole('link', { name: /^Ficus benjamina, Weeping fig/ }));
-    expect(await screen.findByText(uploadProblemMessage('tag-clash'))).toBeVisible();
-    expect(screen.queryByRole('button', { name: 'Remove from this phone' })).toBeNull();
-  });
+  // These can all still go up in the end, so taking one off the phone could lose it.
+  it.each(UPLOAD_PROBLEMS.filter((problem) => problem !== 'deleted'))(
+    "doesn't offer to remove a record with the %s problem",
+    async (problem) => {
+      await openWith(problem);
+      expect(screen.queryByRole('button', { name: 'Remove from this phone' })).toBeNull();
+    },
+  );
 
   it("says on the record's page why it couldn't upload", async () => {
     await renderList();
