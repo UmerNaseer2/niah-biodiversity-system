@@ -58,6 +58,16 @@ describe('toGpsReading', () => {
     expect(toGpsReading(fix(5, START, Number.NaN))).toBeUndefined();
     expect(toGpsReading(fix(5, Number.NaN))).toBeUndefined();
   });
+
+  it('turns down a point that is not on the globe, and keeps one right at the edge', () => {
+    expect(toGpsReading(fix(5, START, 90.5))).toBeUndefined();
+    expect(toGpsReading(fix(5, START, -91))).toBeUndefined();
+    const offEdge = fix(5);
+    expect(
+      toGpsReading({ ...offEdge, coords: { ...offEdge.coords, longitude: 180.1 } }),
+    ).toBeUndefined();
+    expect(toGpsReading(fix(5, START, -90))?.latitude).toBe(-90);
+  });
 });
 
 describe('isFreshReading', () => {

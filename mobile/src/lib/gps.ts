@@ -81,6 +81,11 @@ export function toGpsReading({ coords, timestamp }: PhoneLocation): GpsReading |
   if (!Number.isFinite(latitude) || !Number.isFinite(longitude) || !Number.isFinite(timestamp)) {
     return undefined;
   }
+  // The server turns down a record with a point that isn't on the globe (005), so a broken
+  // reading like that would only fail later, once it's too late to take it again.
+  if (Math.abs(latitude) > 90 || Math.abs(longitude) > 180) {
+    return undefined;
+  }
   return {
     latitude,
     longitude,
