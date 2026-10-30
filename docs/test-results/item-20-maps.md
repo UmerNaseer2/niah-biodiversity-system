@@ -6,6 +6,7 @@ Supabase stand-in in `supabase/tests/stand-in.js` (see `web/README.md`), with th
 sample records. Round 2, on the same day on the `map-dot-links` branch, made the plant dots into
 links. Round 3, on 30 Oct on the `map-label-overlap` branch, stopped the labels overlapping.
 Round 4, on 30 Oct on the `map-without-js` branch, added a map for browsers with JavaScript off.
+Round 5, on 30 Oct on the `map-label-flip` branch, stopped labels getting cut off at the edge.
 
 ## What it does
 
@@ -136,6 +137,26 @@ out and the `<noscript>` shown, which is what a browser without JavaScript does.
 | Sensors page: all 5 sensors with their names, and park HQ | Pass |
 | With JavaScript on: the Leaflet map loads as before, none of the still map's tiles are in the page, and moving between map pages in a fresh tab gives no errors in the browser console | Pass |
 
+## Round 5: labels near the edge
+
+Tested on 30 Oct 2026. On a phone, a label on the right of a dot near the edge of the Leaflet map
+used to run off the map and get cut off. Now the map tries the other side of the dot too, the same
+way the map without JavaScript does. A label goes on its usual side if it fits there, or on the
+other side if that keeps it on the map or out of the way. A label that would be cut off or in the
+way on both sides is hidden until zooming in or moving the map makes room. Pointing at a dot or
+tabbing to it still shows its name, on whichever side is on the map. The map checks this again
+after every zoom and every move.
+
+| Test | Result |
+| --- | --- |
+| Overview at phone width (375 px) as it opens: 9 of the 15 labels show, all inside the map, none touching another label or a dot. S-01 and Keruing sarawak are on the left of their dots, since the right side would run off the map | Pass |
+| Moving the map left with one arrow key press: 6 labels show, with S-04 now on the left. Tapang, Kawang jantong and Slipper orchid hide, since they'd be cut off on the right and in the way on the left. No label is cut off | Pass (at first those three stayed on the right and were cut off. Now a label with no good side hides) |
+| Moving the map back: the same 9 labels as when it opened, with S-04 back on the right | Pass |
+| Pointing at the hidden Slipper orchid dot after moving the map: its name shows on the left, where it fits | Pass |
+| Overview at desktop width: 9 of the 15 labels show, all on their usual side, none touching | Pass |
+| Sensors page at phone width: all 5 sensor names and park HQ show, inside the map | Pass |
+| `npx tsc --noEmit` and `npx eslint` on the changed file | Pass |
+
 ## Not tested yet
 
 - The "The map didn’t load" message. It shows if Leaflet's code can't be fetched, which is hard to
@@ -156,8 +177,9 @@ out and the `<noscript>` shown, which is what a browser without JavaScript does.
   and a dot under another one can still be reached with Tab, which also shows its name.
 - **A sensor's name has no way to show on its own.** Plant names show when you point at the dot,
   but a hidden sensor name only comes back after zooming in. The sensors page lists them all.
-- **A label near the edge of the Leaflet map gets cut off,** for example on a phone. Dragging the
-  map brings it back in. The map without JavaScript moves those labels to the other side instead.
+- **Fixed on 30 Oct:** a label near the edge of the Leaflet map used to get cut off, for example on
+  a phone. Now it moves to the other side of its dot, or hides if neither side has room. See round
+  5 above.
 - **Fixed on 29 Oct:** the dots used to be pictures only, so they couldn't be focused or clicked to
   open a record. Now each plant dot is a link. See round 2 above.
 - **The tiles come from openstreetmap.org.** Every visitor's browser asks OSM for them directly, so
