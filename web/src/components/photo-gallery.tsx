@@ -3,7 +3,7 @@ import { mainPhoto, type SpeciesPhoto } from "@/lib/species-photos";
 // Species photos (item 18). These are plain <img> tags rather than
 // next/image, because the image optimizer won't fetch from a local address,
 // which is where Supabase runs when we test. Uploads are already cut down to
-// 1600px JPEGs when they're saved.
+// 1600px JPEGs when they're saved, with a small copy for the squares.
 
 function Photo({
   photo,
@@ -25,7 +25,7 @@ function Photo({
       >
         {/* eslint-disable-next-line @next/next/no-img-element -- see the note at the top */}
         <img
-          src={photo.src}
+          src={large ? photo.src : photo.smallSrc}
           alt={photo.caption || `A photo of ${name}`}
           loading={large ? "eager" : "lazy"}
           decoding="async"

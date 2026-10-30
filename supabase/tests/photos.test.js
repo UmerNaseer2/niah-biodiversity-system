@@ -152,6 +152,7 @@ describe('what goes in species.photos', () => {
       [],
       [uploaded(id, { isPrimary: true })],
       [linked({ isPrimary: true }), uploaded(id), uploaded(id)],
+      [uploaded(id, { small: true }), uploaded(id, { small: false })],
       [{ url: 'https://example.test/a.jpg', caption: 'No main photo', credit: 'SFC' }],
       Array.from({ length: 12 }, () => uploaded(id)),
     ];
@@ -195,6 +196,8 @@ describe('what goes in species.photos', () => {
       'a blank credit': [uploaded(id, { credit: '' })],
       'a credit that is too long': [uploaded(id, { credit: 'a'.repeat(201) })],
       'isPrimary as text': [uploaded(id, { isPrimary: 'true' })],
+      'small as text': [uploaded(id, { small: 'true' })],
+      'a small copy of a link': [linked({ small: true })],
       'two main photos': [uploaded(id, { isPrimary: true }), linked({ isPrimary: true })],
       'thirteen photos': Array.from({ length: 13 }, () => uploaded(id)),
       'a JSON null': null,

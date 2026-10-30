@@ -36,7 +36,7 @@ export default async function PlantsPage({
     sarawakProtected: s.sarawakProtected,
     hidesLocation: hidesLocation(s),
     tagged: counts[s.slug] ?? 0,
-    photo: mainPhoto(s.photos)?.src ?? null,
+    photo: mainPhoto(s.photos)?.smallSrc ?? null,
   }));
 
   return (

@@ -16,6 +16,12 @@ export const MAX_UPLOAD_BYTES = 4 * 1024 * 1024;
 /** What the upload takes. The server turns them all into JPEG. */
 export const UPLOAD_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
+/**
+ * The short side of the small copy saved next to each upload, for the plant
+ * list and the gallery's squares. Twice the biggest square, for sharp screens.
+ */
+export const SMALL_PHOTO_PX = 480;
+
 export const MAX_CAPTION = 300;
 export const MAX_CREDIT = 200;
 
@@ -25,6 +31,8 @@ const UPLOADED_PATH =
 export type SpeciesPhoto = {
   /** Where the browser loads it from */
   src: string;
+  /** The small copy for thumbnails, or src again for a photo without one */
+  smallSrc: string;
   caption: string;
   credit: string;
   isPrimary: boolean;
@@ -37,6 +45,11 @@ export type SpeciesPhoto = {
 /** The public link to a file in botanical-photos */
 export function publicPhotoUrl(path: string) {
   return `${SUPABASE_URL}/storage/v1/object/public/${PHOTO_BUCKET}/${path}`;
+}
+
+/** Where the small copy of an uploaded photo goes, next to the photo */
+export function smallPathFor(path: string) {
+  return path.replace(/\.jpg$/, "-small.jpg");
 }
 
 /** Whether a path is one the website could have uploaded for this species */
@@ -62,6 +75,7 @@ function photoFrom(value: unknown, slug: string): SpeciesPhoto | null {
 
   return {
     src,
+    smallSrc: path && photo.small === true ? publicPhotoUrl(smallPathFor(path)) : src,
     caption: photo.caption,
     credit: photo.credit,
     isPrimary: photo.isPrimary === true,
@@ -89,11 +103,15 @@ export function storedKey(value: unknown, slug: string) {
   return photoFrom(value, slug)?.key ?? null;
 }
 
-/** The file a stored photo points to in botanical-photos, if the website uploaded it */
-export function storedPath(value: unknown, slug: string) {
-  if (typeof value !== "object" || value === null) return null;
-  const path = (value as Record<string, unknown>).path;
-  return typeof path === "string" && isUploadedPath(path, slug) ? path : null;
+/**
+ * The files a stored photo has in botanical-photos: the photo and its small
+ * copy if it has one. None for an outside link.
+ */
+export function storedFiles(value: unknown, slug: string) {
+  if (typeof value !== "object" || value === null) return [];
+  const { path, small } = value as Record<string, unknown>;
+  if (typeof path !== "string" || !isUploadedPath(path, slug)) return [];
+  return small === true ? [path, smallPathFor(path)] : [path];
 }
 
 export type PhotoFieldId = "photo-file" | "photo-caption" | "photo-credit";

@@ -15,7 +15,8 @@ policies from our SQL files decide who can upload, list and delete.
 - **Uploads are cleaned up on the server.** The website takes JPEG, PNG and WebP files up to 4 MB,
   checked in the browser and again on the server. `sharp` turns the photo the right way up, makes
   it a JPEG up to 1600 pixels across and leaves out the EXIF data, so a location the phone saved in
-  the file never reaches the public bucket. Anything sharp can't open as one of those three types,
+  the file never reaches the public bucket. Since round 4 it also saves a small copy for the
+  thumbnails. Anything sharp can't open as one of those three types,
   like an SVG or a text file renamed to `.jpg`, is turned down.
 - **Public pages** show the photos: a gallery on each plant page (main photo big, the rest under
   it), the main photo in the plant list and on tag pages.
@@ -39,6 +40,7 @@ policies from our SQL files decide who can upload, list and delete.
 | How photos are stored | Still the `photos` list on `species`, now checked by 009 | Nothing else had to change, and the sample species already use it |
 | Two officers changing photos at once | The save only goes through if the list is still the one the page started from | Otherwise one person's change could quietly undo the other's. The second person is told to reload |
 | Photos in species_public | A view of their own, `species_photos_public` | Adding a column to `species_public` would make running 007 again fail. Without 009 the pages still work and show no photos |
+| Small pictures (round 4) | A second JPEG, 480 pixels on its short side, saved next to each upload and marked with `small` in the photos list | The image optimizer won't fetch from a local address, and on Vercel it would need its own limits. A photo saved before round 4 has no `small`, so its thumbnails use the full file |
 | Record photos on the website | Officers and admins only, with signed links | A field photo can show where a plant grows. The phone doesn't upload photos yet (item 11), so this is ready for when it does |
 
 ## Automated checks
@@ -104,6 +106,31 @@ The first press without JavaScript sends the page back with the same question on
 | The question's Remove sent from that page: "Photo removed.", and only the Tapang photo is left | Pass |
 | `npm run lint`, `npx tsc --noEmit` and `npm run build` | Pass |
 
+## Round 4: a small copy for the thumbnails
+
+Added on 29 Oct on the `thumbnail-sizes` branch, on the same stand-in, restarted so it had the new
+009. The plant list, the smaller photos in the gallery, the photo cards on the edit page and the
+preview in the species form were all loading the full photo, up to 1600 pixels across, for a box a
+few hundred pixels wide or less. Now an upload is saved twice: the usual photo, and a copy at
+480 pixels on its short side next to it (`<random id>-small.jpg`). The photo gets `"small": true`
+in the list, and the website uses the small file for those boxes and the full one for the main
+photo and when a photo is opened. If the small upload fails the photo is still added, just without
+`small`. Removing a photo, or deleting the species, deletes both files.
+
+009 now allows `small`, but only as `true` or `false` and only on an uploaded photo, since an
+outside link has no small file next to it.
+
+| Test | Result |
+| --- | --- |
+| Database tests: `photos.test.js` has a photo with `small` true and one with false, and turns down `small` as text and `small` on an outside link | Pass, 168 of 168 |
+| A 2400 by 1800 JPEG uploaded the way a browser without JavaScript sends it says "Photo added." and is saved with `small` true | Pass |
+| Both files are in the bucket: the photo is 1600 by 1200 (about 546 KB) and the small copy is 640 by 480 (about 114 KB). The test picture was made noisy on purpose, so a real photo should come out smaller | Pass |
+| On the plant page the new photo, under the main one, shows the small file and opens the full one. The edit page's photo card shows the small file | Pass |
+| Made the main photo, it's the small file in the plant list | Pass |
+| Removed (with the confirm step), both files give 404 | Pass |
+| A photo saved the old way: uploaded, then `small` taken off it with the API as the officer. The plant page shows the full file for it, and removing it deletes the file | Pass |
+| `npm run lint`, `npx tsc --noEmit` and `npm run build` | Pass |
+
 ## Not tested yet
 
 - A record that came from the app with photos the phone hasn't uploaded yet. The page has text for
@@ -116,9 +143,10 @@ The first press without JavaScript sends the page back with the same question on
 
 ## Known limits
 
-- **The plant list loads the full photo** (up to 1600 pixels) for small thumbnails.
-  The image optimizer can't be used while we test against a local address. It's fine for a few
-  species but should change before there are many.
+- **Fixed on 29 Oct:** the plant list loaded the full photo (up to 1600 pixels) for small
+  thumbnails. Uploads now get a small copy too (round 4). The sample photos are outside links, so
+  they still load at the size their link asks for, and photos uploaded before round 4 still use
+  the full file until they're uploaded again.
 - **Deleting an account doesn't delete its record photos.** The folder is named after the account,
   so the record edit page can't find them any more, and they stay in the bucket. Since 29 Oct
   `supabase/README.md` says to set the person's role back to `visitor` when they leave instead of

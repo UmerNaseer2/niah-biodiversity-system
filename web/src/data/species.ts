@@ -36,6 +36,7 @@ function placeholder(id: string): SpeciesPhoto[] {
   return [
     {
       src,
+      smallSrc: src,
       caption:
         "Placeholder photo from Unsplash until SFC sends real ones. It may not show this species.",
       credit: "Unsplash",

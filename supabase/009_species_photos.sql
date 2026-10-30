@@ -16,8 +16,10 @@ $$;
 -- 1. What a photo looks like. species.photos has been a list since 001, but nothing checked it.
 -- Each photo is either an outside link (url), like the Unsplash placeholders, or a file in the
 -- botanical-photos bucket (path), which is what the website uploads. A path has to be in the
--- folder for that species, so one species can't point at another species' photo. The checks run
--- one at a time on purpose, because Postgres doesn't promise to check the parts of an OR in order.
+-- folder for that species, so one species can't point at another species' photo. An uploaded
+-- photo can also say it has a small copy next to it (small), which the plant list and gallery use
+-- for thumbnails. The checks run one at a time on purpose, because Postgres doesn't promise to
+-- check the parts of an OR in order.
 CREATE OR REPLACE FUNCTION public.species_photos_ok(species_id text, photos jsonb)
 RETURNS boolean
 LANGUAGE plpgsql
@@ -43,7 +45,7 @@ BEGIN
     END IF;
 
     FOR key IN SELECT jsonb_object_keys(photo) LOOP
-      IF key NOT IN ('url', 'path', 'caption', 'credit', 'isPrimary') THEN
+      IF key NOT IN ('url', 'path', 'caption', 'credit', 'isPrimary', 'small') THEN
         RETURN false;
       END IF;
     END LOOP;
@@ -76,6 +78,13 @@ BEGIN
         RETURN false;
       END IF;
       paths := paths || (photo ->> 'path');
+    END IF;
+
+    -- Only an uploaded photo has a small copy, since the website never saves an outside link.
+    IF photo ? 'small' THEN
+      IF NOT photo ? 'path' OR jsonb_typeof(photo -> 'small') <> 'boolean' THEN
+        RETURN false;
+      END IF;
     END IF;
 
     IF NOT photo ? 'caption' OR jsonb_typeof(photo -> 'caption') <> 'string' THEN
