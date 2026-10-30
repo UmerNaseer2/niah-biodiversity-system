@@ -1,4 +1,5 @@
 import { LeafletMap, type MapArea, type MapPoint, type MapSensor } from "./leaflet-map";
+import { StaticMap } from "./static-map";
 import { PlannedTape } from "./tape";
 
 export type { MapArea, MapPoint, MapSensor };
@@ -38,6 +39,9 @@ export function ParkMap({
           areas={areas}
           sensors={sensors}
         />
+        <noscript>
+          <StaticMap points={points} areas={areas} sensors={sensors} />
+        </noscript>
         {planned && (
           <PlannedTape
             items={planned}

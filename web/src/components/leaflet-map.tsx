@@ -340,10 +340,8 @@ export function LeafletMap({
       {state !== "ready" && (
         <div className="absolute inset-0 z-10 flex items-center justify-center bg-sheet p-6 text-center text-sm text-moss">
           {state === "loading" ? (
-            <>
-              <span aria-hidden="true">Loading the map…</span>
-              <noscript>The map needs JavaScript turned on.</noscript>
-            </>
+            // Without JavaScript, ParkMap shows StaticMap on top of this
+            <span aria-hidden="true">Loading the map…</span>
           ) : (
             <p role="alert">
               The map didn’t load. Check your connection and refresh the page.
