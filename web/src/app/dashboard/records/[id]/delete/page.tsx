@@ -101,7 +101,7 @@ export default async function DeleteRecordPage({
             can’t undo this.
           </li>
         </ul>
-        <DeleteRecordForm id={record.id} />
+        <DeleteRecordForm id={record.id} version={String(data.updated_at ?? "")} />
       </section>
     </div>
   );
