@@ -121,11 +121,12 @@ describe('uploading records from the phone', () => {
   test('a record sent twice gets the ID error even if the ID rule is newer', async () => {
     // Postgres checks unique rules in the order they were made, unless one is DEFERRABLE. The tag
     // code rule is, so it's checked last. Making the primary key again here makes it the newer
-    // rule, and the phone should still get records_pkey back.
+    // rule, and the phone should still get records_pkey back. CASCADE takes 013's link from the
+    // history to the key with it, which this test doesn't need.
     const fresh = await newDatabase();
     try {
       await fresh.exec(`
-        ALTER TABLE public.records DROP CONSTRAINT records_pkey;
+        ALTER TABLE public.records DROP CONSTRAINT records_pkey CASCADE;
         ALTER TABLE public.records ADD CONSTRAINT records_pkey PRIMARY KEY (id);
       `);
       const user = await addUser(fresh, { role: 'botanist', name: 'Field botanist' });

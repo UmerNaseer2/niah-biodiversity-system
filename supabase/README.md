@@ -23,21 +23,24 @@ kept, and you can fix the problem and run it again.
 | `010_deleted_records.sql` | Keeps the ID of every deleted record, with who deleted it and when, so a phone can't upload it again | 3, 17 | Yes |
 | `011_exact_location_downloads.sql` | Keeps a list of every report downloaded with the exact spots of threatened and protected plants, with who downloaded it and when. Only admins can read the list, and nobody can change it | 21 | Yes |
 | `012_report_counts.sql` | Counts the records for the Reports page in the database, as whoever is asking, so the page doesn't load every record to count them | 21 | Yes |
+| `013_edit_history.sql` | Keeps a history of every change to a record or species, with who saved it and when, for the edit pages. Only officers and admins can read it, and nobody can change it. It never keeps where a plant is | 17, 18 | Yes |
 
 As of 16 Oct 2026 the hosted project has 001 and 002. Run 003, 004, 005, 006, 007, 008, 009, 010,
-011 and 012 next, one file at a time, in that order, and don't stop part way. The website's species
-pages (add, edit and delete) and its public pages need 007, and 007 stops on its first line if 006
-isn't there. Until then the public pages say "This page didn't load". Without 009 the plant pages
-show no photos. Without 010 a phone that hadn't synced a record can upload it again after an
+011, 012 and 013 next, one file at a time, in that order, and don't stop part way. The website's
+species pages (add, edit and delete) and its public pages need 007, and 007 stops on its first line
+if 006 isn't there. Until then the public pages say "This page didn't load". Without 009 the plant
+pages show no photos. Without 010 a phone that hadn't synced a record can upload it again after an
 officer deletes it. Without 011 the website turns down every report download with exact spots,
 because it can't put the download on the list. Without 012 the Reports page says the records
 didn't load, but the spreadsheet download still works. 012 stops on its first line if 011 isn't
-there. 003 is fine to run even if it turns out to be there already.
+there. Without 013 the edit pages say the history didn't load, and saving still works. 013 stops on
+its first line if 012 isn't there. 003 is fine to run even if it turns out to be there already.
+The history only starts once 013 is in, so changes made before that aren't in it.
 
 Before running 004, open the `profiles` table in the Table Editor and check every role there is
 one an admin gave on purpose. Set any you don't recognise back to `visitor`. If nobody needs to
 sign up on the website or the app yet, turn sign ups off in the Supabase dashboard
-(Authentication, Sign In / Providers) until 003 to 012 are in. Staff accounts can still be added
+(Authentication, Sign In / Providers) until 003 to 013 are in. Staff accounts can still be added
 by hand there.
 
 If 005 stops with a check error (like `records_gps_check`), a record already on the hosted project
@@ -125,7 +128,8 @@ npm test
   `tests/roles.test.js` checks what each role can read and change (item 4),
   `tests/species.test.js` checks 007 and adding, editing and deleting a species the way the
   website does (item 14), `tests/photos.test.js` checks 009 and saving photos the way the
-  website does (item 18), and `tests/report-counts.test.js` checks 012 (item 21).
+  website does (item 18), `tests/report-counts.test.js` checks 012 (item 21), and
+  `tests/history.test.js` checks 013 (items 17 and 18).
 - `tests/stand-in.js` is a stand-in for our Supabase project that runs on your computer, for
   trying the website without a real project. The
   [web README](../web/README.md#trying-sign-in-without-a-supabase-project) says how, and

@@ -74,8 +74,10 @@ leaves `tag_code` out of the comparison.
 - **Fixed on 29 Oct:** a phone that hadn't synced a record uploaded it again if an officer
   deleted it first. Since `supabase/010_deleted_records.sql` the server turns it down and the
   phone says an officer deleted it. See [deleted-records.md](deleted-records.md).
-- **No history.** Nothing records who edited a record. Since 010 the server keeps who deleted a
-  record and when, but not what was in it.
+- **Fixed on 30 Oct:** nothing recorded who edited a record. Since `supabase/013_edit_history.sql`
+  every save adds a row with who saved it, when, and what changed, and the edit page shows it under
+  History. See [edit-history.md](edit-history.md). A record's history goes when the record is
+  deleted, so the server still only keeps who deleted a record and when (010), not what was in it.
 - **Fixed on 29 Oct:** two people editing the same record or species used to mean the last save
   won. Now a save that comes after someone else's is refused and the form says so. See
   [edit-conflicts.md](edit-conflicts.md).

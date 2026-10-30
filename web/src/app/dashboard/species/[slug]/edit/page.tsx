@@ -2,8 +2,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Icon } from "@/components/icon";
+import { EditHistory } from "@/components/edit-history";
 import { PageHeader } from "@/components/page-header";
 import { requireStaff } from "@/lib/auth";
+import { loadHistory } from "@/lib/history";
 import { speciesFromRow } from "@/lib/species-db";
 import { valuesFromSpecies } from "@/lib/species-form";
 import { mainPhoto } from "@/lib/species-photos";
@@ -68,6 +70,7 @@ export default async function EditSpeciesPage({
   // it's empty, and saving shouldn't copy that across.
   const about = typeof data.about === "string" ? data.about : "";
   const name = species.commonNames[0] ?? species.scientificName;
+  const history = await loadHistory(supabase, "species", slug);
 
   return (
     <div>
@@ -85,6 +88,7 @@ export default async function EditSpeciesPage({
         version={String(data.updated_at ?? "")}
       />
       <PhotoManager slug={slug} name={name} photos={species.photos} />
+      <EditHistory history={history} what="species" />
     </div>
   );
 }
