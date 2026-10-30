@@ -182,9 +182,12 @@ export function tidyValues(values: Values): Values {
 }
 
 export function valuesFromFormData(formData: FormData): Values {
+  // A form sends line breaks as \r\n, but the browser counts them as \n.
+  // Turning them back keeps the notes limit the same on both sides, and
+  // notes nobody touched save exactly as they were
   const text = (name: string) => {
     const value = formData.get(name);
-    return typeof value === "string" ? value : "";
+    return typeof value === "string" ? value.replace(/\r\n?/g, "\n") : "";
   };
   return {
     speciesName: text("speciesName"),

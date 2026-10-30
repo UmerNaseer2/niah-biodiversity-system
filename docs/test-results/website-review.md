@@ -75,12 +75,15 @@ hidden spot. Each fix below was tried on the stand-in the same way as round 1.
 | --- | --- | --- |
 | `tag-error-alert` | On the Scan a tag page, typing a bad code and pressing Enter showed an error that a screen reader never read out, since the field already had focus and nothing moved | The error is an alert, and it's put back in the page each time a bad code is sent, so it's read out every time |
 | `plant-name-fallback` | A species with no common name had an empty heading and page title, "undefined" in its map's description and a card with no name. The form always asks for a name, but an admin can save one without through the API, and so can the SQL editor. With no species at all, the Plants page said "No plants match" and offered to clear a search nobody typed | The plant page, its title and the list use the Latin name, the heading doesn't say it twice, and Local names says "None recorded". With no species the list says there are no plants yet |
+| `record-notes-line-breaks` | A form sends each line break in the notes box as two characters (`\r\n`), but the box counts it as one. Notes that filled the box, with line breaks, were turned down with "Notes can be up to 1000 characters." even when nobody touched them. Saving any record with line breaks in its notes also logged a notes change in its history | Line breaks are turned back into `\n` before the check, like the species form already does. The limit matches the box, and notes nobody touched save exactly as they were |
 
 | Test | Result |
 | --- | --- |
 | Typed `NNP-12` in the tag code box and pressed Enter | The error shows with `role="alert"`, the box is marked invalid and keeps focus |
 | Pressed Enter again with the same code | A new error is put in the page, so it's read out again. The page stays on `/tag` |
 | As the test admin, saved the stand-in tree with no common names through the API, then opened its plant page, the Plants list and its tag page | The heading and title are "Standinia exacta", Local names says "None recorded", the list card has the Latin name, and nothing says "undefined". The tag page still uses the record's own name. The names were put back afterwards |
+| Before the fix: gave a record 1000 characters of notes on 16 lines through the API, then pressed Save changes on its edit page without changing anything | "Notes can be up to 1000 characters." and nothing saved |
+| After the fix: the same save | "Changes saved". The notes are still 1000 characters with plain `\n` line breaks, and no new history entry |
 
 ## Not tested yet
 
