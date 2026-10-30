@@ -7,16 +7,17 @@ import { requireStaff } from "@/lib/auth";
 import { CONDITION_LABEL } from "@/lib/condition";
 import { formatDate, formatDateTime, plural } from "@/lib/format";
 import {
+  datesLabel,
   filtersFrom,
   filtersQuery,
-  rangeLabel,
+  hiddenSpotCount,
   SCOPE_LABEL,
   summarise,
-  type ReportFilters,
   type ReportScope,
 } from "@/lib/reports";
-import { loadReportRecords } from "@/lib/reports-db";
+import { loadExactDownloads, loadReportRecords } from "@/lib/reports-db";
 import { BarTable } from "./bar-table";
+import { DownloadList } from "./download-list";
 import { PrintButton } from "./print-button";
 import { ReportBuilder, type PreviewRow } from "./report-builder";
 
@@ -26,14 +27,6 @@ const LABEL = "block text-sm font-bold";
 
 // Enough to check the file looks right without a page that goes on forever
 const PREVIEW_ROWS = 20;
-
-/** "any date", "from 1 Oct 2026", "1 Oct 2026 to 31 Oct 2026" */
-function datesLabel({ from, to }: ReportFilters) {
-  if (from && to) return rangeLabel(from, to);
-  if (from) return `from ${formatDate(from)}`;
-  if (to) return `up to ${formatDate(to)}`;
-  return "any date";
-}
 
 /** "between 2 Oct 2026 and 12 Oct 2026", or "on 2 Oct 2026" */
 function spanLabel(first: string, last: string) {
@@ -45,10 +38,17 @@ function spanLabel(first: string, last: string) {
 export default async function ReportsPage({
   searchParams,
 }: PageProps<"/dashboard/reports">) {
-  if (!(await requireStaff())) return null;
+  const session = await requireStaff();
+  if (!session) return null;
   const filters = filtersFrom(await searchParams);
   const query = filtersQuery(filters).toString();
-  const rows = await loadReportRecords(filters);
+  const isAdmin = session.role === "admin";
+  const [rows, downloads] = await Promise.all([
+    loadReportRecords(filters),
+    isAdmin ? loadExactDownloads() : null,
+  ]);
+  // Only admins can read the list, so officers don't get the section at all
+  const downloadList = isAdmin && <DownloadList downloads={downloads} />;
 
   const header = (
     <PageHeader
@@ -151,6 +151,7 @@ export default async function ReportsPage({
             Rejected records never count.
           </p>
         </div>
+        {downloadList}
       </div>
     );
   }
@@ -315,9 +316,11 @@ export default async function ReportsPage({
           filters={filters}
           rows={preview}
           total={rows.length}
-          hiddenCount={rows.filter((r) => r.hidesLocation && r.gps !== null).length}
+          hiddenCount={hiddenSpotCount(rows)}
         />
       </section>
+
+      {downloadList}
     </div>
   );
 }

@@ -242,6 +242,14 @@ export function rangeLabel(first: string, last: string) {
   return a === b ? a : `${a} to ${b}`;
 }
 
+/** The days the filters pick: "any date", "from 1 Oct 2026", and so on */
+export function datesLabel({ from, to }: ReportFilters) {
+  if (from && to) return rangeLabel(from, to);
+  if (from) return `from ${formatDate(from)}`;
+  if (to) return `up to ${formatDate(to)}`;
+  return "any date";
+}
+
 // The CSV file
 
 export const CSV_HEADERS = [
@@ -285,6 +293,11 @@ export function locationOf(row: ReportRecord, includeExact: boolean): LocationIn
   if (!row.gps) return "No GPS point";
   if (row.hidesLocation && !includeExact) return "Hidden";
   return "Exact";
+}
+
+/** How many rows say Hidden unless the exact spots are included */
+export function hiddenSpotCount(rows: ReportRecord[]) {
+  return rows.filter((row) => locationOf(row, false) === "Hidden").length;
 }
 
 /**

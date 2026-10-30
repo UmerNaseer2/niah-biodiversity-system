@@ -21,18 +21,21 @@ kept, and you can fix the problem and run it again.
 | `008_record_edits.sql` | `updated_at` on records, set by a trigger when a record is edited, and the staff view that shows it | 17 | Yes |
 | `009_species_photos.sql` | Checks what goes in `species.photos`, the `species_photos_public` view for the plant pages, and lets officers and admins delete record photos | 18 | Yes |
 | `010_deleted_records.sql` | Keeps the ID of every deleted record, with who deleted it and when, so a phone can't upload it again | 3, 17 | Yes |
+| `011_exact_location_downloads.sql` | Keeps a list of every report downloaded with the exact spots of threatened and protected plants, with who downloaded it and when. Only admins can read the list, and nobody can change it | 21 | Yes |
 
-As of 16 Oct 2026 the hosted project has 001 and 002. Run 003, 004, 005, 006, 007, 008, 009 and
-010 next, one file at a time, in that order, and don't stop part way. The website's species pages
-(add, edit and delete) and its public pages need 007, and 007 stops on its first line if 006 isn't
-there. Until then the public pages say "This page didn't load". Without 009 the plant pages show
-no photos. Without 010 a phone that hadn't synced a record can upload it again after an officer
-deletes it. 003 is fine to run even if it turns out to be there already.
+As of 16 Oct 2026 the hosted project has 001 and 002. Run 003, 004, 005, 006, 007, 008, 009, 010
+and 011 next, one file at a time, in that order, and don't stop part way. The website's species
+pages (add, edit and delete) and its public pages need 007, and 007 stops on its first line if 006
+isn't there. Until then the public pages say "This page didn't load". Without 009 the plant pages
+show no photos. Without 010 a phone that hadn't synced a record can upload it again after an
+officer deletes it. Without 011 the website turns down every report download with exact spots,
+because it can't put the download on the list. 003 is fine to run even if it turns out to be there
+already.
 
 Before running 004, open the `profiles` table in the Table Editor and check every role there is
 one an admin gave on purpose. Set any you don't recognise back to `visitor`. If nobody needs to
 sign up on the website or the app yet, turn sign ups off in the Supabase dashboard
-(Authentication, Sign In / Providers) until 003 to 010 are in. Staff accounts can still be added
+(Authentication, Sign In / Providers) until 003 to 011 are in. Staff accounts can still be added
 by hand there.
 
 If 005 stops with a check error (like `records_gps_check`), a record already on the hosted project

@@ -20,6 +20,7 @@ export const SQL_FILES = [
   '008_record_edits.sql',
   '009_species_photos.sql',
   '010_deleted_records.sql',
+  '011_exact_location_downloads.sql',
 ];
 
 export function readSql(file) {
