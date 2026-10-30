@@ -5,6 +5,9 @@ branch. It covers the fixes from the review of the phone app in `mobile/`. Every
 with Jest and the other three CI checks. Nothing was tried on a real phone or a simulator in this
 round.
 
+Round 2 was on 30 Oct 2026, after a second review of the whole project. See
+[Round 2](#round-2-second-review) below.
+
 ## What changed
 
 - **Species with no common name.** Picking a species from the list that has no common names put
@@ -95,6 +98,31 @@ They all come from three packages. Nothing could be fixed safely, so nothing cha
 A dry run of plain `npm audit fix` only reshuffled the lock file and still left all 19, so it
 wasn't run for real. `npm audit fix --force` wasn't run either. It wants to put back expo 51 and
 move expo-router to 58, and both would take the app off SDK 57.
+
+## Round 2: second review
+
+One fix, on the `phone-gps-range` branch, checked with Jest, the type check and lint.
+
+- **GPS point off the globe.** `toGpsReading` in `src/lib/gps.ts` already skipped a reading with
+  no accuracy or a broken number, but it took any latitude and longitude. The server turns down a
+  point past 90 or 180 (`records_gps_check` in 005), so a broken reading like that would only have
+  failed at upload, after the plant was left behind. Now it's skipped like the others and the
+  capture keeps waiting for a good fix. A point right on the edge, like a latitude of -90, still
+  counts. 1 new GPS test, so 331 tests in 18 suites now.
+
+The review also flagged two things that turned out to be on purpose:
+
+- **Records with an upload problem are still in `loadWaiting`.** That's so the next sync tries
+  them again. "Not allowed" says to sync again once an admin gives you the role, and the records
+  store test "lists the oldest first, problems and all" checks it. The badges on Home, the tab bar
+  and Profile count them as waiting too, while the My Records banner splits them out. Nothing
+  uploads yet, so no record can have a problem today. Item 10 can decide how the other badges
+  show them.
+- **A `42501` answer is saved as "not allowed".** The record stays waiting and goes up on a later
+  sync, so it isn't stuck for good. An expired sign in comes back from the API with its own code,
+  not `42501`, so it's tried again like no signal. The one case to watch in item 10 is the app
+  carrying on as nobody signed in after a refresh fails, since that does get `42501`. The sync
+  design already says item 10 should stop the sync on the first one.
 
 ## Not tested yet
 
