@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import sharp from "sharp";
 import { getSession } from "@/lib/auth";
+import { changedBySomeoneElse, versionFromFormData, versionRange } from "@/lib/edit-version";
 import {
   checkDetails,
   checkNewSpecies,
@@ -39,12 +40,17 @@ export type SpeciesFormState =
       // What was sent, so the form can fill itself in again when the page
       // loaded without JavaScript
       values: Values;
+      // Editing only: the updated_at the form sent, so it keeps checking
+      // against that one
+      version?: string;
     }
   | {
       status: "saved";
       slug: string;
       // What was saved, tidied up the way the database has it
       values: Values;
+      // Editing only: the species' updated_at after the save, for the next one
+      version?: string;
     };
 
 export type DeleteSpeciesState = { status: "idle" } | { status: "error"; message: string };
@@ -153,11 +159,13 @@ export async function editSpecies(
 ): Promise<SpeciesFormState> {
   const values = valuesFromFormData(formData);
   const slug = slugFromFormData(formData);
+  const version = versionFromFormData(formData);
   const failed = (message: string | null, fieldErrors: Errors = {}) => ({
     status: "error" as const,
     message,
     fieldErrors,
     values,
+    version,
   });
 
   const notAllowed = await whyNotAllowed("save your changes");
@@ -170,15 +178,19 @@ export async function editSpecies(
   const row = rowFromValues(values);
   const supabase = await createClient();
   // .select() gives back the rows that changed, so a species that isn't
-  // there any more shows up as none rather than as an error
-  const { data, error } = await supabase
-    .from("species")
-    .update(row)
-    .eq("id", slug)
-    .select("scientific_name");
+  // there any more, or that someone else saved first, shows up as none
+  // rather than as an error
+  let query = supabase.from("species").update(row).eq("id", slug);
+  if (version) {
+    const { from, to } = versionRange(version);
+    query = query.gte("updated_at", from).lt("updated_at", to);
+  }
+  const { data, error } = await query.select("scientific_name, updated_at");
 
   if (error) return failed(messageFor(error.code, error.message, "edit species"));
   if (data.length === 0) {
+    const still = await supabase.from("species").select("id").eq("id", slug).maybeSingle();
+    if (version && still.data) return failed(changedBySomeoneElse("species"));
     return failed(
       "This species isn’t in the database any more, so there was nothing to " +
         "save. Someone may have deleted it.",
@@ -191,6 +203,7 @@ export async function editSpecies(
     slug,
     // The form doesn't send the scientific name, so it comes from the database
     values: { ...tidyValues(values), scientificName: String(data[0].scientific_name) },
+    version: String(data[0].updated_at),
   };
 }
 

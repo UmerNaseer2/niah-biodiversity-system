@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
+import { changedBySomeoneElse, versionFromFormData, versionRange } from "@/lib/edit-version";
 import {
   checkRecord,
   idFromFormData,
@@ -27,12 +28,16 @@ export type RecordFormState =
       // What was sent, so the form can fill itself in again when the page
       // loaded without JavaScript
       values: Values;
+      // The updated_at the form sent, so it keeps checking against that one
+      version: string;
     }
   | {
       status: "saved";
       id: string;
       // What was saved, tidied up the way the database has it
       values: Values;
+      // The record's updated_at after the save, for the next one
+      version: string;
     };
 
 export type DeleteRecordState = { status: "idle" } | { status: "error"; message: string };
@@ -92,11 +97,13 @@ export async function editRecord(
 ): Promise<RecordFormState> {
   const values = valuesFromFormData(formData);
   const id = idFromFormData(formData);
+  const version = versionFromFormData(formData);
   const failed = (message: string | null, fieldErrors: Errors = {}) => ({
     status: "error" as const,
     message,
     fieldErrors,
     values,
+    version,
   });
 
   const notAllowed = await whyNotAllowed("save your changes");
@@ -158,15 +165,19 @@ export async function editRecord(
   };
 
   // .select() gives back the rows that changed, so a record that isn't there
-  // any more shows up as none rather than as an error
-  const { data, error } = await supabase
-    .from("records")
-    .update(update)
-    .eq("id", id)
-    .select("id");
+  // any more, or that someone else saved first, shows up as none rather than
+  // as an error
+  let query = supabase.from("records").update(update).eq("id", id);
+  if (version) {
+    const { from, to } = versionRange(version);
+    query = query.gte("updated_at", from).lt("updated_at", to);
+  }
+  const { data, error } = await query.select("updated_at");
 
   if (error) return failed(messageFor(error.code, error.message, "edit records"));
   if (data.length === 0) {
+    const still = await supabase.from("records_staff").select("id").eq("id", id).maybeSingle();
+    if (version && still.data) return failed(changedBySomeoneElse("record"));
     return failed(
       "This record isn’t in the database any more, so there was nothing to " +
         "save. Someone may have deleted it.",
@@ -174,7 +185,12 @@ export async function editRecord(
   }
 
   refreshRecordPages();
-  return { status: "saved", id, values: tidyValues(values) };
+  return {
+    status: "saved",
+    id,
+    values: tidyValues(values),
+    version: String(data[0].updated_at),
+  };
 }
 
 export async function deleteRecord(
