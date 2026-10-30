@@ -7,10 +7,13 @@ import { mainPhoto, type SpeciesPhoto } from "@/lib/species-photos";
 
 function Photo({
   photo,
+  name,
   large = false,
   className = "",
 }: {
   photo: SpeciesPhoto;
+  /** The plant's name, for a photo with no caption */
+  name: string;
   large?: boolean;
   className?: string;
 }) {
@@ -23,7 +26,7 @@ function Photo({
         {/* eslint-disable-next-line @next/next/no-img-element -- see the note at the top */}
         <img
           src={photo.src}
-          alt={photo.caption}
+          alt={photo.caption || `A photo of ${name}`}
           loading={large ? "eager" : "lazy"}
           decoding="async"
           className={`w-full object-cover ${large ? "aspect-[4/3]" : "aspect-square"}`}
@@ -39,31 +42,33 @@ function Photo({
 /** Just the main photo, for the tag page */
 export function MainPhoto({
   photos,
+  name,
   className = "",
 }: {
   photos: SpeciesPhoto[];
+  name: string;
   className?: string;
 }) {
   const main = mainPhoto(photos);
   if (!main) return null;
-  return <Photo photo={main} large className={className} />;
+  return <Photo photo={main} name={name} large className={className} />;
 }
 
 /** The main photo big, with the rest under it. Each one opens the full photo. */
-export function PhotoGallery({ photos }: { photos: SpeciesPhoto[] }) {
+export function PhotoGallery({ photos, name }: { photos: SpeciesPhoto[]; name: string }) {
   const main = mainPhoto(photos);
   if (!main) return null;
   const rest = photos.filter((photo) => photo !== main);
 
   return (
     <div className="space-y-4">
-      <Photo photo={main} large />
+      <Photo photo={main} name={name} large />
       {rest.length > 0 && (
         <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           {rest.map((photo, index) => (
             // Two outside links can be the same, so the index goes in too
             <li key={`${index}-${photo.key}`}>
-              <Photo photo={photo} />
+              <Photo photo={photo} name={name} />
             </li>
           ))}
         </ul>

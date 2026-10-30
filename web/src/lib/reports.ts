@@ -263,6 +263,10 @@ export const CSV_HEADERS = [
   "Notes",
 ];
 
+// Spaces before the sign don't stop some spreadsheets, and neither do the full
+// width signs a phone keyboard can type, so they count too.
+const FORMULA_START = /^\s*[=+\-@\uFF1D\uFF0B\uFF0D\uFF20]|^[\t\r]/;
+
 /**
  * One CSV cell. Text starting with =, +, -, @ or a tab gets a ' in front so
  * Excel shows it instead of running it as a formula, since names and notes
@@ -271,7 +275,7 @@ export const CSV_HEADERS = [
 export function csvCell(value: string | number | null) {
   if (value === null) return "";
   let text = String(value);
-  if (typeof value === "string" && /^[=+\-@\t\r]/.test(text)) text = `'${text}`;
+  if (typeof value === "string" && FORMULA_START.test(text)) text = `'${text}`;
   return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
 }
 

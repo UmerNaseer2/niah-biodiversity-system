@@ -21,8 +21,8 @@ import {
   MAX_PHOTOS,
   PHOTO_BUCKET,
   checkPhoto,
-  isUploadedPath,
   storedKey,
+  storedPath,
   type PhotoErrors,
 } from "@/lib/species-photos";
 import { authConfigured } from "@/lib/supabase/config";
@@ -239,10 +239,7 @@ export async function deleteSpecies(
 /** The uploaded files in a species' photos, so they can be deleted with it */
 function uploadedPaths(photos: unknown, slug: string) {
   if (!Array.isArray(photos)) return [];
-  return photos.flatMap((photo) => {
-    const key = storedKey(photo);
-    return key && isUploadedPath(key, slug) ? [key] : [];
-  });
+  return photos.flatMap((photo) => storedPath(photo, slug) ?? []);
 }
 
 /**
@@ -412,12 +409,19 @@ export async function managePhoto(
 
   const slug = slugFromFormData(formData);
   const key = String(formData.get("key") ?? "");
+  const shownAt = Number(formData.get("index"));
 
   const supabase = await createClient();
   const current = await storedPhotos(supabase, slug);
   if ("message" in current) return failed(current.message);
   const before = current.photos;
-  const index = before.findIndex((photo) => storedKey(photo) === key);
+  // Two outside links can be the same, so the photo's place on the page
+  // picks which one. If the photos changed since the page loaded, the key
+  // finds it instead.
+  const index =
+    Number.isInteger(shownAt) && storedKey(before[shownAt], slug) === key
+      ? shownAt
+      : before.findIndex((photo) => storedKey(photo, slug) === key);
   if (index === -1) {
     return failed("That photo isn’t there any more. Someone may have removed it. Reload the page.");
   }
