@@ -59,14 +59,30 @@ describe('toGpsReading', () => {
     expect(toGpsReading(fix(5, Number.NaN))).toBeUndefined();
   });
 
-  it('turns down a point that is not on the globe, and keeps one right at the edge', () => {
-    expect(toGpsReading(fix(5, START, 90.5))).toBeUndefined();
-    expect(toGpsReading(fix(5, START, -91))).toBeUndefined();
-    const offEdge = fix(5);
-    expect(
-      toGpsReading({ ...offEdge, coords: { ...offEdge.coords, longitude: 180.1 } }),
-    ).toBeUndefined();
-    expect(toGpsReading(fix(5, START, -90))?.latitude).toBe(-90);
+  function at(latitude: number, longitude: number) {
+    const reading = fix(5);
+    return toGpsReading({ ...reading, coords: { ...reading.coords, latitude, longitude } });
+  }
+
+  it.each([
+    [90, 0],
+    [-90, 0],
+    [0, 180],
+    [0, -180],
+    [90, 180],
+    [-90, -180],
+  ])('keeps a point right at the edge of the globe (%d, %d)', (latitude, longitude) => {
+    expect(at(latitude, longitude)).toMatchObject({ latitude, longitude });
+  });
+
+  it.each([
+    [90.0001, 0],
+    [-90.0001, 0],
+    [0, 180.0001],
+    [0, -180.0001],
+    [91, 181],
+  ])('turns down a point just off the globe (%d, %d)', (latitude, longitude) => {
+    expect(at(latitude, longitude)).toBeUndefined();
   });
 });
 
