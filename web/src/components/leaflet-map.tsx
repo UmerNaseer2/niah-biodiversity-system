@@ -36,6 +36,19 @@ const MOSS = "#5b6b60";
 const HQ_ICON =
   '<svg viewBox="-9 -8 18 18" width="18" height="18" aria-hidden="true"><path d="M-7 1L0-6 7 1V8H-7Z" fill="#16201a" stroke="#fff" stroke-width="1.5"/></svg>';
 
+type Side = "right" | "left";
+
+/** Whether two boxes overlap. No box (a dot not drawn yet) never does. */
+function overlaps(a: DOMRect, b?: DOMRect) {
+  return (
+    b !== undefined &&
+    a.left < b.right &&
+    b.left < a.right &&
+    a.top < b.bottom &&
+    b.top < a.bottom
+  );
+}
+
 // Labels come from the database, so they go in as text and never as HTML
 function label(text: string, mono = false) {
   const span = document.createElement("span");
@@ -91,15 +104,27 @@ export function LeafletMap({
         // Every label, with the dot it belongs to if it has one. Plants come
         // first when two labels want the same space, then park HQ, sensors
         // and rough areas. Leaflet only draws a dot once the map has a view,
-        // so it's looked up each time instead of kept here.
+        // so it's looked up each time instead of kept here. A dot's label
+        // starts on the side it was made with (home), how far from the dot
+        // it was made (gap).
         const labels: {
           rank: number;
           tooltip: Tooltip;
           layer?: Marker | CircleMarker;
+          home?: Side;
+          gap?: number;
         }[] = [];
         const remember = (rank: number, layer: Marker | CircleMarker) => {
           const tooltip = layer.getTooltip();
-          if (tooltip) labels.push({ rank, tooltip, layer });
+          if (!tooltip) return;
+          const { direction, offset } = tooltip.options;
+          labels.push({
+            rank,
+            tooltip,
+            layer,
+            home: direction as Side,
+            gap: Math.abs(L.point(offset ?? [0, 0]).x),
+          });
         };
         // The labels of the dot under the pointer and the dot with focus.
         // They always show, and the others make room for them.
@@ -109,9 +134,14 @@ export function LeafletMap({
           tooltip === pointed || tooltip === focused;
 
         // Plants close together would have their labels on top of each other
-        // and on top of the dots, so a label that would cover another label or
-        // another dot is hidden until zooming in makes room for it.
+        // and on top of the dots. A dot's label goes on its home side, or the
+        // other side when that keeps it on the map or out of the way, like
+        // StaticMap does. A label that would cover another label or another
+        // dot, or be cut off by the edge, on both sides is hidden until
+        // zooming in or moving the map makes room for it. Pointing at its
+        // dot still shows it.
         const declutter = () => {
+          const frame = element.getBoundingClientRect();
           const dots = new Map(
             labels.map((item) => [
               item,
@@ -123,31 +153,57 @@ export function LeafletMap({
             (a, b) => Number(featured(b.tooltip)) - Number(featured(a.tooltip)),
           );
           for (const item of order) {
-            const element = item.tooltip.getElement();
-            if (!element) continue;
+            const tip = item.tooltip.getElement();
+            if (!tip) continue;
             // The line is a little taller than the letters, so a label can
             // touch something above or below it by 2 pixels
-            const line = element.getBoundingClientRect();
-            const box = new DOMRect(
+            const line = tip.getBoundingClientRect();
+            const here = new DOMRect(
               line.x,
               line.y + 2,
               line.width,
               line.height - 4,
             );
-            const covers = (other?: DOMRect) =>
-              other !== undefined &&
-              box.left < other.right &&
-              other.left < box.right &&
-              box.top < other.bottom &&
-              other.top < box.bottom;
-            const hidden =
-              !featured(item.tooltip) &&
-              (kept.some(covers) ||
-                labels.some(
-                  (other) => other !== item && covers(dots.get(other)),
-                ));
-            element.classList.toggle("map-label-hidden", hidden);
-            if (!hidden) kept.push(box);
+            const side = item.tooltip.options.direction as Side;
+            const options = [{ side, box: here }];
+            // Leaflet puts a left label as far from the dot as a right one,
+            // so the other side is this box flipped around the dot's middle
+            const dot = dots.get(item);
+            if (item.home && dot) {
+              const middle = dot.x + dot.width / 2;
+              const other = {
+                side: side === "right" ? ("left" as const) : ("right" as const),
+                box: new DOMRect(
+                  2 * middle - here.right,
+                  here.y,
+                  here.width,
+                  here.height,
+                ),
+              };
+              if (side === item.home) options.push(other);
+              else options.unshift(other);
+            }
+            const clear = (box: DOMRect) =>
+              !kept.some((k) => overlaps(box, k)) &&
+              !labels.some(
+                (other) => other !== item && overlaps(box, dots.get(other)),
+              );
+            const onMap = (box: DOMRect) =>
+              box.left >= frame.left && box.right <= frame.right;
+            const pick = featured(item.tooltip)
+              ? (options.find((o) => onMap(o.box)) ?? options[0])
+              : options.find((o) => onMap(o.box) && clear(o.box));
+            tip.classList.toggle("map-label-hidden", !pick);
+            if (!pick) continue;
+            kept.push(pick.box);
+            if (pick.side !== side && item.gap !== undefined) {
+              item.tooltip.options.direction = pick.side;
+              item.tooltip.options.offset = [
+                pick.side === "right" ? item.gap : -item.gap,
+                0,
+              ];
+              item.tooltip.update();
+            }
           }
         };
 
@@ -306,8 +362,10 @@ export function LeafletMap({
         }
 
         labels.sort((a, b) => a.rank - b.rank);
-        // fitBounds fires zoomend, so this runs once the map is first drawn too
-        map.on("zoomend resize", declutter);
+        // Zooming and fitBounds fire moveend too, so this runs once the map is
+        // first drawn, after every zoom, and after a drag takes a label near
+        // the edge
+        map.on("moveend resize", declutter);
         // A label gets wider when the web font arrives
         document.fonts.ready.then(() => {
           if (!cancelled) declutter();
