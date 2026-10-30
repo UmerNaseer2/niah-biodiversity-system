@@ -74,14 +74,18 @@ hidden spot. Each fix below was tried on the stand-in the same way as round 1.
 | Branch | What was wrong | Now |
 | --- | --- | --- |
 | `tag-error-alert` | On the Scan a tag page, typing a bad code and pressing Enter showed an error that a screen reader never read out, since the field already had focus and nothing moved | The error is an alert, and it's put back in the page each time a bad code is sent, so it's read out every time |
+| `plant-name-fallback` | A species with no common name had an empty heading and page title, "undefined" in its map's description and a card with no name. The form always asks for a name, but an admin can save one without through the API, and so can the SQL editor. With no species at all, the Plants page said "No plants match" and offered to clear a search nobody typed | The plant page, its title and the list use the Latin name, the heading doesn't say it twice, and Local names says "None recorded". With no species the list says there are no plants yet |
 
 | Test | Result |
 | --- | --- |
 | Typed `NNP-12` in the tag code box and pressed Enter | The error shows with `role="alert"`, the box is marked invalid and keeps focus |
 | Pressed Enter again with the same code | A new error is put in the page, so it's read out again. The page stays on `/tag` |
+| As the test admin, saved the stand-in tree with no common names through the API, then opened its plant page, the Plants list and its tag page | The heading and title are "Standinia exacta", Local names says "None recorded", the list card has the Latin name, and nothing says "undefined". The tag page still uses the record's own name. The names were put back afterwards |
 
 ## Not tested yet
 
+- The Plants page with no species at all, since the stand-in's records need its species. The new
+  message was read, not tried.
 - A photo with an empty caption. The upload form won't take one (tried, it asks for a caption),
   so the fallback description was read, not tried.
 - Two photos with the same outside link. The stand-in only stores uploads, so the code for that

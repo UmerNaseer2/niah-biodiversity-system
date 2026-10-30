@@ -26,7 +26,10 @@ export async function generateMetadata({
 }: PageProps<"/plants/[slug]">): Promise<Metadata> {
   const plant = await getSpeciesBySlug((await params).slug);
   if (!plant) return {};
-  return { title: plant.commonNames[0], description: plant.summary };
+  return {
+    title: plant.commonNames[0] ?? plant.scientificName,
+    description: plant.summary,
+  };
 }
 
 function LabelRow({ term, children }: { term: string; children: ReactNode }) {
@@ -44,7 +47,10 @@ export default async function PlantPage({
   const plant = await getSpeciesBySlug((await params).slug);
   if (!plant) notFound();
 
-  const name = plant.commonNames[0];
+  // A species saved through the API or SQL can have no common name (the form
+  // always asks for one), and then it goes by its Latin name
+  const hasCommonName = plant.commonNames.length > 0;
+  const name = plant.commonNames[0] ?? plant.scientificName;
   const otherNames = plant.commonNames.slice(1);
   const hidden = hidesLocation(plant);
   const tagged = await getPublishedRecordsForSpecies(plant.slug);
@@ -84,11 +90,16 @@ export default async function PlantPage({
         <header className="lg:col-start-1">
           <p className="eyebrow">{plant.family}</p>
           <h1 className="mt-2 text-4xl font-bold tracking-tight sm:text-5xl">
-            {name}
+            {hasCommonName ? name : <LatinName name={plant.scientificName} />}
           </h1>
-          <p className="mt-1 text-xl sm:text-2xl">
-            <LatinName name={plant.scientificName} authority={plant.authority} />
-          </p>
+          {hasCommonName && (
+            <p className="mt-1 text-xl sm:text-2xl">
+              <LatinName
+                name={plant.scientificName}
+                authority={plant.authority}
+              />
+            </p>
+          )}
           {otherNames.length > 0 && (
             <p className="mt-2 text-moss">Also called {otherNames.join(", ")}</p>
           )}
@@ -127,7 +138,7 @@ export default async function PlantPage({
                 />
               </LabelRow>
               <LabelRow term="Local names">
-                {plant.commonNames.join(", ")}
+                {plant.commonNames.join(", ") || "None recorded"}
               </LabelRow>
               <LabelRow term="IUCN">
                 {IUCN[plant.iucn].label} ({plant.iucn})
