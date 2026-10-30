@@ -28,9 +28,12 @@ export type ReportFilters = {
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 
 // A day that doesn't exist, like 2026-13-01 or 30 February, counts as no
-// limit. The database would turn it down and the page couldn't load.
+// limit. The database would turn it down and the page couldn't load. The same
+// goes for year 0, which it doesn't have, and for the last day of year 9999,
+// since the next day after a "to" date (reports-db) wouldn't fit the shape.
 function day(value: unknown) {
   if (typeof value !== "string" || !DAY.test(value)) return null;
+  if (value < "0001-01-01" || value >= "9999-12-31") return null;
   const check = new Date(`${value}T00:00:00Z`);
   return !Number.isNaN(check.getTime()) && check.toISOString().startsWith(value)
     ? value
