@@ -77,6 +77,7 @@ hidden spot. Each fix below was tried on the stand-in the same way as round 1.
 | `plant-name-fallback` | A species with no common name had an empty heading and page title, "undefined" in its map's description and a card with no name. The form always asks for a name, but an admin can save one without through the API, and so can the SQL editor. With no species at all, the Plants page said "No plants match" and offered to clear a search nobody typed | The plant page, its title and the list use the Latin name, the heading doesn't say it twice, and Local names says "None recorded". With no species the list says there are no plants yet |
 | `record-notes-line-breaks` | A form sends each line break in the notes box as two characters (`\r\n`), but the box counts it as one. Notes that filled the box, with line breaks, were turned down with "Notes can be up to 1000 characters." even when nobody touched them. Saving any record with line breaks in its notes also logged a notes change in its history | Line breaks are turned back into `\n` before the check, like the species form already does. The limit matches the box, and notes nobody touched save exactly as they were |
 | `record-time-seconds` | The Recorded on box only goes down to the minute, so saving a record from the edit page cut the seconds off a time the phone saved, even when nobody touched the box. The history then said "Recorded on changed from 12 Oct 2026, 10:40 pm to 12 Oct 2026, 10:40 pm" | If the box still shows the stored minute, the stored time is kept as it is. A history change that reads the same before and after says "changed slightly (still ...)" instead |
+| `report-date-check` | The reports page and the CSV link only checked a date had the right shape. A day that doesn't exist, like `to=2026-13-01`, crashed both with a 500. A day like 30 February got to the database, which turned it down, and the page said the records didn't load and to ask an admin to check the database | A day that doesn't exist counts as no limit, the same as a date that isn't one at all, so the page and the file still load |
 
 | Test | Result |
 | --- | --- |
@@ -88,6 +89,9 @@ hidden spot. Each fix below was tried on the stand-in the same way as round 1.
 | Gave the record a time 37.123 seconds past the minute through the API, then pressed Save changes without changing anything | "Changes saved". The time still has its seconds and there's no new history entry |
 | Picked the next minute in Recorded on and saved | The time moves to that minute, and the history says "Recorded on changed from 12 Oct 2026, 10:40 pm to 12 Oct 2026, 10:41 pm" |
 | The history entries from before the fix | They say "Recorded on changed slightly (still 12 Oct 2026, 10:40 pm)" |
+| Before the fix: opened the reports page and the CSV link with `?to=2026-13-01`, and the page with `?from=2026-02-30` | The first two gave a 500. The third said "The records didn’t load" |
+| After the fix: the same three, plus the page with both bad dates at once | All load. The page says "any date", like it does with no dates, and the file has all 8 records |
+| `?from=2028-02-29` and `?from=2026-10-01&to=2026-10-05` | Still kept as limits. The second file has 3 records |
 
 ## Not tested yet
 
