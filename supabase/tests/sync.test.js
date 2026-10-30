@@ -237,7 +237,9 @@ describe('uploading records from the phone', () => {
     await db.query("UPDATE public.records SET status = 'published' WHERE id = $1", [row.id]);
     const published = await selectAs(db, null, sql, [row.id]);
     assert.equal(published.length, 1);
-    assert.notDeepEqual(published[0].gps, row.gps);
+    // Belian is threatened, so the public only gets the middle of its grid square. Worked out by
+    // hand: 3.8152 and 113.7801 sit in the squares that start at 3.812 and 113.780.
+    assert.deepEqual(published[0].gps, { lat: 3.814, lng: 113.782, accuracyM: 440 });
   });
 
   test('deleting a species keeps its records and only clears the slug', async () => {

@@ -121,10 +121,14 @@ DROP VIEW IF EXISTS public.observations;
 
 -- What the public sees of a published record. A plant only shows its exact spot if its species
 -- is in the species table, is Least Concern (LC) or Near Threatened (NT) on the IUCN Red List,
--- and isn't protected in Sarawak. Every other plant, including DD and NE species and names the
--- species table doesn't have, only shows the middle of its 0.004 degree grid square (about
--- 440 m at Niah). It's the same square the website draws (web/src/lib/geo.ts). The notes and
--- the name of whoever recorded the plant stay with the staff.
+-- isn't protected in Sarawak and isn't marked rough area only. Every other plant, including DD
+-- and NE species and names the species table doesn't have, only shows the middle of its 0.004
+-- degree grid square (about 440 m at Niah). It's the same square the website draws
+-- (web/src/lib/geo.ts). The notes and the name of whoever recorded the plant stay with the staff.
+-- 007 adds the rough area only switch too, but it's added here as well, so running 006 again
+-- after 007 never shows the exact spot of a plant an officer has hidden.
+ALTER TABLE public.species ADD COLUMN IF NOT EXISTS rough_area_only BOOLEAN NOT NULL DEFAULT FALSE;
+
 DROP VIEW IF EXISTS public.records_public;
 CREATE VIEW public.records_public
 WITH (security_invoker = false, security_barrier = true)
@@ -142,7 +146,10 @@ SELECT
   r.status,
   CASE
     WHEN r.gps IS NULL THEN NULL
-    WHEN s.id IS NOT NULL AND NOT s.sarawak_protected AND s.iucn_code IN ('LC', 'NT') THEN
+    WHEN s.id IS NOT NULL
+      AND NOT s.sarawak_protected
+      AND NOT s.rough_area_only
+      AND s.iucn_code IN ('LC', 'NT') THEN
       jsonb_build_object(
         'lat', r.gps -> 'lat',
         'lng', r.gps -> 'lng',

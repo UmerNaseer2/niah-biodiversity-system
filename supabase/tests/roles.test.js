@@ -5,6 +5,7 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { after, before, describe, test } from 'node:test';
 import {
+  SQL_FILES,
   addUser,
   asUser,
   insertAs,
@@ -722,6 +723,64 @@ describe('views', () => {
   });
 });
 
+describe('part way through the SQL files', () => {
+  // The files go on the hosted project one at a time, so every stopping point has to be safe on
+  // its own, not just the end. This checks each one from 003 on.
+  const publicViews = ['records_public', 'species_photos_public', 'species_public'];
+
+  test('after each file, the API can only read the views, and anon only the public ones', async () => {
+    for (let n = SQL_FILES.indexOf('003_profiles_read_own.sql') + 1; n <= SQL_FILES.length; n++) {
+      const files = SQL_FILES.slice(0, n);
+      const partWay = await newDatabase(files);
+      try {
+        const { rows: writable } = await partWay.query(
+          `SELECT c.relname AS view, r.role, p.privilege
+           FROM pg_class AS c
+           CROSS JOIN (VALUES ('anon'), ('authenticated')) AS r(role)
+           CROSS JOIN (VALUES ('INSERT'), ('UPDATE'), ('DELETE'), ('TRUNCATE')) AS p(privilege)
+           WHERE c.relnamespace = 'public'::regnamespace
+             AND c.relkind = 'v'
+             AND has_table_privilege(r.role, c.oid, p.privilege)
+           ORDER BY 1, 2, 3`,
+        );
+        assert.deepEqual(writable, [], `after ${files.at(-1)}`);
+
+        const { rows: readable } = await partWay.query(
+          `SELECT c.relname AS view
+           FROM pg_class AS c
+           WHERE c.relnamespace = 'public'::regnamespace
+             AND c.relkind = 'v'
+             AND has_table_privilege('anon', c.oid, 'SELECT')
+           ORDER BY 1`,
+        );
+        for (const { view } of readable) {
+          assert.ok(publicViews.includes(view), `anon reads ${view} after ${files.at(-1)}`);
+        }
+      } finally {
+        await partWay.close();
+      }
+    }
+  });
+
+  test('records_public never has the notes or who recorded a plant, from 004 on', async () => {
+    for (let n = SQL_FILES.indexOf('004_security_hardening.sql') + 1; n <= SQL_FILES.length; n++) {
+      const files = SQL_FILES.slice(0, n);
+      const partWay = await newDatabase(files);
+      try {
+        const { rows } = await partWay.query(
+          `SELECT column_name FROM information_schema.columns
+           WHERE table_schema = 'public' AND table_name = 'records_public'`,
+        );
+        const columns = rows.map((row) => row.column_name);
+        assert.ok(!columns.includes('notes'), `after ${files.at(-1)}`);
+        assert.ok(!columns.includes('recorded_by'), `after ${files.at(-1)}`);
+      } finally {
+        await partWay.close();
+      }
+    }
+  });
+});
+
 describe('sensor nodes', () => {
   const sql = 'SELECT node_id FROM public.iot_nodes ORDER BY node_id';
   const node = { node_id: 'NNP-IOT-TEST', name: 'Test node', zone: 'Test zone' };
@@ -997,5 +1056,25 @@ describe('running 006, 007 and 008 again', () => {
     const sql = 'SELECT gps FROM public.records_public WHERE id = $1';
     const [belian] = await selectAs(db, null, sql, [belianId]);
     assert.deepEqual(belian.gps, seedSquares[belianId]);
+  });
+
+  test('a plant marked rough area only stays hidden after 006, before 007 runs again', async () => {
+    await addSpecies('test-rough-again');
+    await db.query("UPDATE public.species SET rough_area_only = true WHERE id = 'test-rough-again'");
+    const id = await upload(botanist, {
+      species_slug: 'test-rough-again',
+      species_name: 'Testus test-rough-again',
+      common_name: null,
+    });
+    await setStatus(id, 'published');
+    const sql = 'SELECT gps FROM public.records_public WHERE id = $1';
+    try {
+      await db.exec(readSql('006_role_based_access.sql'));
+      const [shown] = await selectAs(db, null, sql, [id]);
+      assert.deepEqual(shown.gps, spotSquare);
+    } finally {
+      await db.exec(readSql('007_species_fixes.sql'));
+      await db.exec(readSql('008_record_edits.sql'));
+    }
   });
 });

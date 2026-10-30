@@ -9,3 +9,8 @@ CREATE POLICY "Users can read own profile"
     ON public.profiles FOR SELECT
     TO authenticated
     USING (auth.uid() = id);
+
+-- Nothing uses the observations view from 001 (records_public and records_staff cover what it
+-- was for), so it goes here, in the first file after 001 and 002. 006 drops it too, in case 003
+-- was run before this was added.
+DROP VIEW IF EXISTS public.observations;
