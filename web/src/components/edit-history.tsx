@@ -54,9 +54,10 @@ export function EditHistory({
         History
       </h2>
       <p className="mt-1 text-moss">
-        Every saved change to this {what}, newest first. The history started
-        when an administrator set it up, so older changes aren’t here. It
-        never keeps where a plant grows, only that the location changed.
+        Changes saved to this {what}, newest first. The history started when
+        an administrator set it up, so older changes aren’t here. It doesn’t
+        keep the map location, only that it changed, but text like notes is
+        kept word for word.
       </p>
 
       {history === null ? (

@@ -7,9 +7,10 @@ import type { createClient } from "./supabase/server";
 
 // The history of changes to records and species (supabase/013). Every save
 // that changes something adds a row with who saved it, when, and what each
-// changed column was before and after. Where a plant is never goes in, only
-// whether it had a spot before and after. Only officers and admins can read
-// it, the same people who can edit.
+// changed column was before and after. The map location never goes in, only
+// whether it had a spot before and after, but text like notes is kept word
+// for word, so it can say a place if someone typed one. Only officers and
+// admins can read it, the same people who can edit.
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
 
