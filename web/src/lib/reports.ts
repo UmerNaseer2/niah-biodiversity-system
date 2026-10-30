@@ -27,8 +27,14 @@ export type ReportFilters = {
 
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 
+// A day that doesn't exist, like 2026-13-01 or 30 February, counts as no
+// limit. The database would turn it down and the page couldn't load.
 function day(value: unknown) {
-  return typeof value === "string" && DAY.test(value) ? value : null;
+  if (typeof value !== "string" || !DAY.test(value)) return null;
+  const check = new Date(`${value}T00:00:00Z`);
+  return !Number.isNaN(check.getTime()) && check.toISOString().startsWith(value)
+    ? value
+    : null;
 }
 
 /** Reads the filters from a page's searchParams or the CSV link's query */
