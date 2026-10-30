@@ -24,6 +24,9 @@ export const metadata: Metadata = { title: "Reports" };
 
 const LABEL = "block text-sm font-bold";
 
+// Enough to check the file looks right without a page that goes on forever
+const PREVIEW_ROWS = 20;
+
 /** "any date", "from 1 Oct 2026", "1 Oct 2026 to 31 Oct 2026" */
 function datesLabel({ from, to }: ReportFilters) {
   if (from && to) return rangeLabel(from, to);
@@ -178,7 +181,9 @@ export default async function ReportsPage({
     },
   ];
 
-  const preview: PreviewRow[] = rows.map((r) => ({
+  // Only the rows the preview shows go to the browser, so a big report doesn't
+  // send thousands of rows nobody sees. The CSV reads them all again itself.
+  const preview: PreviewRow[] = rows.slice(0, PREVIEW_ROWS).map((r) => ({
     id: r.id,
     code: r.code,
     name: r.commonName ?? r.scientificName,
@@ -306,7 +311,12 @@ export default async function ReportsPage({
           each. The server builds the file after checking you’re an officer or
           administrator.
         </p>
-        <ReportBuilder filters={filters} rows={preview} />
+        <ReportBuilder
+          filters={filters}
+          rows={preview}
+          total={rows.length}
+          hiddenCount={rows.filter((r) => r.hidesLocation && r.gps !== null).length}
+        />
       </section>
     </div>
   );

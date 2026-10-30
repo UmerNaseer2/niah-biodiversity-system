@@ -54,7 +54,10 @@ export default function PublicLayout({ children }: { children: ReactNode }) {
               a COS30049 student project for Sarawak Forestry Corporation and
               NeuonAI. It isn’t an official SFC website.
             </p>
-            <p>All the records and people on it are made up.</p>
+            <p>
+              The tagged records on it are test data, not results from a real
+              survey.
+            </p>
           </div>
           <ul className="flex flex-wrap gap-x-5 gap-y-2">
             <li>

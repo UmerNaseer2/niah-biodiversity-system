@@ -56,11 +56,13 @@ export default async function PlantPage({
   );
   const areas = hidden ? roughAreas(located) : [];
 
+  // A species added on the website has no habitat or uses yet (the form
+  // doesn't ask for them), so a section with nothing in it is left out.
   const sections = [
     { id: "about", title: "About", text: plant.about },
     { id: "habitat", title: "Where it grows", text: plant.habitat },
     { id: "uses", title: "How people use it", text: plant.uses },
-  ];
+  ].filter((section) => section.text.trim());
 
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6">
@@ -159,19 +161,21 @@ export default async function PlantPage({
             )}
           </section>
 
-          <div className="max-w-2xl space-y-8">
-            {sections.map((section) => (
-              <section key={section.id} aria-labelledby={`${section.id}-heading`}>
-                <h2
-                  id={`${section.id}-heading`}
-                  className="text-xl font-bold tracking-tight"
-                >
-                  {section.title}
-                </h2>
-                <p className="mt-2">{section.text}</p>
-              </section>
-            ))}
-          </div>
+          {sections.length > 0 && (
+            <div className="max-w-2xl space-y-8">
+              {sections.map((section) => (
+                <section key={section.id} aria-labelledby={`${section.id}-heading`}>
+                  <h2
+                    id={`${section.id}-heading`}
+                    className="text-xl font-bold tracking-tight"
+                  >
+                    {section.title}
+                  </h2>
+                  <p className="mt-2">{section.text}</p>
+                </section>
+              ))}
+            </div>
+          )}
 
           <section aria-labelledby="status-heading">
             <h2 id="status-heading" className="text-xl font-bold tracking-tight">
