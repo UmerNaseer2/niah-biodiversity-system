@@ -19,7 +19,12 @@ export type UploadRow = {
   height_m: number | null;
   condition: PlantRecord['condition'];
   notes: string | null;
-  gps: { lat: number; lng: number; accuracyM: number; capturedAt: string } | null;
+  gps: {
+    lat: number;
+    lng: number;
+    accuracyM: number;
+    capturedAt: string;
+  } | null;
   photo_count: number;
   recorded_at: string;
 };
@@ -69,6 +74,11 @@ export function classifyUpload(error: UploadError | null): UploadOutcome {
   const message = error.message ?? '';
   // 23505 means a unique rule stopped the record going in twice.
   if (code === '23505') {
+    // An officer deleted this record on the website, and the server keeps the ID so it doesn't
+    // come back (supabase/010_deleted_records.sql).
+    if (message.includes('"deleted_records_pkey"')) {
+      return { kind: 'problem', problem: 'deleted' };
+    }
     // Same ID, so this record went up before but the phone never heard back.
     if (message.includes('"records_pkey"')) {
       return { kind: 'synced' };
@@ -108,6 +118,11 @@ export function uploadProblemMessage(problem: UploadProblem) {
       return (
         "The server turned this record down. It's still on this phone, so ask an officer to " +
         'check it.'
+      );
+    case 'deleted':
+      return (
+        "An officer deleted this record on the website, so the server won't take it again. It's " +
+        'still on this phone. Ask an officer if you think it should be put back.'
       );
   }
 }

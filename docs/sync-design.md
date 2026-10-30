@@ -9,6 +9,7 @@ on.
 | Part | Where |
 | --- | --- |
 | What the server does with an upload | [`supabase/005_phone_sync.sql`](../supabase/005_phone_sync.sql) |
+| Turning down a record an officer deleted | [`supabase/010_deleted_records.sql`](../supabase/010_deleted_records.sql) |
 | Turning a record into the row the server takes, and reading the answer | [`mobile/src/sync/upload-row.ts`](../mobile/src/sync/upload-row.ts) |
 | Tests that run our SQL and act as each kind of user | [`supabase/tests/`](../supabase/tests/) |
 | Example records both sides test against | [`supabase/tests/fixtures/phone-upload.json`](../supabase/tests/fixtures/phone-upload.json) |
@@ -32,12 +33,14 @@ on.
    - starts the record as `waiting`, so it stays off the public website until an officer
      publishes it
    - turns down a value that breaks a rule, like a height of 0 or a latitude past 90
+   - turns down a record an officer has deleted on the website (since 010)
 4. The phone reads the answer with `classifyUpload`:
 
 | The server says | Code | What the phone does |
 | --- | --- | --- |
 | Nothing wrong | none | Marks the record synced |
 | The ID is already there (`records_pkey`) | `23505` | Marks it synced too. It went up on an earlier try, but the answer never got back to the phone |
+| An officer deleted the record on the website (`deleted_records_pkey`, since 010) | `23505` | Keeps it on the phone and says an officer deleted it, so it won't go up again |
 | A different record has the same tag code (`records_tag_code_key`) | `23505` | Keeps it on the phone and shows the tag clash message (see Known limits) |
 | Not allowed: the account isn't field staff, or nobody is signed in | `42501` | Keeps it as waiting and says to ask an admin for the botanist role. Item 10 should stop the sync here, since every other record would get the same answer |
 | A value breaks one of the table's rules | other `22` and `23` codes | Keeps it on the phone and says to ask an officer to check it |
@@ -69,6 +72,14 @@ names `records_pkey`. That's because 005 makes the tag code rule `DEFERRABLE`, s
 it at the end of the insert, after the ID. Otherwise Postgres would check the rule that was made
 first, and the answer could change if someone rebuilt the primary key. The phone relies on this,
 and the tests check it, even with the primary key rebuilt.
+
+**A deleted record stays deleted.** Since 010 the server keeps the ID of every record an officer
+deletes, with who deleted it and when, in `deleted_records`. Nothing else about the record is
+kept. An upload with one of those IDs gets the same kind of answer as an ID that's taken, but
+naming `deleted_records_pkey`, so the phone can tell the two apart. Without this, a phone that
+hadn't heard back about a record would send it again after the delete and it would come back.
+Someone in the SQL editor can still put a deleted record back on purpose, and then the ID comes
+off the list, so the phone is told it's synced.
 
 **One record per request.** If 20 records went up in one request and one of them was bad,
 Postgres would turn down all 20. One at a time, a bad record can't hold back the rest, and every
@@ -111,8 +122,9 @@ empty instead, for the old records too, and turns down 0 or less.
 
 ## Known limits
 
-- If an officer deletes a record before the phone has marked it synced, the next sync uploads it
-  again. It's unlikely, because the phone marks it as soon as the answer comes back.
+- **Fixed on 29 Oct:** if an officer deleted a record before the phone had marked it synced, the
+  next sync uploaded it again. Since 010 the server turns it down and the phone says an officer
+  deleted it (see "A deleted record stays deleted" above).
 - Tag codes have 6 characters, so there are about 16 million of them. A clash is rare, but it
   gets likely once there are a few thousand records. The phone already picks a new ID when a new
   record's tag clashes with one on the same phone, and the server catches a clash between two

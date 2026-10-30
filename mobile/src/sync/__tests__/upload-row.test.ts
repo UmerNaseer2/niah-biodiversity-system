@@ -7,7 +7,7 @@ import {
   type UploadOutcome,
   type UploadRow,
 } from '@/sync/upload-row';
-import type { PlantRecord } from '@/types/plant-record';
+import { UPLOAD_PROBLEMS, type PlantRecord, type UploadProblem } from '@/types/plant-record';
 
 // The same file supabase/tests/sync.test.js uploads to a test database, so if the phone and the
 // server stop agreeing on a column, one of the two test runs fails.
@@ -50,7 +50,7 @@ describe('toUploadRow', () => {
 describe('classifyUpload', () => {
   const synced: UploadOutcome = { kind: 'synced' };
   const retry: UploadOutcome = { kind: 'retry' };
-  const problem = (kind: 'tag-clash' | 'not-allowed' | 'rejected'): UploadOutcome => ({
+  const problem = (kind: UploadProblem): UploadOutcome => ({
     kind: 'problem',
     problem: kind,
   });
@@ -75,6 +75,15 @@ describe('classifyUpload', () => {
       outcome: problem('tag-clash'),
     },
     {
+      // The message supabase/010_deleted_records.sql makes up for an ID it keeps
+      about: 'an officer deleted the record on the website',
+      error: {
+        code: '23505',
+        message: 'duplicate key value violates unique constraint "deleted_records_pkey"',
+      },
+      outcome: problem('deleted'),
+    },
+    {
       about: 'some other unique rule',
       error: {
         code: '23505',
@@ -92,7 +101,10 @@ describe('classifyUpload', () => {
     },
     {
       about: 'nobody is signed in',
-      error: { code: '42501', message: 'permission denied for table records' },
+      error: {
+        code: '42501',
+        message: 'permission denied for table records',
+      },
       outcome: problem('not-allowed'),
     },
     {
@@ -105,7 +117,10 @@ describe('classifyUpload', () => {
     },
     {
       about: 'a missing species name',
-      error: { code: '23502', message: 'null value in column "species_name"' },
+      error: {
+        code: '23502',
+        message: 'null value in column "species_name"',
+      },
       outcome: problem('rejected'),
     },
     {
@@ -121,7 +136,10 @@ describe('classifyUpload', () => {
     { about: 'an error with nothing in it', error: {}, outcome: retry },
     {
       about: 'the server not having the new columns yet',
-      error: { code: 'PGRST204', message: "Could not find the 'species_name' column" },
+      error: {
+        code: 'PGRST204',
+        message: "Could not find the 'species_name' column",
+      },
       outcome: retry,
     },
     {
@@ -131,7 +149,10 @@ describe('classifyUpload', () => {
     },
     {
       about: 'the app sending a column the server works out itself',
-      error: { code: '428C9', message: 'cannot insert a non-DEFAULT value into column "tag_code"' },
+      error: {
+        code: '428C9',
+        message: 'cannot insert a non-DEFAULT value into column "tag_code"',
+      },
       outcome: retry,
     },
   ])('$about', ({ error, outcome }) => {
@@ -153,5 +174,15 @@ describe('uploadProblemMessage', () => {
       "The server turned this record down. It's still on this phone, so ask an officer to " +
         'check it.',
     );
+    expect(uploadProblemMessage('deleted')).toBe(
+      "An officer deleted this record on the website, so the server won't take it again. It's " +
+        'still on this phone. Ask an officer if you think it should be put back.',
+    );
+  });
+
+  it('has something to say for every problem', () => {
+    for (const problem of UPLOAD_PROBLEMS) {
+      expect(uploadProblemMessage(problem)).toMatch(/\w/);
+    }
   });
 });

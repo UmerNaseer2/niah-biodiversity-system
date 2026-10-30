@@ -1,0 +1,95 @@
+# A deleted record coming back: test results
+
+Tested on 29 Oct 2026 on Umer's Mac (macOS, Node 22.22.3) on the `deleted-records` branch. The
+SQL was tried on PGlite (`supabase/tests/`) and the Supabase stand-in in
+`supabase/tests/stand-in.js`, not against the hosted project.
+
+## What changed
+
+Item 17 and `docs/sync-design.md` both had this known limit: if an officer deleted a record
+before the phone had marked it synced, the next sync uploaded it again. Say Aina's phone sent a
+record, but the signal dropped before the answer came back. An officer then deleted the record on
+the website because it was a duplicate. At Aina's next sync, the phone sent it again and it came
+back as a new record waiting for review.
+
+Now:
+
+- `supabase/010_deleted_records.sql` adds a `deleted_records` table with the ID of every deleted
+  record, who deleted it and when. Nothing else about the record is kept, so no species, notes or
+  location stays behind.
+- A trigger adds the ID whenever a record is deleted, from the website, the API or the SQL editor.
+- Another trigger turns down an upload with one of those IDs. The error is the same kind Postgres
+  gives for an ID that's taken (`23505`), but it names `deleted_records_pkey`, so the phone can
+  tell it apart from `records_pkey`, which means the record went up before.
+- Only officers and admins can read the list, and nobody can change it through the API.
+- Someone in the SQL editor (where nobody is signed in) can still put a deleted record back on
+  purpose. The ID then comes off the list, so the phone that recorded it is told it's synced.
+- The phone has a fourth upload problem, `deleted`. The record stays on the phone and its page
+  says: "An officer deleted this record on the website, so the server won't take it again. It's
+  still on this phone. Ask an officer if you think it should be put back."
+- The phone's database had a rule listing the problems, and SQLite can't change that rule on a
+  column, so step 4 in `mobile/src/db/database.ts` makes the records table again with the new rule
+  and copies every record across.
+- The website's delete record page now says the server turns the record down instead of saying
+  it comes back.
+
+## Automated checks
+
+| Check | Command | Result |
+| --- | --- | --- |
+| SQL tests | `cd supabase/tests && npm test` | 176 of 176 pass |
+| Phone tests | `cd mobile && npx jest` | 323 of 323 pass |
+| Phone types and lint | `cd mobile && npx tsc --noEmit && npm run lint` | Pass |
+| Website lint, types and build | `cd web && npm run lint && npx tsc --noEmit && npm run build` | Pass |
+
+The new SQL tests are in `supabase/tests/sync.test.js`, under "a record an officer deleted". They
+check that:
+
+- deleting a record keeps only its ID, the time and the officer who deleted it
+- uploading it again as a botanist or an officer is turned down with `23505` and
+  `deleted_records_pkey`
+- a botanist can't delete a record, so nothing goes on the list
+- only officers and admins can read the list. A botanist or visitor sees nothing, and someone
+  not signed in is refused
+- nobody can add to, change or empty the list through the API, or call the trigger functions
+- putting the record back in the SQL editor takes it off the list, and the next upload gets
+  `records_pkey`, so the phone marks it synced
+- running 010 again, or 002 after it, keeps the list
+- 010 stops on its first line if 009 hasn't been run
+
+The new phone tests check that `classifyUpload` reads `deleted_records_pkey` as `deleted`, that
+every problem has a message, and that a phone on version 3 with records (one with a problem, one
+waiting with a location and one synced) keeps all of them unchanged after step 4. After step 4 the
+`deleted` problem saves, and the old rules on synced records, tag codes, locations and column
+types still hold.
+
+## Manual tests (stand-in)
+
+The stand-in was started again so it built its database with 010. The records were throwaway ones
+added through the stand-in's API, so the sample data wasn't touched.
+
+| # | What we did | What should happen | Pass? |
+| --- | --- | --- | --- |
+| 1 | Uploaded a record as the test botanist through the API, then sent it again | The second try gets `409`, `23505` and `records_pkey`, which the phone reads as synced | Pass |
+| 2 | Deleted it as the test officer through the API | Deleted, and the officer sees one row for it in `deleted_records` with themselves as `deleted_by` | Pass |
+| 3 | Read `deleted_records` as the botanist | No rows | Pass |
+| 4 | Uploaded it again as the botanist | `409`, `23505` and `deleted_records_pkey`, which the phone reads as `deleted` | Pass |
+| 5 | Deleted another record on the website's delete page, posting the form the way a browser without JavaScript does, then uploaded it again | Turned down with `deleted_records_pkey` | Pass |
+| 6 | Opened a record's delete page as the officer | The last bullet says the server turns it down at the next sync and the phone says an officer deleted it | Pass |
+
+## Known limits
+
+- **The phone can't remove its own copy yet.** The record stays in My records with the message
+  until item 10 adds a way to clear it.
+- **Only the ID is kept.** A deleted record can't be looked at again from the list. Putting one
+  back needs the whole record from somewhere else, like the phone that recorded it.
+- **A delete in the Table Editor counts too.** It goes on the list with no `deleted_by`. To let a
+  phone upload it again, delete its row from `deleted_records` in the SQL editor.
+
+## Not tested yet
+
+- The hosted Supabase project, which needs 003 to 010 run first.
+- A real phone syncing, which comes in item 10. The phone side here is how it reads the answer and
+  stores the problem, and the tests run it on sql.js.
+- Step 4 on a real phone with a large number of records. It copies them in one transaction, so a
+  failure part way leaves the table the way it was.

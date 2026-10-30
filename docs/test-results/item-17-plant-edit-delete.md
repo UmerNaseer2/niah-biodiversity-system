@@ -71,10 +71,11 @@ leaves `tag_code` out of the comparison.
 
 ## Known limits
 
-- **A phone that hasn't synced a record uploads it again** if an officer deletes it first. This is
-  already in `docs/sync-design.md` under "Known limits", and the delete page says so. A synced
-  record stays deleted.
-- **No history.** Nothing records who edited or deleted a record.
+- **Fixed on 29 Oct:** a phone that hadn't synced a record uploaded it again if an officer
+  deleted it first. Since `supabase/010_deleted_records.sql` the server turns it down and the
+  phone says an officer deleted it. See [deleted-records.md](deleted-records.md).
+- **No history.** Nothing records who edited a record. Since 010 the server keeps who deleted a
+  record and when, but not what was in it.
 - **Fixed on 29 Oct:** two people editing the same record or species used to mean the last save
   won. Now a save that comes after someone else's is refused and the form says so. See
   [edit-conflicts.md](edit-conflicts.md).
