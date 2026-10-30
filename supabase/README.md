@@ -25,9 +25,10 @@ kept, and you can fix the problem and run it again.
 | `012_report_counts.sql` | Counts the records for the Reports page in the database, as whoever is asking, so the page doesn't load every record to count them | 21 | Yes |
 | `013_edit_history.sql` | Keeps a history of every change to a record or species, with who saved it and when, for the edit pages. Only officers and admins can read it, and nobody can change it. It never keeps where a plant is | 17, 18 | Yes |
 | `014_photo_folder.sql` | Keeps the name of each record's photo folder, so the website can still show and delete a record's photos after the account that sent it is deleted | 18 | Yes |
+| `015_species_rough_area.sql` | Keeps rough area only on for every threatened or protected species, so the first save on the edit page doesn't write a false history line. The public sees the same as before | 17 | Yes |
 
 As of 16 Oct 2026 the hosted project has 001 and 002. Run 003, 004, 005, 006, 007, 008, 009, 010,
-011, 012, 013 and 014 next, one file at a time, in that order, and don't stop part way. The
+011, 012, 013, 014 and 015 next, one file at a time, in that order, and don't stop part way. The
 website's species pages (add, edit and delete) and its public pages need 007, and 007 stops on its
 first line if 006 isn't there. Until then the public pages say "This page didn't load". Without
 009 the plant pages show no photos. Without 010 a phone that hadn't synced a record can upload it
@@ -37,13 +38,15 @@ records didn't load, but the spreadsheet download still works. 012 stops on its 
 isn't there. Without 013 the edit pages say the history didn't load, and saving still works. 013
 stops on its first line if 012 isn't there. Without 014 the website finds a record's photos from
 `submitted_by`, so they're lost when the account that sent it is deleted. 014 stops on its first
-line if 013 isn't there. 003 is fine to run even if it turns out to be there already. The history
-only starts once 013 is in, so changes made before that aren't in it.
+line if 013 isn't there. Without 015 the first save of a threatened or protected species can say
+its place on the public map changed when it didn't. 015 stops on its first line if 014 isn't there.
+003 is fine to run even if it turns out to be there already. The history only starts once 013 is
+in, so changes made before that aren't in it.
 
 Before running 004, open the `profiles` table in the Table Editor and check every role there is
 one an admin gave on purpose. Set any you don't recognise back to `visitor`. If nobody needs to
 sign up on the website or the app yet, turn sign ups off in the Supabase dashboard
-(Authentication, Sign In / Providers) until 003 to 014 are in. Staff accounts can still be added
+(Authentication, Sign In / Providers) until 003 to 015 are in. Staff accounts can still be added
 by hand there.
 
 If 005 stops with a check error (like `records_gps_check`), a record already on the hosted project

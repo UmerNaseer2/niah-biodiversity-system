@@ -191,6 +191,8 @@ describe('species history', () => {
     assert.deepEqual(row.changes, {
       iucn_code: { from: 'LC', to: 'VU' },
       common_names: { from: ['Test plant'], to: ['Test plant', 'Tester'] },
+      // A threatened species is always rough area only (015)
+      rough_area_only: { from: false, to: true },
     });
   });
 

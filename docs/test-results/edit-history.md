@@ -84,6 +84,10 @@ belian is threatened, and the species form saves a threatened species as rough a
 007), which the sample data didn't have yet. The history shows what the database did, not only
 what the officer typed.
 
+**Fixed on 30 Oct:** that line was true for the database, but it told the officer the public map
+changed when the public rule already hid the species. 015 turns the switch on for these species
+without a history line, and keeps it on, so the line only shows when the status really changes.
+
 ## Known limits
 
 - **The history only starts once 013 is run.** Changes before that aren't in it, and the
