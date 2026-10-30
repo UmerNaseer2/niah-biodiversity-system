@@ -19,6 +19,8 @@ The website also sends these on every response:
 | `X-Content-Type-Options: nosniff` | The browser won't guess a file's type, so an uploaded file can't be run as a script |
 | `X-Frame-Options: DENY` | Nobody can show our pages inside a frame on their site to trick staff into clicking things |
 | `Referrer-Policy: strict-origin-when-cross-origin` | Other sites only see our domain, never the full address of a page |
+| `Content-Security-Policy` | Added on 29 Oct. Scripts, requests and forms can only go to our own site. See [security-headers.md](../test-results/security-headers.md) |
+| `Permissions-Policy` | Added on 29 Oct. No page can ask for the camera, microphone, location or payments |
 
 ## Test results
 
@@ -27,8 +29,8 @@ has no Supabase values set. A small script started the build on 127.0.0.1 and re
 
 | # | What we did | What should happen | Pass? |
 | --- | --- | --- | --- |
-| 1 | Opened `/`, `/plants` and `/login` | 200, with all four headers above | Pass |
-| 2 | Opened `/dashboard` while signed out | 307 to `/login`, and the redirect has all four headers too | Pass |
+| 1 | Opened `/`, `/plants` and `/login` | 200, with HSTS and the first three headers above | Pass |
+| 2 | Opened `/dashboard` while signed out | 307 to `/login`, and the redirect has those four headers too | Pass |
 | 3 | Looked for `X-Powered-By` | Not sent (fixed while testing, see below) | Pass |
 | 4 | `npm run lint`, `npx tsc --noEmit` and `npm run build` | No errors | Pass |
 | 5 | The 37 checks on a build with no Supabase values | All pass, and the dashboard sends you to `/login` | Pass |
