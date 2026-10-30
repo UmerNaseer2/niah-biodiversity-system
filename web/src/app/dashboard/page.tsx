@@ -8,6 +8,7 @@ import { sensorAlerts, sensors } from "@/data/sensors";
 import { ALERT_LEVEL } from "@/lib/alert-level";
 import { formatDateTime, formatLongDate, parkNow, plural } from "@/lib/format";
 import { recordFromRow, type StaffRecord } from "@/lib/records-staff";
+import { readAll } from "@/lib/supabase/read-all";
 import { createClient } from "@/lib/supabase/server";
 
 // The template in dashboard/layout.tsx only covers the pages below it, so
@@ -49,7 +50,14 @@ export default async function OverviewPage() {
   // (supabase/006 and 007), the same people who can open this page
   const supabase = await createClient();
   const [recordsResult, speciesResult] = await Promise.all([
-    supabase.from("records_staff").select("*").order("recorded_at", { ascending: false }),
+    readAll((from, to) =>
+      supabase
+        .from("records_staff")
+        .select("*", { count: "exact" })
+        .order("recorded_at", { ascending: false })
+        .order("id")
+        .range(from, to),
+    ),
     supabase.from("species_staff").select("id", { count: "exact", head: true }),
   ]);
   if (recordsResult.error) {

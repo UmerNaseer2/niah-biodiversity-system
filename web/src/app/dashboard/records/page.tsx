@@ -11,6 +11,7 @@ import {
   STATUS_LABEL,
   type StaffStatus,
 } from "@/lib/records-staff";
+import { readAll } from "@/lib/supabase/read-all";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "Records" };
@@ -27,10 +28,14 @@ export default async function RecordsPage({
 
   // records_staff only answers officers and admins (supabase/006)
   const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("records_staff")
-    .select("*")
-    .order("recorded_at", { ascending: false });
+  const { data, error } = await readAll((from, to) =>
+    supabase
+      .from("records_staff")
+      .select("*", { count: "exact" })
+      .order("recorded_at", { ascending: false })
+      .order("id")
+      .range(from, to),
+  );
 
   const header = (
     <PageHeader

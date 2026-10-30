@@ -115,9 +115,11 @@ npm test
   `noprofile`, which has no row in `profiles`, all `@example.test`), and answers the parts of the
   Auth, REST and Storage APIs the website uses, as the signed in user. Storage files are kept in
   memory, and the Storage policies from our SQL files decide who can upload, list and delete. The
-  password is `TEST_PASSWORD` in `stand-in.js` and only works there. `STAND_IN_PORT` changes the port, and
-  `STAND_IN_TOKEN_SECONDS` makes a sign in run out sooner, to try refreshing. It only listens on
-  127.0.0.1, so other computers can't reach it.
+  password is `TEST_PASSWORD` in `stand-in.js` and only works there. `STAND_IN_PORT` changes the
+  port, `STAND_IN_TOKEN_SECONDS` makes a sign in run out sooner, to try refreshing, and
+  `STAND_IN_MAX_ROWS` sends fewer rows per read than the usual 1000 (Max rows on Supabase), to
+  try the website reading a long list in pages. It only listens on 127.0.0.1, so other computers
+  can't reach it.
 - `tests/stand-in.test.js` checks the stand-in answers like Supabase for the calls the website
   makes, so `npm test` runs it too.
 - PGlite runs Postgres 18.3 and Supabase projects run 15 or 17, so don't use anything newer than

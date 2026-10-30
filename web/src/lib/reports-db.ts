@@ -1,6 +1,7 @@
 import { recordFromRow } from "./records-staff";
 import { reportRecords, type ReportFilters, type ReportRecord } from "./reports";
 import { speciesFromRow } from "./species-db";
+import { readAll } from "./supabase/read-all";
 import { createClient } from "./supabase/server";
 
 /**
@@ -13,8 +14,17 @@ export async function loadReportRecords(
 ): Promise<ReportRecord[] | null> {
   const supabase = await createClient();
   const [records, species] = await Promise.all([
-    supabase.from("records_staff").select("*").order("recorded_at", { ascending: false }),
-    supabase.from("species_staff").select("*"),
+    readAll((from, to) =>
+      supabase
+        .from("records_staff")
+        .select("*", { count: "exact" })
+        .order("recorded_at", { ascending: false })
+        .order("id")
+        .range(from, to),
+    ),
+    readAll((from, to) =>
+      supabase.from("species_staff").select("*", { count: "exact" }).order("id").range(from, to),
+    ),
   ]);
   if (records.error || species.error) {
     console.error("Loading the report failed:", (records.error ?? species.error)?.message);

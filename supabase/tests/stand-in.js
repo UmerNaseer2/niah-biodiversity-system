@@ -125,12 +125,15 @@ const NOT_FILTERS = new Set(['select', 'order', 'limit', 'offset', 'columns']);
 /**
  * Starts the stand-in and gives back its URL and a close() for stopping it. Port 0 picks any free
  * port, which the tests use. tokenSeconds is how long a sign in lasts before the website has to
- * refresh it, an hour like Supabase unless it's made shorter to try refreshing.
+ * refresh it, an hour like Supabase unless it's made shorter to try refreshing. maxRows is the most
+ * rows one read sends back, 1000 like Max rows on Supabase unless it's made smaller to try reading
+ * a long list in pages.
  */
 export async function startStandIn({
   host = '127.0.0.1',
   port = 54321,
   tokenSeconds = 3600,
+  maxRows = 1000,
   log = console.log,
 } = {}) {
   const db = await newDatabase();
@@ -160,7 +163,7 @@ export async function startStandIn({
   };
 
   const server = createServer((req, res) => {
-    handle(req, res, { auth, columns, db, files, linkSecret, oneAtATime })
+    handle(req, res, { auth, columns, db, files, linkSecret, maxRows, oneAtATime })
       .catch((error) => {
         console.error(error);
         if (!res.headersSent) send(res, 500, { message: 'The stand-in broke. See its terminal.' });
@@ -583,17 +586,20 @@ function orderFrom(order, column) {
   return ` ORDER BY ${terms.join(', ')}`;
 }
 
-function pageFrom(searchParams) {
-  let sql = '';
+/** Turns limit and offset into SQL. A read never gets more than maxRows rows, like on Supabase. */
+function pageFrom(searchParams, maxRows = null) {
+  const asked = {};
   for (const word of ['limit', 'offset']) {
     const value = searchParams.get(word);
     if (value === null) continue;
     if (!/^\d+$/.test(value)) {
       throw new Refusal(400, 'PGRST100', `${word} has to be a whole number`);
     }
-    sql += ` ${word.toUpperCase()} ${value}`;
+    asked[word] = Number(value);
   }
-  return sql;
+  const limit = maxRows === null ? asked.limit : Math.min(asked.limit ?? maxRows, maxRows);
+  return (limit === undefined ? '' : ` LIMIT ${limit}`) +
+    (asked.offset === undefined ? '' : ` OFFSET ${asked.offset}`);
 }
 
 /** The columns a POST or PATCH body sets, checked against the schema cache like the API does. */
@@ -617,7 +623,7 @@ function columnsToSet(method, body, table, known) {
   return { names: names.map((name) => `"${name}"`).join(', '), json: JSON.stringify(rows) };
 }
 
-async function rest(req, res, url, body, { auth, columns, db, oneAtATime }) {
+async function rest(req, res, url, body, { auth, columns, db, maxRows, oneAtATime }) {
   // The API checks the JWT before anything else
   const user = whoIsAsking(req, auth);
 
@@ -640,7 +646,7 @@ async function rest(req, res, url, body, { auth, columns, db, oneAtATime }) {
   const selectSql = selectFrom(url.searchParams.get('select'), column);
   const whereSql = whereFrom(url.searchParams, column, params);
   const orderSql = orderFrom(url.searchParams.get('order'), column);
-  const pageSql = pageFrom(url.searchParams);
+  const pageSql = pageFrom(url.searchParams, reading ? maxRows : null);
   if (!reading && (orderSql || pageSql)) {
     throw new Refusal(400, 'PGRST100', 'The stand-in only takes order, limit and offset on reads');
   }
@@ -995,17 +1001,22 @@ async function signLinks(res, { bucket }, body, asker, ctx) {
   );
 }
 
-// `npm run stand-in` runs this. STAND_IN_PORT changes the port, and STAND_IN_TOKEN_SECONDS makes
-// a sign in run out sooner, to try refreshing.
+// `npm run stand-in` runs this. STAND_IN_PORT changes the port, STAND_IN_TOKEN_SECONDS makes a
+// sign in run out sooner, to try refreshing, and STAND_IN_MAX_ROWS sends fewer rows per read, to
+// try reading a long list in pages.
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const port = Number(process.env.STAND_IN_PORT || 54321);
   const tokenSeconds = Number(process.env.STAND_IN_TOKEN_SECONDS || 3600);
+  const maxRows = Number(process.env.STAND_IN_MAX_ROWS || 1000);
   const portWorks = Number.isInteger(port) && port >= 0 && port <= 65535;
-  if (!portWorks || !Number.isInteger(tokenSeconds) || tokenSeconds < 0) {
-    console.error('STAND_IN_PORT and STAND_IN_TOKEN_SECONDS have to be whole numbers.');
+  const maxRowsWorks = Number.isInteger(maxRows) && maxRows > 0;
+  if (!portWorks || !Number.isInteger(tokenSeconds) || tokenSeconds < 0 || !maxRowsWorks) {
+    console.error(
+      'STAND_IN_PORT, STAND_IN_TOKEN_SECONDS and STAND_IN_MAX_ROWS have to be whole numbers.',
+    );
     process.exit(1);
   }
-  const standIn = await startStandIn({ port, tokenSeconds });
+  const standIn = await startStandIn({ port, tokenSeconds, maxRows });
   console.log(`Supabase stand-in running on ${standIn.url}, with the anon key ${ANON_KEY}`);
   console.log('Test accounts (the password is TEST_PASSWORD in stand-in.js):');
   for (const user of TEST_USERS) console.log(`  ${user.email}  ${user.role ?? 'no profile'}`);

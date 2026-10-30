@@ -8,6 +8,7 @@ import { requireStaff } from "@/lib/auth";
 import { formatDate } from "@/lib/format";
 import { speciesFromRow } from "@/lib/species-db";
 import { SCIENTIFIC_NAME } from "@/lib/species-form";
+import { readAll } from "@/lib/supabase/read-all";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "Species" };
@@ -21,8 +22,16 @@ export default async function SpeciesPage({
   // Both views only answer officers and admins (supabase/006 and 007)
   const supabase = await createClient();
   const [speciesResult, recordsResult] = await Promise.all([
-    supabase.from("species_staff").select("*"),
-    supabase.from("records_staff").select("species_slug, status"),
+    readAll((from, to) =>
+      supabase.from("species_staff").select("*", { count: "exact" }).order("id").range(from, to),
+    ),
+    readAll((from, to) =>
+      supabase
+        .from("records_staff")
+        .select("species_slug, status", { count: "exact" })
+        .order("id")
+        .range(from, to),
+    ),
   ]);
 
   const header = (

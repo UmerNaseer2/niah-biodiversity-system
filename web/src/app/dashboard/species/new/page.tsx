@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Icon } from "@/components/icon";
 import { PageHeader } from "@/components/page-header";
 import { requireStaff } from "@/lib/auth";
+import { readAll } from "@/lib/supabase/read-all";
 import { createClient } from "@/lib/supabase/server";
 import { SpeciesForm } from "../species-form";
 
@@ -15,7 +16,13 @@ export default async function NewSpeciesPage() {
   // species is there. If they don't load, the database still turns down a
   // species that's already there when it saves.
   const supabase = await createClient();
-  const { data } = await supabase.from("species_staff").select("scientific_name");
+  const { data } = await readAll((from, to) =>
+    supabase
+      .from("species_staff")
+      .select("scientific_name", { count: "exact" })
+      .order("id")
+      .range(from, to),
+  );
   const existingNames = (data ?? []).map((row) => String(row.scientific_name));
 
   return (
