@@ -15,12 +15,7 @@ import { AccessibilityInfo, Text } from 'react-native';
 import { MOCK_RECORDS } from '@/data/mock-records';
 import { SPECIES_LIST, type SpeciesOption } from '@/data/species-list';
 import { DATABASE_NAME, MIGRATIONS } from '@/db/database';
-import {
-  EMPTY_SPECIES_LIST,
-  NO_SUCH_RECORD,
-  NOT_DELETED,
-  openRecordsStore,
-} from '@/db/records-store';
+import { EMPTY_SPECIES_LIST, NOT_DELETED, openRecordsStore } from '@/db/records-store';
 import { tagCodeFor } from '@/lib/id';
 import { RecordsProvider, useRecords } from '@/state/records-context';
 import type { NewPlantRecord, PlantRecord } from '@/types/plant-record';
@@ -312,13 +307,29 @@ describe('syncing', () => {
     expect(after.result.current.getRecord(sent!.id)).toEqual(expected[1]);
   });
 
-  it("throws and leaves the list as it was when the outcome can't be saved", async () => {
+  it('leaves the list as it was when the record is already gone', async () => {
     const { result } = await renderRecords();
     const before = result.current.records;
     await act(async () => {
+      await result.current.saveUploadOutcome('not-a-real-id', { kind: 'synced' });
+    });
+    expect(result.current.records).toEqual(before);
+  });
+
+  it("throws and leaves the list as it was when the outcome can't be saved", async () => {
+    const { result } = await renderRecords();
+    let sent: PlantRecord | undefined;
+    await act(async () => {
+      sent = await result.current.addRecord(draft);
+    });
+    await act(async () => {
+      await result.current.saveUploadOutcome(sent!.id, { kind: 'synced' });
+    });
+    const before = result.current.records;
+    await act(async () => {
       await expect(
-        result.current.saveUploadOutcome('not-a-real-id', { kind: 'synced' }),
-      ).rejects.toThrow(NO_SUCH_RECORD);
+        result.current.saveUploadOutcome(sent!.id, { kind: 'problem', problem: 'rejected' }),
+      ).rejects.toThrow();
     });
     expect(result.current.records).toEqual(before);
   });

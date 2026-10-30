@@ -126,6 +126,10 @@ empty instead, for the old records too, and turns down 0 or less.
   next sync uploaded it again. Since 010 the server turns it down and the phone says an officer
   deleted it (see "A deleted record stays deleted" above). Since 30 Oct the record's page on the
   phone has a button to remove it from the phone.
+- A record with the `deleted` problem can still be picked up by a sync, since the phone tries
+  every waiting record again. If someone removes it while that request is on its way, the answer
+  has nothing left to mark, so `saveUploadOutcome` does nothing with it and the sync carries on.
+  Item 10 shouldn't count that as a failure.
 - Tag codes have 6 characters, so there are about 16 million of them. A clash is rare, but it
   gets likely once there are a few thousand records. The phone already picks a new ID when a new
   record's tag clashes with one on the same phone, and the server catches a clash between two

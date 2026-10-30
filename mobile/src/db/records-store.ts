@@ -17,8 +17,9 @@ export type RecordsStore = {
    */
   loadWaiting: () => Promise<PlantRecord[]>;
   /**
-   * Remembers what happened when a record was sent. Fails if no saved record has that ID, so
-   * nothing gets marked as synced by mistake.
+   * Remembers what happened when a record was sent. If no saved record has that ID it does
+   * nothing, because the record was removed from the phone while it was on its way and there's
+   * nothing left to mark.
    */
   saveUploadOutcome: (id: string, outcome: UploadOutcome) => Promise<void>;
   /**
@@ -36,7 +37,6 @@ export type RecordsStore = {
   close: () => Promise<void>;
 };
 
-export const NO_SUCH_RECORD = 'No record with that ID is saved on this phone.';
 export const NOT_DELETED = 'Only a record an officer deleted on the website can be removed.';
 
 // Row level security on Supabase hands back no rows instead of an error when the account can't
@@ -169,19 +169,17 @@ export async function openRecordsStore(): Promise<RecordsStore> {
       if (outcome.kind === 'retry') {
         return;
       }
-      const { changes } =
-        outcome.kind === 'synced'
-          ? await db.runAsync(
-              `UPDATE plant_records SET sync_status = 'synced', upload_problem = NULL
-              WHERE id = $id`,
-              { $id: id },
-            )
-          : await db.runAsync('UPDATE plant_records SET upload_problem = $problem WHERE id = $id', {
-              $id: id,
-              $problem: outcome.problem,
-            });
-      if (changes === 0) {
-        throw new Error(NO_SUCH_RECORD);
+      if (outcome.kind === 'synced') {
+        await db.runAsync(
+          `UPDATE plant_records SET sync_status = 'synced', upload_problem = NULL
+          WHERE id = $id`,
+          { $id: id },
+        );
+      } else {
+        await db.runAsync('UPDATE plant_records SET upload_problem = $problem WHERE id = $id', {
+          $id: id,
+          $problem: outcome.problem,
+        });
       }
     },
 
