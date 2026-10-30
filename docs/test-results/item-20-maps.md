@@ -8,6 +8,7 @@ links. Round 3, on 30 Oct on the `map-label-overlap` branch, stopped the labels 
 Round 4, on 30 Oct on the `map-without-js` branch, added a map for browsers with JavaScript off.
 Round 5, on 30 Oct on the `map-label-flip` branch, stopped labels getting cut off at the edge.
 Round 6, on 30 Oct on the `sensor-names` branch, let a hidden sensor name show when it's pointed at.
+Round 7, on 30 Oct on the `static-map-notes` branch, moved the still map's notes off the map.
 
 ## What it does
 
@@ -119,6 +120,7 @@ JavaScript, and nothing else. Now it gets a still map, drawn on the server by
   its name as a tooltip.
 - A note in the bottom right corner says to turn JavaScript on to zoom and move the map, with the
   OSM attribution under it. It's at the bottom so the planned tape on the overview can't cover it.
+  Round 7 moved both notes off the map into a strip under it.
 - It's inside a `<noscript>`, so a browser with JavaScript never loads its tiles and gets the
   Leaflet map the same as before.
 - It's given the same data as the Leaflet map, so a hidden species still only gets rough squares.
@@ -176,6 +178,21 @@ is 24 px across, a little bigger than the square.
 | Each sensor square takes the pointer at its middle and up to 11 px out from it, but not 13 px | Pass |
 | `npx tsc --noEmit` and `npx eslint` on the changed file | Pass |
 
+## Round 7: the still map's notes
+
+Tested on 30 Oct 2026. The JavaScript note and the OSM attribution used to sit on top of the still
+map's bottom right corner, and its label check didn't know about them, so a label there could end
+up under them. Now they're in a strip under the map with a line above it, so nothing on the map can
+go under them. On a phone the strip takes two lines, so the map part is about 40 px shorter.
+
+| Test | Result |
+| --- | --- |
+| Overview at desktop width: the notes sit on one line under the map, the JavaScript note on the left and the attribution on the right. All 9 labels still show, inside the map part | Pass |
+| Overview at phone width (375 px): the notes take two lines (41 px). All 9 labels still show inside the map part, and the dots and sensors have at least 48 px clear above and below them | Pass |
+| Slipper orchid plant page at phone width: the square, "Rough area" and "Park HQ" are all inside the map part | Pass |
+| With JavaScript on: the Leaflet map loads as before | Pass |
+| `npx tsc --noEmit`, `npx eslint` and `npx prettier --check` on the changed file | Pass |
+
 ## Not tested yet
 
 - The "The map didn’t load" message. It shows if Leaflet's code can't be fetched, which is hard to
@@ -212,8 +229,9 @@ is 24 px across, a little bigger than the square.
 - **Its label sizes are guesses.** The server can't measure text, so each label's width comes from
   its number of letters, on the wide side. A name full of wide letters could still touch the next
   label.
-- **Its label check doesn't know about the note in the corner,** so on a busy map a label in the
-  bottom right could end up under it. None do with the stand-in's data.
+- **Fixed on 30 Oct:** the still map's label check didn't know about the note in its corner, so on
+  a busy map a label in the bottom right could end up under it. Now the notes are in a strip under
+  the map. See round 7 above.
 - **Park HQ may be in the wrong place.** The `PARK_HQ` point in `lib/geo.ts` (shared with the
   mobile app) lands in the forest on the real map, not on the HQ buildings. It needs checking
   against the real HQ before the "m from park HQ" directions mean much.

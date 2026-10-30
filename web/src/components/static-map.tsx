@@ -10,7 +10,9 @@ import type { MapArea, MapPoint, MapSensor } from "./leaflet-map";
 
 const TILE = 256;
 // The map is at least about 320 px wide and tall on a phone. Leaflet keeps
-// 48 px clear around the edge, so everything has to fit in what's left.
+// 48 px clear around the edge, so everything has to fit in what's left. The
+// notes under the map take about 40 px of the height on a phone, which still
+// leaves over 20 px clear at the top and bottom.
 const NARROWEST = 320;
 const FIT = NARROWEST - 2 * 48;
 // A label that would go past this on a phone goes on the other side of its
@@ -231,110 +233,114 @@ export function StaticMap({
   };
 
   return (
-    <div className="absolute inset-0 z-10 overflow-hidden rounded-xl border border-line bg-sheet">
-      <div className="absolute left-1/2 top-1/2">
-        {tiles.map((tile) => (
-          // eslint-disable-next-line @next/next/no-img-element -- OSM map tiles
-          <img
-            key={tile.key}
-            src={tile.src}
-            alt=""
-            width={TILE}
-            height={TILE}
-            className="absolute max-w-none"
-            style={place(tile.x, tile.y)}
-          />
-        ))}
-
-        {squares.map((square) => (
-          <div key={square.id}>
-            <div
-              className="absolute border-2 border-dashed border-moss bg-moss/20"
-              style={{
-                ...place(square.x, square.y),
-                width: square.width,
-                height: square.height,
-              }}
+    <div className="absolute inset-0 z-10 flex flex-col overflow-hidden rounded-xl border border-line bg-sheet">
+      <div className="relative flex-1 overflow-hidden">
+        <div className="absolute left-1/2 top-1/2">
+          {tiles.map((tile) => (
+            // eslint-disable-next-line @next/next/no-img-element -- map tiles
+            <img
+              key={tile.key}
+              src={tile.src}
+              alt=""
+              width={TILE}
+              height={TILE}
+              className="absolute max-w-none"
+              style={place(tile.x, tile.y)}
             />
-            {sides.has(`area-${square.id}`) && (
-              <span
-                className={`${LABEL} -translate-y-1/2`}
-                style={place(square.x + 8, square.y + 12)}
-              >
-                Rough area
-              </span>
-            )}
-          </div>
-        ))}
+          ))}
 
-        <svg
-          viewBox="-9 -8 18 18"
-          width="18"
-          height="18"
-          aria-hidden="true"
-          className="absolute -translate-x-1/2 -translate-y-1/2"
-          style={place(hq.x, hq.y)}
-        >
-          <path
-            d="M-7 1L0-6 7 1V8H-7Z"
-            fill="#16201a"
-            stroke="#fff"
-            strokeWidth="1.5"
-          />
-        </svg>
-        {labelFor("hq", hq.x, hq.y, "Park HQ")}
-
-        {sensorSpots.map((sensor) => (
-          <div key={sensor.id}>
-            <span
-              className={[
-                "map-sensor absolute size-3.5 -translate-x-1/2 -translate-y-1/2",
-                sensor.online ? "" : "map-sensor-offline",
-                sensor.alert ? "map-sensor-alert" : "",
-              ].join(" ")}
-              style={place(sensor.x, sensor.y)}
-            >
-              <span />
-            </span>
-            {labelFor(`sensor-${sensor.id}`, sensor.x, sensor.y, sensor.id, {
-              className: "font-mono",
-            })}
-          </div>
-        ))}
-
-        {plantSpots.map((point) => {
-          const key = `plant-${point.id}`;
-          return (
-            <div key={point.id}>
-              {point.link ? (
-                // A plain link, so it works without JavaScript. Its name
-                // shows when the pointer is on it if the label is left off.
-                <a
-                  href={point.link.href}
-                  title={sides.has(key) ? undefined : point.link.text}
-                  // .map-dot fills a Leaflet marker, so it needs a size here
-                  className="map-dot absolute size-6! -translate-x-1/2 -translate-y-1/2"
-                  style={place(point.x, point.y)}
-                >
-                  <span className="sr-only">{point.link.text}</span>
-                </a>
-              ) : (
+          {squares.map((square) => (
+            <div key={square.id}>
+              <div
+                className="absolute border-2 border-dashed border-moss bg-moss/20"
+                style={{
+                  ...place(square.x, square.y),
+                  width: square.width,
+                  height: square.height,
+                }}
+              />
+              {sides.has(`area-${square.id}`) && (
                 <span
-                  className="absolute size-[17px] -translate-x-1/2 -translate-y-1/2 rounded-full border-[2.5px] border-white bg-forest"
-                  style={place(point.x, point.y)}
-                />
+                  className={`${LABEL} -translate-y-1/2`}
+                  style={place(square.x + 8, square.y + 12)}
+                >
+                  Rough area
+                </span>
               )}
-              {/* The link already says it, so it isn't read out twice */}
-              {labelFor(key, point.x, point.y, point.label, {
-                hidden: Boolean(point.link),
+            </div>
+          ))}
+
+          <svg
+            viewBox="-9 -8 18 18"
+            width="18"
+            height="18"
+            aria-hidden="true"
+            className="absolute -translate-x-1/2 -translate-y-1/2"
+            style={place(hq.x, hq.y)}
+          >
+            <path
+              d="M-7 1L0-6 7 1V8H-7Z"
+              fill="#16201a"
+              stroke="#fff"
+              strokeWidth="1.5"
+            />
+          </svg>
+          {labelFor("hq", hq.x, hq.y, "Park HQ")}
+
+          {sensorSpots.map((sensor) => (
+            <div key={sensor.id}>
+              <span
+                className={[
+                  "map-sensor absolute size-3.5 -translate-x-1/2 -translate-y-1/2",
+                  sensor.online ? "" : "map-sensor-offline",
+                  sensor.alert ? "map-sensor-alert" : "",
+                ].join(" ")}
+                style={place(sensor.x, sensor.y)}
+              >
+                <span />
+              </span>
+              {labelFor(`sensor-${sensor.id}`, sensor.x, sensor.y, sensor.id, {
+                className: "font-mono",
               })}
             </div>
-          );
-        })}
+          ))}
+
+          {plantSpots.map((point) => {
+            const key = `plant-${point.id}`;
+            return (
+              <div key={point.id}>
+                {point.link ? (
+                  // A plain link, so it works without JavaScript. Its name
+                  // shows when the pointer is on it if the label is left off.
+                  <a
+                    href={point.link.href}
+                    title={sides.has(key) ? undefined : point.link.text}
+                    // .map-dot fills a Leaflet marker, so it needs a size here
+                    className="map-dot absolute size-6! -translate-x-1/2 -translate-y-1/2"
+                    style={place(point.x, point.y)}
+                  >
+                    <span className="sr-only">{point.link.text}</span>
+                  </a>
+                ) : (
+                  <span
+                    className="absolute size-[17px] -translate-x-1/2 -translate-y-1/2 rounded-full border-[2.5px] border-white bg-forest"
+                    style={place(point.x, point.y)}
+                  />
+                )}
+                {/* The link already says it, so it isn't read out twice */}
+                {labelFor(key, point.x, point.y, point.label, {
+                  hidden: Boolean(point.link),
+                })}
+              </div>
+            );
+          })}
+        </div>
       </div>
 
-      {/* Both notes go at the bottom, since the planned tape is on top */}
-      <div className="absolute bottom-0 right-0 rounded-tl-md bg-sheet/90 px-2 py-1 text-right text-xs text-moss">
+      {/* Both notes go in a strip under the map rather than on it, so they
+          can't cover a label, and at the bottom since the planned tape is on
+          top */}
+      <div className="flex flex-wrap justify-between gap-x-3 border-t border-line px-2 py-1 text-xs text-moss">
         <p>Turn JavaScript on to zoom and move the map.</p>
         <p>
           &copy;{" "}
