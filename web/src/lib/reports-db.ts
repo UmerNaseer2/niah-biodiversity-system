@@ -3,35 +3,63 @@ import { recordFromRow } from "./records-staff";
 import {
   hiddenSpotCount,
   reportRecords,
+  summaryFromCounts,
+  type ReportCounts,
   type ReportFilters,
   type ReportRecord,
   type ReportScope,
+  type ReportSummary,
 } from "./reports";
 import { speciesFromRow } from "./species-db";
 import { readAll } from "./supabase/read-all";
 import { createClient } from "./supabase/server";
 
+type Supabase = Awaited<ReturnType<typeof createClient>>;
+
+/** Midnight at the start of a park day, which is 16:00 UTC the day before */
+function dayStart(day: string) {
+  return `${day}T00:00:00+08:00`;
+}
+
+/** "2026-10-31" becomes "2026-11-01" */
+function nextDay(day: string) {
+  const next = new Date(Date.parse(`${day}T00:00:00Z`) + 24 * 60 * 60 * 1000);
+  return next.toISOString().slice(0, 10);
+}
+
 /**
- * The records a report covers, read as the person signed in. Both views only
- * answer officers and admins (supabase/006 and 007), so callers check the
- * role first and the database checks it again. Gives null if a query fails.
+ * The records the filters cover, newest first, so the database skips the
+ * rest. reportRecords checks the same filters again on what comes back.
+ */
+function coveredRecords(supabase: Supabase, filters: ReportFilters, count?: "exact") {
+  let query = supabase
+    .from("records_staff")
+    .select("*", count ? { count } : undefined)
+    .in("status", filters.scope === "all" ? ["published", "waiting"] : ["published"]);
+  if (filters.from) query = query.gte("recorded_at", dayStart(filters.from));
+  if (filters.to) query = query.lt("recorded_at", dayStart(nextDay(filters.to)));
+  return query.order("recorded_at", { ascending: false }).order("id");
+}
+
+function readSpecies(supabase: Supabase) {
+  return readAll((from, to) =>
+    supabase.from("species_staff").select("*", { count: "exact" }).order("id").range(from, to),
+  );
+}
+
+/**
+ * The records a report covers, read as the person signed in, for the CSV.
+ * Both views only answer officers and admins (supabase/006 and 007), so
+ * callers check the role first and the database checks it again. Gives null
+ * if a query fails.
  */
 export async function loadReportRecords(
   filters: ReportFilters,
 ): Promise<ReportRecord[] | null> {
   const supabase = await createClient();
   const [records, species] = await Promise.all([
-    readAll((from, to) =>
-      supabase
-        .from("records_staff")
-        .select("*", { count: "exact" })
-        .order("recorded_at", { ascending: false })
-        .order("id")
-        .range(from, to),
-    ),
-    readAll((from, to) =>
-      supabase.from("species_staff").select("*", { count: "exact" }).order("id").range(from, to),
-    ),
+    readAll((from, to) => coveredRecords(supabase, filters, "exact").range(from, to)),
+    readSpecies(supabase),
   ]);
   if (records.error || species.error) {
     console.error("Loading the report failed:", (records.error ?? species.error)?.message);
@@ -42,6 +70,39 @@ export async function loadReportRecords(
     species.data.map(speciesFromRow),
     filters,
   );
+}
+
+/**
+ * What the Reports page shows: the counts, which the database works out
+ * (supabase/012_report_counts.sql), and only the newest few rows for the
+ * preview, so the page doesn't load every record just to count them. Same
+ * roles as loadReportRecords. Gives null if a query fails, like when 012
+ * hasn't been run yet.
+ */
+export async function loadReport(
+  filters: ReportFilters,
+  previewRows: number,
+): Promise<{ summary: ReportSummary; preview: ReportRecord[] } | null> {
+  const supabase = await createClient();
+  const [counts, species, records] = await Promise.all([
+    supabase.rpc("report_counts", {
+      scope: filters.scope,
+      from_day: filters.from,
+      to_day: filters.to,
+    }),
+    readSpecies(supabase),
+    coveredRecords(supabase, filters).limit(previewRows),
+  ]);
+  if (counts.error || species.error || records.error) {
+    const error = counts.error ?? species.error ?? records.error;
+    console.error("Loading the report failed:", error?.message);
+    return null;
+  }
+  const list = species.data.map(speciesFromRow);
+  return {
+    summary: summaryFromCounts(counts.data as ReportCounts, list),
+    preview: reportRecords(records.data.map(recordFromRow), list, filters),
+  };
 }
 
 /**

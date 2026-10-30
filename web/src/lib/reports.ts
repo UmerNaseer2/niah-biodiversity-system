@@ -5,8 +5,10 @@ import { IUCN, type IucnCode } from "./iucn";
 import type { StaffRecord } from "./records-staff";
 
 // Reports (item 21). The reports page and the CSV route both start from
-// records_staff and species_staff and go through the same filters here, so
-// the charts and the file always count the same records.
+// records_staff and species_staff with the same filters. The database counts
+// the records for the page (report_counts in supabase/012) and reportRecords
+// below builds the rows of the file, with the same rules, so the charts and
+// the file always count the same records.
 
 export type ReportScope = "published" | "all";
 
@@ -149,6 +151,28 @@ export type MonthRow = {
   byCondition: Record<Condition, number>;
 };
 
+/**
+ * What report_counts (supabase/012_report_counts.sql) gives back. The counts
+ * by IUCN code, condition and species ID leave out anything with no records,
+ * and "none" is plants not matched to a species yet. Times are park time.
+ */
+export type ReportCounts = {
+  total: number;
+  waiting: number;
+  species_count: number;
+  not_matched: number;
+  threatened: number;
+  needs_care: number;
+  hidden_spots: number;
+  first: string | null;
+  last: string | null;
+  by_iucn: Record<string, number>;
+  by_condition: Record<string, number>;
+  by_species: Record<string, number>;
+  /** By month, like "2026-10", then by condition */
+  by_month: Record<string, Record<string, number>>;
+};
+
 export type ReportSummary = {
   total: number;
   waiting: number;
@@ -156,6 +180,8 @@ export type ReportSummary = {
   notMatched: number;
   threatened: number;
   needsCare: number;
+  /** How many rows of the file say Hidden unless exact spots are included */
+  hiddenSpots: number;
   /** Most to least at risk, then DD and NE, then plants with no species. Zeros stay in. */
   byIucn: Count[];
   /** All four conditions, zeros included */
@@ -168,70 +194,69 @@ export type ReportSummary = {
   last: string | null;
 };
 
-export function summarise(rows: ReportRecord[]): ReportSummary {
-  const iucnOrder: IucnCode[] = ["CR", "EN", "VU", "NT", "LC", "DD", "NE"];
-  const byIucn: Count[] = iucnOrder.map((code) => ({
+const IUCN_RISK: IucnCode[] = ["CR", "EN", "VU", "NT", "LC", "DD", "NE"];
+
+/** Puts the database's counts in the order and words the page shows */
+export function summaryFromCounts(counts: ReportCounts, species: Species[]): ReportSummary {
+  const byIucn: Count[] = IUCN_RISK.map((code) => ({
     key: code,
     label: IUCN[code].label,
-    count: rows.filter((r) => r.iucn === code).length,
+    count: counts.by_iucn[code] ?? 0,
   }));
-  const notMatched = rows.filter((r) => r.iucn === null).length;
-  if (notMatched > 0) {
-    byIucn.push({ key: "none", label: NOT_MATCHED, count: notMatched });
+  if (counts.not_matched > 0) {
+    byIucn.push({ key: "none", label: NOT_MATCHED, count: counts.not_matched });
   }
 
-  const species = new Map<string, Count>();
-  for (const row of rows) {
-    const key = row.speciesSlug ?? "none";
-    const label = row.speciesSlug
-      ? row.commonName
-        ? `${row.commonName} (${row.scientificName})`
-        : row.scientificName
-      : NOT_MATCHED;
-    const entry = species.get(key) ?? { key, label, count: 0 };
-    entry.count += 1;
-    species.set(key, entry);
-  }
-  const bySpecies = [...species.values()].sort(
-    (a, b) =>
-      // Plants with no species go last, whatever their count
-      Number(a.key === "none") - Number(b.key === "none") ||
-      b.count - a.count ||
-      a.label.localeCompare(b.label),
-  );
+  const bySlug = new Map(species.map((s) => [s.slug, s]));
+  const bySpecies = Object.entries(counts.by_species)
+    .map(([key, count]): Count => {
+      const plant = bySlug.get(key);
+      const label =
+        key === "none"
+          ? NOT_MATCHED
+          : !plant
+            ? key
+            : plant.commonNames[0]
+              ? `${plant.commonNames[0]} (${plant.scientificName})`
+              : plant.scientificName;
+      return { key, label, count };
+    })
+    .sort(
+      (a, b) =>
+        // Plants with no species go last, whatever their count
+        Number(a.key === "none") - Number(b.key === "none") ||
+        b.count - a.count ||
+        a.label.localeCompare(b.label),
+    );
 
-  const months = new Map<string, MonthRow>();
-  for (const row of rows) {
-    const month = row.recordedAt.slice(0, 7);
-    const entry = months.get(month) ?? {
-      month,
-      label: monthLabel(month),
-      total: 0,
-      byCondition: Object.fromEntries(CONDITIONS.map((c) => [c, 0])) as Record<Condition, number>,
-    };
-    entry.total += 1;
-    entry.byCondition[row.condition] += 1;
-    months.set(month, entry);
-  }
+  const byMonth = Object.entries(counts.by_month)
+    .map(([month, conditions]): MonthRow => {
+      const byCondition = Object.fromEntries(
+        CONDITIONS.map((c) => [c, conditions[c] ?? 0]),
+      ) as Record<Condition, number>;
+      const total = CONDITIONS.reduce((sum, c) => sum + byCondition[c], 0);
+      return { month, label: monthLabel(month), total, byCondition };
+    })
+    .sort((a, b) => a.month.localeCompare(b.month));
 
   return {
-    total: rows.length,
-    waiting: rows.filter((r) => r.status === "waiting").length,
-    speciesCount: [...species.keys()].filter((key) => key !== "none").length,
-    notMatched,
-    threatened: rows.filter((r) => r.threatened).length,
-    needsCare: rows.filter((r) => r.condition !== "healthy").length,
+    total: counts.total,
+    waiting: counts.waiting,
+    speciesCount: counts.species_count,
+    notMatched: counts.not_matched,
+    threatened: counts.threatened,
+    needsCare: counts.needs_care,
+    hiddenSpots: counts.hidden_spots,
     byIucn,
     byCondition: CONDITIONS.map((c) => ({
       key: c,
       label: CONDITION_LABEL[c],
-      count: rows.filter((r) => r.condition === c).length,
+      count: counts.by_condition[c] ?? 0,
     })),
     bySpecies,
-    byMonth: [...months.values()].sort((a, b) => a.month.localeCompare(b.month)),
-    // Rows are newest first
-    first: rows.at(-1)?.recordedAt ?? null,
-    last: rows[0]?.recordedAt ?? null,
+    byMonth,
+    first: counts.first,
+    last: counts.last,
   };
 }
 

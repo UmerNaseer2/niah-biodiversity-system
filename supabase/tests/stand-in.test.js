@@ -284,6 +284,44 @@ describe('reading as each account', () => {
     }
   });
 
+  test('functions are called the way supabase.rpc() calls them, as whoever is asking', async () => {
+    const counts = (token, body) =>
+      call('/rest/v1/rpc/report_counts', { method: 'POST', token, body });
+    const { access_token: officerToken } = await sessionFor(officer);
+    const everything = await counts(officerToken, { scope: 'all', from_day: null, to_day: null });
+    assert.equal(everything.status, 200);
+    // The 10 records less the rejected one
+    assert.equal(everything.body.total, 9);
+    assert.equal(everything.body.waiting, 1);
+    const oneDay = await counts(officerToken, { from_day: '2026-10-01', to_day: '2026-10-01' });
+    assert.equal(oneDay.status, 200);
+    assert.ok(oneDay.body.total < everything.body.total);
+
+    const { access_token: botanistToken } = await sessionFor(botanist);
+    const botanistCounts = await counts(botanistToken, { scope: 'all' });
+    assert.equal(botanistCounts.status, 200);
+    assert.equal(botanistCounts.body.total, 0);
+
+    const signedOut = await counts(undefined, {});
+    assert.equal(signedOut.status, 401);
+    assert.equal(signedOut.body.code, '42501');
+
+    for (const [path, body] of [
+      ['/rest/v1/rpc/no_such_function', {}],
+      ['/rest/v1/rpc/report_counts', { scope: 'all', drop_table: true }],
+      ['/rest/v1/rpc/report_counts"()', {}],
+    ]) {
+      const missing = await call(path, { method: 'POST', token: officerToken, body });
+      assert.equal(missing.status, 404, path);
+      assert.equal(missing.body.code, 'PGRST202', path);
+    }
+    const badDay = await counts(officerToken, { from_day: 'yesterday-ish' });
+    assert.equal(badDay.status, 400);
+    assert.equal(badDay.body.code, '22007');
+    const read = await call('/rest/v1/rpc/report_counts', { token: officerToken });
+    assert.equal(read.status, 405);
+  });
+
   test("people who aren't signed in can't read the tables or the staff views", async () => {
     const names = ['records', 'species', 'profiles', 'iot_nodes', 'records_staff', 'species_staff'];
     for (const name of names) {
