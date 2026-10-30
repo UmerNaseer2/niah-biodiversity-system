@@ -136,10 +136,10 @@ export function LeafletMap({
         // Plants close together would have their labels on top of each other
         // and on top of the dots. A dot's label goes on its home side, or the
         // other side when that keeps it on the map or out of the way, like
-        // StaticMap does. A label that would cover another label or another
-        // dot, or be cut off by the edge, on both sides is hidden until
-        // zooming in or moving the map makes room for it. Pointing at its
-        // dot still shows it.
+        // StaticMap does. A label that would cover another label, another
+        // dot or the zoom buttons or OSM note, or be cut off by the edge, on
+        // both sides is hidden until zooming in or moving the map makes room
+        // for it. Pointing at its dot still shows it.
         const declutter = () => {
           const frame = element.getBoundingClientRect();
           const dots = new Map(
@@ -148,7 +148,10 @@ export function LeafletMap({
               item.layer?.getElement()?.getBoundingClientRect(),
             ]),
           );
-          const kept: DOMRect[] = [];
+          // The controls sit on top of the labels, so they count as taken
+          const kept = [...element.querySelectorAll(".leaflet-control")].map(
+            (control) => control.getBoundingClientRect(),
+          );
           const order = [...labels].sort(
             (a, b) => Number(featured(b.tooltip)) - Number(featured(a.tooltip)),
           );
@@ -189,10 +192,16 @@ export function LeafletMap({
                 (other) => other !== item && overlaps(box, dots.get(other)),
               );
             const onMap = (box: DOMRect) =>
-              box.left >= frame.left && box.right <= frame.right;
+              box.left >= frame.left &&
+              box.right <= frame.right &&
+              box.top >= frame.top &&
+              box.bottom <= frame.bottom;
+            const fits = options.find((o) => onMap(o.box) && clear(o.box));
+            // A label that's pointed at shows even if it's in the way, but
+            // takes a side that's clear of the controls and dots if it has one
             const pick = featured(item.tooltip)
-              ? (options.find((o) => onMap(o.box)) ?? options[0])
-              : options.find((o) => onMap(o.box) && clear(o.box));
+              ? (fits ?? options.find((o) => onMap(o.box)) ?? options[0])
+              : fits;
             tip.classList.toggle("map-label-hidden", !pick);
             if (!pick) continue;
             kept.push(pick.box);
