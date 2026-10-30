@@ -33,6 +33,13 @@ jobs:
           cache: npm
           cache-dependency-path: mobile/package-lock.json
       - run: npm ci
+      - name: npm audit
+        # Lists known advisories in the packages the app ships, as a warning on the run. It doesn't
+        # fail, because the phone app's current ones only go away by going back to an old Expo
+        # (see docs/security/vulnerability-assessment-plan.md).
+        run: |
+          npm audit --omit=dev \
+            || echo "::warning title=npm audit (mobile)::Advisories found. Open this step to see them."
       - name: Lint
         run: npm run lint
       - name: Typecheck
@@ -80,6 +87,11 @@ jobs:
           cache: npm
           cache-dependency-path: web/package-lock.json
       - run: npm ci
+      - name: npm audit
+        # Reports without failing, the same as the mobile job
+        run: |
+          npm audit --omit=dev \
+            || echo "::warning title=npm audit (web)::Advisories found. Open this step to see them."
       - name: Lint
         run: npm run lint
       - name: Build
