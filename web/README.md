@@ -171,12 +171,13 @@ planned for, so it's clear what's real during the demo. The item numbers match t
   rules for height and notes. Editing a record never changes its status, tag or who uploaded it, and
   a published record stays published. Deleting one can't be undone and its tag stops working, and
   a phone that hasn't synced the record yet uploads it again (`docs/sync-design.md`).
-- Species photos are uploaded on the species edit page (item 18) into the public
-  `botanical-photos` bucket. The server action turns each one into a JPEG up to 1600 pixels across
-  with `sharp` and leaves out the EXIF data, because a phone can save where a photo was taken in
-  the file. Never upload a species photo any other way, and never put a photo that shows where a
-  threatened plant grows in that bucket. Files are limited to 4 MB, which fits under the 4.5 MB a
-  Vercel request can be (`bodySizeLimit` in `next.config.ts`).
+- Species photos are uploaded on the species edit page (item 18) into the public `botanical-photos`
+  bucket. The server action turns each one into a JPEG up to 1600 pixels across with `sharp` and
+  leaves out the EXIF data, because a phone can save where a photo was taken in the file. It also
+  saves a small copy next to it (`-small.jpg`) for the plant list and the gallery's squares, and
+  marks the photo with `small`. Never upload a species photo any other way, and never put a photo
+  that shows where a threatened plant grows in that bucket. Files are limited to 4 MB, which fits
+  under the 4.5 MB a Vercel request can be (`bodySizeLimit` in `next.config.ts`).
 - Field photos from the phone go in the private `record-photos` bucket. Only staff pages show
   them, through signed links that last an hour (`src/lib/record-photos.ts`). Never show them on a
   public page.

@@ -81,7 +81,7 @@ export default async function EditSpeciesPage({
         mode="edit"
         slug={slug}
         initial={valuesFromSpecies(species, about)}
-        photo={mainPhoto(species.photos)?.src ?? null}
+        photo={mainPhoto(species.photos)?.smallSrc ?? null}
         version={String(data.updated_at ?? "")}
       />
       <PhotoManager slug={slug} name={name} photos={species.photos} />

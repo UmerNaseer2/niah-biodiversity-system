@@ -294,7 +294,7 @@ export function PhotoManager({
               <li key={`${index}-${photo.key}`} className="card overflow-hidden">
                 {/* eslint-disable-next-line @next/next/no-img-element -- like the public gallery */}
                 <img
-                  src={photo.src}
+                  src={photo.smallSrc}
                   alt={photo.caption || `A photo of ${name}`}
                   loading="lazy"
                   decoding="async"

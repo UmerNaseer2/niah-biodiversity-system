@@ -26,10 +26,12 @@ import {
 import {
   MAX_PHOTOS,
   PHOTO_BUCKET,
+  SMALL_PHOTO_PX,
   checkPhoto,
   checkPhotoDetails,
+  smallPathFor,
+  storedFiles,
   storedKey,
-  storedPath,
   type PhotoErrors,
 } from "@/lib/species-photos";
 import { authConfigured } from "@/lib/supabase/config";
@@ -266,17 +268,17 @@ export async function deleteSpecies(
 /** The uploaded files in a species' photos, so they can be deleted with it */
 function uploadedPaths(photos: unknown, slug: string) {
   if (!Array.isArray(photos)) return [];
-  return photos.flatMap((photo) => storedPath(photo, slug) ?? []);
+  return photos.flatMap((photo) => storedFiles(photo, slug));
 }
 
 /**
- * Opens the file to check it really is a JPEG, PNG or WebP photo, then saves
- * it as a JPEG no bigger than 1600px. sharp leaves out everything but the
- * picture unless it's told to keep it, so the camera details and any GPS
- * location in the file don't end up on the public site. Gives null for
- * anything it can't read.
+ * Opens the file to check it really is a JPEG, PNG or WebP photo, then makes
+ * a JPEG no bigger than 1600px and a small copy for thumbnails. sharp leaves
+ * out everything but the picture unless it's told to keep it, so the camera
+ * details and any GPS location in the file don't end up on the public site.
+ * Gives null for anything it can't read.
  */
-async function photoToJpeg(file: File) {
+async function photoToJpegs(file: File) {
   try {
     const image = sharp(Buffer.from(await file.arrayBuffer()), {
       autoOrient: true,
@@ -286,10 +288,26 @@ async function photoToJpeg(file: File) {
     const { format } = await image.metadata();
     // sharp can read more than this, like SVG and TIFF, but the site only takes photos
     if (format !== "jpeg" && format !== "png" && format !== "webp") return null;
-    return await image
-      .resize({ width: 1600, height: 1600, fit: "inside", withoutEnlargement: true })
-      .jpeg({ quality: 80 })
-      .toBuffer();
+    const [photo, small] = await Promise.all([
+      image
+        .clone()
+        .resize({ width: 1600, height: 1600, fit: "inside", withoutEnlargement: true })
+        .jpeg({ quality: 80 })
+        .toBuffer(),
+      // "outside" keeps the short side at least this big, so a square cut
+      // from the middle of it is still sharp
+      image
+        .clone()
+        .resize({
+          width: SMALL_PHOTO_PX,
+          height: SMALL_PHOTO_PX,
+          fit: "outside",
+          withoutEnlargement: true,
+        })
+        .jpeg({ quality: 75 })
+        .toBuffer(),
+    ]);
+    return { photo, small };
   } catch {
     return null;
   }
@@ -368,8 +386,8 @@ export async function uploadSpeciesPhoto(
   const fieldErrors = checkPhoto(file, caption, credit);
   if (!file || Object.keys(fieldErrors).length > 0) return failed(null, fieldErrors);
 
-  const jpeg = await photoToJpeg(file);
-  if (!jpeg) {
+  const jpegs = await photoToJpegs(file);
+  if (!jpegs) {
     return failed(null, {
       "photo-file": "This file couldn’t be opened as a photo. Try a JPEG, PNG or WebP photo.",
     });
@@ -389,7 +407,7 @@ export async function uploadSpeciesPhoto(
   const path = `species/${slug}/${randomUUID()}.jpg`;
   const uploaded = await supabase.storage
     .from(PHOTO_BUCKET)
-    .upload(path, jpeg, { contentType: "image/jpeg", upsert: false });
+    .upload(path, jpegs.photo, { contentType: "image/jpeg", upsert: false });
   if (uploaded.error) {
     console.error("Uploading a species photo failed:", uploaded.error.message);
     return failed(
@@ -397,16 +415,31 @@ export async function uploadSpeciesPhoto(
         "administrator to check your role.",
     );
   }
+  // Without the small copy the thumbnails just use the photo, so it's only logged
+  const smallPath = smallPathFor(path);
+  const smallUploaded = await supabase.storage
+    .from(PHOTO_BUCKET)
+    .upload(smallPath, jpegs.small, { contentType: "image/jpeg", upsert: false });
+  if (smallUploaded.error) {
+    console.error("Uploading a photo's small copy failed:", smallUploaded.error.message);
+  }
+  const files = smallUploaded.error ? [path] : [path, smallPath];
 
   // The first photo is the main one until another is picked
-  const photo = { path, caption, credit, isPrimary: makeMain || before.length === 0 };
+  const photo = {
+    path,
+    caption,
+    credit,
+    isPrimary: makeMain || before.length === 0,
+    ...(smallUploaded.error ? {} : { small: true }),
+  };
   const others = makeMain
     ? before.map((old) => ({ ...(old as object), isPrimary: false }))
     : before;
   const problem = await savePhotos(supabase, slug, before, [...others, photo], "add a photo");
   if (problem) {
     // The photo isn't in the list, so it shouldn't stay in the bucket either
-    const removed = await supabase.storage.from(PHOTO_BUCKET).remove([path]);
+    const removed = await supabase.storage.from(PHOTO_BUCKET).remove(files);
     if (removed.error) {
       console.error("Couldn't delete a photo that didn't save:", path, removed.error.message);
     }
