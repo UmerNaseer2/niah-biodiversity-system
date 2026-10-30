@@ -213,12 +213,16 @@ function photoLines(from: unknown, to: unknown, slug: string): ChangeLine[] {
     });
   const before = keyed(from);
   const after = keyed(to);
-  const beforeByKey = new Map(before.map((entry) => [entry.key, entry.photo]));
-  const afterKeys = new Set(after.map((entry) => entry.key));
+  // Two photos can have the same outside link, so each old photo is only
+  // matched once, in order. Whatever is left at the end was removed.
+  const unmatched = new Map<string, Record<string, unknown>[]>();
+  for (const { key, photo } of before) {
+    unmatched.set(key, [...(unmatched.get(key) ?? []), photo]);
+  }
   const lines: string[] = [];
 
   for (const { key, photo } of after) {
-    const old = beforeByKey.get(key);
+    const old = unmatched.get(key)?.shift();
     if (!old) {
       lines.push(`Photo added${quoted(photo)}`);
       continue;
@@ -237,13 +241,14 @@ function photoLines(from: unknown, to: unknown, slug: string): ChangeLine[] {
       );
     }
   }
-  for (const { key, photo } of before) {
-    if (!afterKeys.has(key)) lines.push(`Photo removed${quoted(photo)}`);
+  for (const photos of unmatched.values()) {
+    for (const photo of photos) lines.push(`Photo removed${quoted(photo)}`);
   }
 
   const newMain = mainKey(after);
   const oldMain = mainKey(before);
-  if (newMain && oldMain && newMain !== oldMain && beforeByKey.has(newMain)) {
+  const wasThere = before.some((entry) => entry.key === newMain);
+  if (newMain && oldMain && newMain !== oldMain && wasThere) {
     const photo = after.find((entry) => entry.key === newMain)!.photo;
     lines.push(`Main photo changed to the one${quoted(photo) || " without a caption"}`);
   }
