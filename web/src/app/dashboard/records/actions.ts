@@ -9,6 +9,7 @@ import {
   versionFromFormData,
   versionRange,
 } from "@/lib/edit-version";
+import { parkTime } from "@/lib/format";
 import {
   checkRecord,
   idFromFormData,
@@ -133,7 +134,7 @@ export async function editRecord(
           .select("id")
           .ilike("scientific_name", exactPattern(name))
           .maybeSingle(),
-    supabase.from("records_staff").select("gps").eq("id", id).maybeSingle(),
+    supabase.from("records_staff").select("gps, recorded_at").eq("id", id).maybeSingle(),
   ]);
   if (speciesResult.error) {
     return failed(messageFor(speciesResult.error.code, speciesResult.error.message, "edit records"));
@@ -160,8 +161,13 @@ export async function editRecord(
     before.lat === row.gps.lat &&
     before.lng === row.gps.lng &&
     before.accuracyM === row.gps.accuracyM;
+  // The form only goes down to the minute, so a time the phone saved with
+  // seconds keeps them unless someone picks a different minute
+  const storedTime = String(currentResult.data.recorded_at);
   const update = {
     ...row,
+    recorded_at:
+      parkTime(storedTime) === values.recordedAt ? storedTime : row.recorded_at,
     species_slug: speciesResult.data ? String(speciesResult.data.id) : null,
     gps:
       row.gps && sameSpot && before.capturedAt
