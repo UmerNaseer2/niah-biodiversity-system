@@ -104,7 +104,9 @@ doesn't change.
   The image optimizer can't be used while we test against a local address. It's fine for a few
   species but should change before there are many.
 - **Deleting an account doesn't delete its record photos.** The folder is named after the account,
-  so the record edit page can't find them any more, and they stay in the bucket.
+  so the record edit page can't find them any more, and they stay in the bucket. Since 29 Oct
+  `supabase/README.md` says to set the person's role back to `visitor` when they leave instead of
+  deleting the account, which keeps the photos with their records.
 - **Fixed on 29 Oct:** photos couldn't be edited, so changing a caption meant uploading the photo
   again. The caption and credit can now be changed (round 2). The photo itself still can't be
   swapped or cropped, so a new picture is still a new upload.
