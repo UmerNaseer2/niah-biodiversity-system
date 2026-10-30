@@ -281,6 +281,8 @@ export function LeafletMap({
             }),
             interactive: false,
             keyboard: false,
+            // Under the plants, so a plant's link still opens where they overlap
+            zIndexOffset: -1000,
           })
             .bindTooltip(label(sensor.id, true), {
               permanent: true,
