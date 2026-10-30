@@ -36,6 +36,19 @@ export async function GET(request: NextRequest) {
   const filters = filtersFrom(params);
   const includeExact = params.exact === "1";
 
+  // A link on another site still sends the sign in cookies, so it could start
+  // a download with exact spots, and put it on the admins' list, without the
+  // officer meaning to. Browsers say where a request came from: "same-origin"
+  // is the Reports page, and "none" is a typed address or a bookmark.
+  const site = request.headers.get("sec-fetch-site");
+  if (includeExact && site && site !== "same-origin" && site !== "none") {
+    return refuse(
+      403,
+      "The file with exact spots only downloads from the Reports page, so a " +
+        "link on another site can’t start it. Open Reports and download it there.",
+    );
+  }
+
   const rows = await loadReportRecords(filters);
   if (!rows) return refuse(500, "The records didn’t load. Go back and try again.");
 
