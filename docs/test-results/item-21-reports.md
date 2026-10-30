@@ -99,7 +99,7 @@ tests weren't touched.
 - **Counting happens on the web server.** The page loads every record and counts them in
   `lib/reports.ts`. That's fine for hundreds of records, but thousands would be better counted in
   the database.
-- **The sidebar's waiting badge still comes from the mock records** in `dashboard/layout.tsx`, so
-  it can disagree with the report's waiting count until the review queue is real (item 19).
-- **The wireframe banner still says the site uses mock data.** It's hidden when printing, but the
-  wording is out of date now that most pages read Supabase.
+- **Fixed on 29 Oct:** the sidebar's waiting badge used to come from the mock records, and the
+  wireframe banner said the site used mock data. The badge now counts `records_staff` and the
+  banner says only some staff screens show sample data
+  ([dashboard overview results](dashboard-overview.md)).

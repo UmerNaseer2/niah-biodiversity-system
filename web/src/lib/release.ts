@@ -1,5 +1,5 @@
 // Release items from the Initial Release Schedule in our proposal, so the
-// numbers match docs/sprint-1.md. Only the items this wireframe points at.
+// numbers match docs/sprint-1.md. Only the items the site points at.
 
 export const RELEASE_ITEMS: Record<number, { name: string; sprint: string }> = {
   2: { name: "User authentication and authorisation", sprint: "Sprint 1" },

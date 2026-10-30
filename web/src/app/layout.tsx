@@ -33,7 +33,7 @@ export const metadata: Metadata = {
     template: "%s · Niah Plant Records",
   },
   description:
-    "Clickable wireframe of the plant records website for Niah National Park. A COS30049 student project, everything on it is mock data.",
+    "Look up the plants of Niah National Park and scan a plant's tag. A COS30049 student project, so some screens still show sample data.",
 };
 
 export const viewport: Viewport = {
@@ -55,10 +55,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         </a>
         <div className="bg-tape px-4 py-1.5 print:hidden text-center font-mono text-[0.6875rem] font-bold uppercase leading-snug tracking-[0.08em] text-tape-ink">
           <p>
-            Wireframe for our Sprint 1 review
+            COS30049 student project
             <span aria-hidden="true"> · </span>
             <span className="sr-only">. </span>
-            Mock data, nothing is saved
+            Some staff screens still show sample data
             <span aria-hidden="true"> · </span>
             <span className="sr-only">. </span>
             <Link

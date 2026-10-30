@@ -1,9 +1,8 @@
 import type { NextRequest } from "next/server";
 import { getSession } from "@/lib/auth";
+import { parkNow } from "@/lib/format";
 import { buildCsv, filtersFrom } from "@/lib/reports";
 import { loadReportRecords } from "@/lib/reports-db";
-
-const PARK_OFFSET_MS = 8 * 60 * 60 * 1000;
 
 function refuse(status: number, message: string) {
   return new Response(message, {
@@ -46,7 +45,7 @@ export async function GET(request: NextRequest) {
   }
 
   // Today in park time. Fine here, since nothing is rendered in the browser.
-  const today = new Date(Date.now() + PARK_OFFSET_MS).toISOString().slice(0, 10);
+  const today = parkNow().slice(0, 10);
   const name = `niah-plant-records-${today}${includeExact ? "-exact-spots" : ""}.csv`;
 
   return new Response(buildCsv(rows, includeExact), {
