@@ -3,7 +3,12 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
-import { changedBySomeoneElse, versionFromFormData, versionRange } from "@/lib/edit-version";
+import {
+  changedBeforeDelete,
+  changedBySomeoneElse,
+  versionFromFormData,
+  versionRange,
+} from "@/lib/edit-version";
 import {
   checkRecord,
   idFromFormData,
@@ -198,22 +203,28 @@ export async function deleteRecord(
   formData: FormData,
 ): Promise<DeleteRecordState> {
   const id = idFromFormData(formData);
+  const version = versionFromFormData(formData);
 
   const notAllowed = await whyNotAllowed("delete the record");
   if (notAllowed) return { status: "error", message: notAllowed };
   if (!id) return { status: "error", message: "This isn’t a record the database knows." };
 
+  // Only the record the page showed is deleted. If someone saved it since,
+  // the page may be out of date, so nothing is deleted.
   const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("records")
-    .delete()
-    .eq("id", id)
-    .select("tag_code, submitted_by");
+  let query = supabase.from("records").delete().eq("id", id);
+  if (version) {
+    const { from, to } = versionRange(version);
+    query = query.gte("updated_at", from).lt("updated_at", to);
+  }
+  const { data, error } = await query.select("tag_code, submitted_by");
 
   if (error) {
     return { status: "error", message: messageFor(error.code, error.message, "delete records") };
   }
   if (data.length === 0) {
+    const still = await supabase.from("records_staff").select("id").eq("id", id).maybeSingle();
+    if (version && still.data) return { status: "error", message: changedBeforeDelete("record") };
     return {
       status: "error",
       message: "This record isn’t in the database any more. Someone may have deleted it already.",

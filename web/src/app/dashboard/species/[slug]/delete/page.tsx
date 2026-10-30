@@ -115,7 +115,7 @@ export default async function DeleteSpeciesPage({
             old records to it.
           </li>
         </ul>
-        <DeleteSpeciesForm slug={slug} />
+        <DeleteSpeciesForm slug={slug} version={String(speciesResult.data.updated_at ?? "")} />
       </section>
     </div>
   );

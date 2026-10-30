@@ -5,7 +5,12 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import sharp from "sharp";
 import { getSession } from "@/lib/auth";
-import { changedBySomeoneElse, versionFromFormData, versionRange } from "@/lib/edit-version";
+import {
+  changedBeforeDelete,
+  changedBySomeoneElse,
+  versionFromFormData,
+  versionRange,
+} from "@/lib/edit-version";
 import {
   checkDetails,
   checkNewSpecies,
@@ -214,21 +219,27 @@ export async function deleteSpecies(
   formData: FormData,
 ): Promise<DeleteSpeciesState> {
   const slug = slugFromFormData(formData);
+  const version = versionFromFormData(formData);
 
   const notAllowed = await whyNotAllowed("delete the species");
   if (notAllowed) return { status: "error", message: notAllowed };
 
+  // Only the species the page showed is deleted. If someone saved it since,
+  // the page may be out of date, so nothing is deleted.
   const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("species")
-    .delete()
-    .eq("id", slug)
-    .select("scientific_name, photos");
+  let query = supabase.from("species").delete().eq("id", slug);
+  if (version) {
+    const { from, to } = versionRange(version);
+    query = query.gte("updated_at", from).lt("updated_at", to);
+  }
+  const { data, error } = await query.select("scientific_name, photos");
 
   if (error) {
     return { status: "error", message: messageFor(error.code, error.message, "delete species") };
   }
   if (data.length === 0) {
+    const still = await supabase.from("species_staff").select("id").eq("id", slug).maybeSingle();
+    if (version && still.data) return { status: "error", message: changedBeforeDelete("species") };
     return {
       status: "error",
       message: "This species isn’t in the database any more. Someone may have deleted it already.",

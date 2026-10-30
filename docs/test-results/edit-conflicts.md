@@ -3,6 +3,8 @@
 Round 1 was on 29 Oct 2026 on Umer's Mac (macOS, Node 22.22.3) on the `edit-conflicts` branch.
 The pages were tried against the Supabase stand-in in `supabase/tests/stand-in.js` (see
 `web/README.md`), signed in as the stand-in's test officer, not against the hosted project.
+Round 2, on the same day on the `delete-checks-edits` branch, added the same check to the delete
+pages.
 
 ## What changed
 
@@ -69,6 +71,38 @@ does with JavaScript turned off.
 
 The stand-in records and Tapang were put back the way they were after testing.
 
+## Round 2: deleting checks too
+
+Round 1's known limits said someone could delete a record or species another person had just
+changed. Say Ben fixed a record's species name, and Aina, who opened the delete page before that,
+then deleted it because the old name looked wrong. The record would be gone with Ben's fix.
+
+Now the delete pages send back the `updated_at` they loaded in the same hidden `version` field, and
+`deleteRecord` and `deleteSpecies` only delete the row if it hasn't moved since. Otherwise
+nothing is deleted and the page says:
+
+> Someone else saved changes to this record after you opened this page, so it wasn’t deleted.
+> Reload the page to see what changed, then delete it again if you still want to.
+
+The tests used a throwaway record and species added through the stand-in's API, so the sample
+data wasn't touched. "Someone else" was the stand-in's test admin saving a change through the API.
+
+| # | What we did | What should happen | Pass? |
+| --- | --- | --- | --- |
+| 1 | No JavaScript: loaded the record's delete page, someone else saved a change, then posted the delete | Refused with the message above, and the record is still there | Pass |
+| 2 | No JavaScript: loaded the page again and posted the delete | Deleted, and the page goes to the records list | Pass |
+| 3 | No JavaScript: the same two steps for a species | Refused the first time with the species message, deleted after a reload | Pass |
+| 4 | With JavaScript: opened the record's delete page, someone else saved a change, then pressed Delete record | Refused with the message, focus moves to it, and the record is still there | Pass |
+| 5 | With JavaScript: reloaded and pressed Delete record | Deleted, and the records list says "Record NNP-AD466C was deleted" | Pass |
+| 6 | With JavaScript: the same two steps for a species | Refused with focus on the message, then deleted after a reload | Pass |
+
+The species list didn't show its "was deleted" line after test 6. That's because the throwaway
+species' name has three words, and the line only shows for a name the add species form would
+accept. A real species name shows it.
+
+The throwaway rows were removed afterwards, and the stand-in still has its 10 records and 7
+species.
+
 ## Known limits
 
 - **Two saves in the same millisecond.** The check matches any `updated_at` in the same
@@ -76,8 +110,11 @@ The stand-in records and Tapang were put back the way they were after testing.
   people would have to save within a thousandth of a second of each other for one to be missed.
 - **It doesn't merge.** If two people change different boxes, the second one still has to reload
   and type theirs again. That's simpler and safer than guessing which box each person meant.
-- **Deleting isn't checked.** Someone can delete a record or species another person is editing.
-  Their save then says it isn't in the database any more, which was already the case before.
+- **Fixed on 29 Oct:** deleting wasn't checked, so someone could delete a record or species right
+  after another person changed it. Now the delete pages check the version too. See round 2.
+- **Deleting still wins over an edit that hasn't been saved.** If Aina is still typing on the
+  edit page when Ben deletes the record, Aina's save says it isn't in the database any more.
+  There's nothing to compare until a save happens.
 
 ## Not tested yet
 

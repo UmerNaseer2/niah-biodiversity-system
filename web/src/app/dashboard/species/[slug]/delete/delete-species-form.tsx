@@ -13,7 +13,8 @@ import { deleteSpecies, type DeleteSpeciesState } from "../../actions";
 
 const INITIAL: DeleteSpeciesState = { status: "idle" };
 
-export function DeleteSpeciesForm({ slug }: { slug: string }) {
+// version is the updated_at the page loaded (src/lib/edit-version.ts)
+export function DeleteSpeciesForm({ slug, version }: { slug: string; version: string }) {
   // Deleting sends the page to the species list, so only a problem comes back
   const [state, formAction, pending] = useActionState(deleteSpecies, INITIAL);
   const [handled, setHandled] = useState(state);
@@ -55,6 +56,7 @@ export function DeleteSpeciesForm({ slug }: { slug: string }) {
         </p>
       )}
       <input type="hidden" name="slug" value={slug} />
+      <input type="hidden" name="version" value={version} />
       <div className="flex flex-wrap gap-2">
         <button type="submit" aria-disabled={pending} className="btn btn-danger">
           {pending ? "Deleting…" : "Delete species"}

@@ -13,7 +13,8 @@ import { deleteRecord, type DeleteRecordState } from "../../actions";
 
 const INITIAL: DeleteRecordState = { status: "idle" };
 
-export function DeleteRecordForm({ id }: { id: string }) {
+// version is the updated_at the page loaded (src/lib/edit-version.ts)
+export function DeleteRecordForm({ id, version }: { id: string; version: string }) {
   // Deleting sends the page to the records list, so only a problem comes back
   const [state, formAction, pending] = useActionState(deleteRecord, INITIAL);
   const [handled, setHandled] = useState(state);
@@ -51,6 +52,7 @@ export function DeleteRecordForm({ id }: { id: string }) {
         </p>
       )}
       <input type="hidden" name="id" value={id} />
+      <input type="hidden" name="version" value={version} />
       <div className="flex flex-wrap gap-2">
         <button type="submit" aria-disabled={pending} className="btn btn-danger">
           {pending ? "Deleting…" : "Delete record"}
