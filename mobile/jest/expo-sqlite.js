@@ -17,7 +17,8 @@ const loading = initSqlJs({
 
 // One database per name, shared by every connection to it like a file on the phone. They last
 // until the test file ends or deleteDatabaseAsync removes them. Connections also share
-// transactions, which is fine because the app only has one connection open at a time.
+// transactions, unlike the phone. That's fine because the tests never write on two connections
+// at the same time.
 const files = new Map();
 const openConnections = new Map();
 
@@ -105,6 +106,27 @@ class SQLiteDatabase {
       await this.execAsync('COMMIT');
     } catch (error) {
       await this.execAsync('ROLLBACK');
+      throw error;
+    }
+  }
+
+  // The same steps as the real withExclusiveTransactionAsync, which runs the task on a second
+  // connection and closes it afterwards.
+  async withExclusiveTransactionAsync(task) {
+    this.open();
+    const transaction = await openDatabaseAsync(this.databaseName);
+    let error;
+    try {
+      await transaction.execAsync('BEGIN');
+      await task(transaction);
+      await transaction.execAsync('COMMIT');
+    } catch (e) {
+      await transaction.execAsync('ROLLBACK');
+      error = e;
+    } finally {
+      await transaction.closeAsync();
+    }
+    if (error) {
       throw error;
     }
   }

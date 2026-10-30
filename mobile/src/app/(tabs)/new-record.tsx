@@ -42,7 +42,7 @@ const SAVE_FAILED = "Couldn't save the record on this phone. Try again.";
 export default function NewRecordScreen() {
   const router = useRouter();
   const theme = useTheme();
-  const { addRecord } = useRecords();
+  const { addRecord, species: speciesList } = useRecords();
   const gps = useGpsCapture();
 
   const [species, setSpecies] = useState('');
@@ -70,8 +70,8 @@ export default function NewRecordScreen() {
   });
 
   // A name typed in full still links to the species list, and editing a picked name unlinks it.
-  const speciesMatch = findSpeciesByName(species);
-  const suggestions = speciesMatch ? [] : searchSpecies(species);
+  const speciesMatch = findSpeciesByName(species, speciesList);
+  const suggestions = speciesMatch ? [] : searchSpecies(species, speciesList);
 
   let speciesHint = 'Scientific name, like Shorea macrophylla';
   if (speciesMatch) {

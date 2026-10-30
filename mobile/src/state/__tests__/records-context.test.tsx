@@ -13,8 +13,9 @@ import type { ReactNode } from 'react';
 import { AccessibilityInfo, Text } from 'react-native';
 
 import { MOCK_RECORDS } from '@/data/mock-records';
+import { SPECIES_LIST, type SpeciesOption } from '@/data/species-list';
 import { DATABASE_NAME } from '@/db/database';
-import { openRecordsStore } from '@/db/records-store';
+import { EMPTY_SPECIES_LIST, NO_SUCH_RECORD, openRecordsStore } from '@/db/records-store';
 import { tagCodeFor } from '@/lib/id';
 import { RecordsProvider, useRecords } from '@/state/records-context';
 import type { NewPlantRecord, PlantRecord } from '@/types/plant-record';
@@ -244,6 +245,93 @@ describe('RecordsProvider', () => {
     } finally {
       close.mockRestore();
     }
+  });
+});
+
+describe('syncing', () => {
+  it('only hands over the records saved on the phone, never the samples', async () => {
+    const { result } = await renderRecords();
+    let saved: PlantRecord | undefined;
+    await act(async () => {
+      saved = await result.current.addRecord(draft);
+    });
+    expect(await result.current.loadWaiting()).toEqual([saved]);
+  });
+
+  it('shows what happened to each record, now and after the app restarts', async () => {
+    const before = await renderRecords();
+    let stuck: PlantRecord | undefined;
+    let sent: PlantRecord | undefined;
+    await act(async () => {
+      stuck = await before.result.current.addRecord(draft);
+      sent = await before.result.current.addRecord(draft);
+    });
+    await act(async () => {
+      await before.result.current.saveUploadOutcome(stuck!.id, {
+        kind: 'problem',
+        problem: 'tag-clash',
+      });
+      await before.result.current.saveUploadOutcome(sent!.id, { kind: 'synced' });
+    });
+
+    const expected = [
+      { ...stuck, uploadProblem: 'tag-clash' },
+      { ...sent, syncStatus: 'synced' },
+    ];
+    expect(before.result.current.getRecord(stuck!.id)).toEqual(expected[0]);
+    expect(before.result.current.getRecord(sent!.id)).toEqual(expected[1]);
+    // A record with a problem still counts as waiting, because it hasn't gone up.
+    expect(before.result.current.pendingCount).toBe(samplesPending + 1);
+    before.unmount();
+
+    const after = await renderRecords();
+    expect(after.result.current.getRecord(stuck!.id)).toEqual(expected[0]);
+    expect(after.result.current.getRecord(sent!.id)).toEqual(expected[1]);
+  });
+
+  it("throws and leaves the list as it was when the outcome can't be saved", async () => {
+    const { result } = await renderRecords();
+    const before = result.current.records;
+    await act(async () => {
+      await expect(
+        result.current.saveUploadOutcome('not-a-real-id', { kind: 'synced' }),
+      ).rejects.toThrow(NO_SUCH_RECORD);
+    });
+    expect(result.current.records).toEqual(before);
+  });
+});
+
+describe('species list', () => {
+  // A species added on the website after the app came out. Names only.
+  const fig: SpeciesOption = {
+    slug: 'ficus-benjamina',
+    scientificName: 'Ficus benjamina',
+    commonNames: ['Weeping fig'],
+  };
+
+  it('uses the list that comes with the app until the first download', async () => {
+    const { result } = await renderRecords();
+    expect(result.current.species).toEqual(SPECIES_LIST);
+  });
+
+  it('uses a downloaded list straight away and after the app restarts', async () => {
+    const before = await renderRecords();
+    await act(async () => {
+      await before.result.current.replaceSpecies([fig]);
+    });
+    expect(before.result.current.species).toEqual([fig]);
+    before.unmount();
+
+    const after = await renderRecords();
+    expect(after.result.current.species).toEqual([fig]);
+  });
+
+  it("throws and keeps the old list when the new one can't be saved", async () => {
+    const { result } = await renderRecords();
+    await act(async () => {
+      await expect(result.current.replaceSpecies([])).rejects.toThrow(EMPTY_SPECIES_LIST);
+    });
+    expect(result.current.species).toEqual(SPECIES_LIST);
   });
 });
 

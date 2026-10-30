@@ -1,8 +1,14 @@
 import { deleteDatabaseAsync } from 'expo-sqlite';
 
+import type { SpeciesOption } from '@/data/species-list';
 import { DATABASE_NAME } from '@/db/database';
-import { openRecordsStore, type RecordsStore } from '@/db/records-store';
-import type { GpsReading, PlantRecord } from '@/types/plant-record';
+import {
+  EMPTY_SPECIES_LIST,
+  NO_SUCH_RECORD,
+  openRecordsStore,
+  type RecordsStore,
+} from '@/db/records-store';
+import type { GpsReading, PlantRecord, UploadProblem } from '@/types/plant-record';
 
 // A record with every field filled in. The location is a made up point near the park HQ.
 const full: PlantRecord = {
@@ -40,6 +46,18 @@ function withId(record: PlantRecord, id: string): PlantRecord {
   return { ...record, id, tagCode: `NNP-${id.slice(0, 6).toUpperCase()}` };
 }
 
+// Two species the way the download in item 10 will hand them over. Names only.
+const belian: SpeciesOption = {
+  slug: 'eusideroxylon-zwageri',
+  scientificName: 'Eusideroxylon zwageri',
+  commonNames: ['Belian', 'Borneo ironwood'],
+};
+const fig: SpeciesOption = {
+  slug: 'ficus-benjamina',
+  scientificName: 'Ficus benjamina',
+  commonNames: [],
+};
+
 let store: RecordsStore;
 
 beforeEach(async () => {
@@ -55,6 +73,12 @@ describe('records store', () => {
   it('gives back a record with every field the way it was saved', async () => {
     await store.saveRecord(full);
     expect(await store.loadRecords()).toEqual([full]);
+  });
+
+  it('gives back the upload problem on a record that is still waiting', async () => {
+    const stuck: PlantRecord = { ...full, uploadProblem: 'tag-clash' };
+    await store.saveRecord(stuck);
+    expect(await store.loadRecords()).toEqual([stuck]);
   });
 
   it('gives back empty fields as missing, not as null', async () => {
@@ -103,6 +127,8 @@ describe('records store', () => {
     ],
     ['a negative photo count', { photoCount: -1 }],
     ['an upload state that is not on the list', { syncStatus: 'sending' as 'pending' }],
+    ['an upload problem that is not on the list', { uploadProblem: 'lost' as UploadProblem }],
+    ['an upload problem on a synced record', { syncStatus: 'synced', uploadProblem: 'rejected' }],
   ])('turns down a record with %s', async (_what, change) => {
     await expect(store.saveRecord({ ...full, ...change })).rejects.toThrow(
       'CHECK constraint failed',
@@ -117,5 +143,130 @@ describe('records store', () => {
 
     store = await openRecordsStore();
     expect(await store.loadRecords()).toEqual([full, bare]);
+  });
+});
+
+describe('records waiting to sync', () => {
+  const first = withId(full, '11111111-0000-4000-8000-000000000001');
+  const second = withId(
+    { ...full, recordedAt: '2026-10-16T02:00:00.000Z', uploadProblem: 'not-allowed' },
+    '22222222-0000-4000-8000-000000000002',
+  );
+  const sameTime = withId(
+    { ...full, recordedAt: '2026-10-16T02:00:00.000Z' },
+    '33333333-0000-4000-8000-000000000003',
+  );
+  const synced = withId(bare, '44444444-0000-4000-8000-000000000004');
+
+  beforeEach(async () => {
+    // Saved out of order, so the list can't just come back in the order they went in.
+    await store.saveRecord(second);
+    await store.saveRecord(synced);
+    await store.saveRecord(sameTime);
+    await store.saveRecord(first);
+  });
+
+  it('lists the oldest first, problems and all, and none that are synced', async () => {
+    const waiting = await store.loadWaiting();
+    expect(waiting.map((record) => record.id)).toEqual([first.id, second.id, sameTime.id]);
+    expect(waiting[1]).toEqual(second);
+  });
+
+  it('marks a record as synced and clears its problem', async () => {
+    await store.saveUploadOutcome(second.id, { kind: 'synced' });
+    expect((await store.loadWaiting()).map((record) => record.id)).toEqual([
+      first.id,
+      sameTime.id,
+    ]);
+    const saved = (await store.loadRecords()).find((record) => record.id === second.id);
+    expect(saved).toEqual({ ...second, syncStatus: 'synced', uploadProblem: undefined });
+  });
+
+  it('keeps a record waiting with its problem, and swaps an older problem out', async () => {
+    await store.saveUploadOutcome(first.id, { kind: 'problem', problem: 'tag-clash' });
+    await store.saveUploadOutcome(second.id, { kind: 'problem', problem: 'rejected' });
+    const waiting = await store.loadWaiting();
+    expect(waiting.map((record) => record.uploadProblem)).toEqual([
+      'tag-clash',
+      'rejected',
+      undefined,
+    ]);
+  });
+
+  it('changes nothing when the record should be tried again', async () => {
+    const before = await store.loadRecords();
+    await store.saveUploadOutcome(first.id, { kind: 'retry' });
+    await store.saveUploadOutcome(second.id, { kind: 'retry' });
+    expect(await store.loadRecords()).toEqual(before);
+  });
+
+  it("won't give a synced record a problem", async () => {
+    await expect(
+      store.saveUploadOutcome(synced.id, { kind: 'problem', problem: 'rejected' }),
+    ).rejects.toThrow('CHECK constraint failed');
+  });
+
+  it('says so when no record has that ID', async () => {
+    const missing = '99999999-0000-4000-8000-000000000009';
+    await expect(store.saveUploadOutcome(missing, { kind: 'synced' })).rejects.toThrow(
+      NO_SUCH_RECORD,
+    );
+    await expect(
+      store.saveUploadOutcome(missing, { kind: 'problem', problem: 'rejected' }),
+    ).rejects.toThrow(NO_SUCH_RECORD);
+  });
+
+  it('remembers the outcome after it is closed and opened again', async () => {
+    await store.saveUploadOutcome(first.id, { kind: 'synced' });
+    await store.saveUploadOutcome(sameTime.id, { kind: 'problem', problem: 'tag-clash' });
+    await store.close();
+
+    store = await openRecordsStore();
+    const waiting = await store.loadWaiting();
+    expect(waiting.map((record) => [record.id, record.uploadProblem])).toEqual([
+      [second.id, 'not-allowed'],
+      [sameTime.id, 'tag-clash'],
+    ]);
+  });
+});
+
+describe('species list', () => {
+  it('has no species until the first download', async () => {
+    expect(await store.loadSpecies()).toEqual([]);
+  });
+
+  it('gives back the list in the order it came down', async () => {
+    await store.replaceSpecies([fig, belian]);
+    expect(await store.loadSpecies()).toEqual([fig, belian]);
+  });
+
+  it('swaps the whole list for the new one', async () => {
+    await store.replaceSpecies([fig, belian]);
+    await store.replaceSpecies([belian]);
+    expect(await store.loadSpecies()).toEqual([belian]);
+  });
+
+  it.each<[string, SpeciesOption[], string]>([
+    ['the same slug twice', [belian, fig, belian], 'UNIQUE constraint failed: species.slug'],
+    ['an empty slug', [fig, { ...belian, slug: '' }], 'CHECK constraint failed'],
+    ['an empty scientific name', [fig, { ...belian, scientificName: '' }], 'CHECK constraint'],
+  ])('keeps the old list when the new one has %s', async (_what, list, error) => {
+    await store.replaceSpecies([belian]);
+    await expect(store.replaceSpecies(list)).rejects.toThrow(error);
+    expect(await store.loadSpecies()).toEqual([belian]);
+  });
+
+  it('keeps the old list when the new one is empty', async () => {
+    await store.replaceSpecies([belian]);
+    await expect(store.replaceSpecies([])).rejects.toThrow(EMPTY_SPECIES_LIST);
+    expect(await store.loadSpecies()).toEqual([belian]);
+  });
+
+  it('still has the list after it is closed and opened again', async () => {
+    await store.replaceSpecies([fig, belian]);
+    await store.close();
+
+    store = await openRecordsStore();
+    expect(await store.loadSpecies()).toEqual([fig, belian]);
   });
 });

@@ -7,6 +7,17 @@ export type PlantCondition = (typeof PLANT_CONDITIONS)[number];
 
 export type SyncStatus = 'pending' | 'synced';
 
+/**
+ * Why a record couldn't go up, when trying again won't fix it by itself and someone has to step
+ * in. src/sync/upload-row.ts works out which one from the server's answer.
+ * - tag-clash: a different record on the server already has this tag code.
+ * - not-allowed: this account isn't allowed to upload records. Nothing is wrong with the record.
+ * - rejected: the server turned the record down because a value broke one of its rules.
+ */
+export const UPLOAD_PROBLEMS = ['tag-clash', 'not-allowed', 'rejected'] as const;
+
+export type UploadProblem = (typeof UPLOAD_PROBLEMS)[number];
+
 export type GpsReading = {
   latitude: number;
   longitude: number;
@@ -33,6 +44,8 @@ export type PlantRecord = {
   /** ISO 8601 timestamp. */
   recordedAt: string;
   syncStatus: SyncStatus;
+  /** Why the last upload didn't go through. Only a pending record can have one. */
+  uploadProblem?: UploadProblem;
 };
 
 /** What the New Record form fills in. The rest is set when the record is saved. */

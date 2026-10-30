@@ -1,7 +1,10 @@
 // The rules for sending a record to Supabase and reading what comes back. Nothing in here talks to
 // the server yet: item 10 adds the "Sync now" button and the Supabase client that use these.
 // docs/sync-design.md explains the whole plan, and supabase/005_phone_sync.sql is the server side.
-import type { PlantRecord } from '@/types/plant-record';
+import type { PlantRecord, UploadProblem } from '@/types/plant-record';
+
+// The phone keeps the problem with the record (src/db), so the type lives with the record types.
+export type { UploadProblem } from '@/types/plant-record';
 
 /**
  * One record the way the records table on Supabase takes it. Every column is there, with null for
@@ -46,15 +49,6 @@ export function toUploadRow(record: PlantRecord): UploadRow {
 
 /** The parts of an error from the Supabase API that say what went wrong. */
 export type UploadError = { code?: string; message?: string };
-
-/** Why a record can't go up. Trying again won't fix any of these, so someone has to step in. */
-export type UploadProblem =
-  /** A different record on the server already has this tag code. */
-  | 'tag-clash'
-  /** This account isn't allowed to upload records. Nothing is wrong with the record itself. */
-  | 'not-allowed'
-  /** The server turned the record down because a value broke one of its rules. */
-  | 'rejected';
 
 export type UploadOutcome =
   /** The record is on the server now, or it already was from an earlier try. */

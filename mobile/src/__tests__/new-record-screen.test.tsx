@@ -147,6 +147,36 @@ describe('New record screen', () => {
     expect(screen.queryByRole('button', { name: /^Use / })).toBeNull();
   });
 
+  it('suggests and links species from the list downloaded at the last sync', async () => {
+    // A species added on the website after the app came out. Names only.
+    const store = await openRecordsStore();
+    try {
+      await store.replaceSpecies([
+        {
+          slug: 'ficus-benjamina',
+          scientificName: 'Ficus benjamina',
+          commonNames: ['Weeping fig'],
+        },
+      ]);
+    } finally {
+      await store.close();
+    }
+
+    await renderForm();
+    fireEvent.changeText(speciesBox(), 'weep');
+    fireEvent.press(screen.getByRole('button', { name: 'Use Ficus benjamina, Weeping fig' }));
+    expect(commonNameBox()).toHaveDisplayValue('Weeping fig');
+    expect(screen.getByText('On the species list.')).toBeVisible();
+    await captureLocation();
+    await saveAndOpen();
+
+    expect(newestRecord()).toMatchObject({
+      speciesName: 'Ficus benjamina',
+      speciesSlug: 'ficus-benjamina',
+      commonName: 'Weeping fig',
+    });
+  });
+
   it('keeps a common name that was already typed when a species is picked', async () => {
     await renderForm();
     fireEvent.changeText(commonNameBox(), 'Kawang');
