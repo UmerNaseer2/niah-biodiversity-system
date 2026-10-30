@@ -1,4 +1,4 @@
-import { useRouter } from 'expo-router';
+import { useIsFocused, useRouter } from 'expo-router';
 import { useRef, useState } from 'react';
 import {
   AccessibilityInfo,
@@ -43,7 +43,7 @@ export default function NewRecordScreen() {
   const router = useRouter();
   const theme = useTheme();
   const { addRecord, species: speciesList } = useRecords();
-  const gps = useGpsCapture();
+  const gps = useGpsCapture({ active: useIsFocused() });
 
   const [species, setSpecies] = useState('');
   const [commonName, setCommonName] = useState('');
@@ -84,10 +84,20 @@ export default function NewRecordScreen() {
 
   const notesLeft = MAX_NOTES_LENGTH - notes.length;
 
+  // The save error is about the last tap on Save, so it goes away as soon as anything is changed.
+  function edit<T>(set: (value: T) => void) {
+    return (value: T) => {
+      setSaveFailed(false);
+      set(value);
+    };
+  }
+
   function pickSpecies(option: SpeciesOption) {
+    setSaveFailed(false);
     setSpecies(option.scientificName);
+    // Some species on the list have no common name yet, so there is nothing to fill in.
     if (tidyName(commonName) === '') {
-      setCommonName(option.commonNames[0]);
+      setCommonName(option.commonNames[0] ?? '');
     }
   }
 
@@ -148,7 +158,7 @@ export default function NewRecordScreen() {
             label="Species"
             required
             value={species}
-            onChangeText={setSpecies}
+            onChangeText={edit(setSpecies)}
             onBlur={() => setTouched((current) => ({ ...current, species: true }))}
             autoCorrect={false}
             maxLength={MAX_SPECIES_LENGTH}
@@ -164,7 +174,9 @@ export default function NewRecordScreen() {
                 <Pressable
                   key={option.slug}
                   role="button"
-                  aria-label={`Use ${option.scientificName}, ${option.commonNames[0]}`}
+                  aria-label={['Use ' + option.scientificName, option.commonNames[0]]
+                    .filter(Boolean)
+                    .join(', ')}
                   onPress={() => pickSpecies(option)}
                   style={({ pressed }) => [
                     styles.suggestion,
@@ -184,7 +196,7 @@ export default function NewRecordScreen() {
           ref={commonNameRef}
           label="Common name"
           value={commonName}
-          onChangeText={setCommonName}
+          onChangeText={edit(setCommonName)}
           maxLength={MAX_COMMON_NAME_LENGTH}
           placeholder="Local or English name"
           returnKeyType="next"
@@ -198,8 +210,9 @@ export default function NewRecordScreen() {
           ref={heightRef}
           label="Height"
           suffix="m"
+          suffixLabel="metres"
           value={heightText}
-          onChangeText={setHeightText}
+          onChangeText={edit(setHeightText)}
           onBlur={() => setTouched((current) => ({ ...current, height: true }))}
           keyboardType="decimal-pad"
           placeholder="12.5"
@@ -211,14 +224,14 @@ export default function NewRecordScreen() {
               key={option}
               label={conditionLabel(option)}
               selected={condition === option}
-              onPress={() => setCondition(option)}
+              onPress={() => edit(setCondition)(option)}
             />
           ))}
         </ChipRow>
         <Field
           label="Notes"
           value={notes}
-          onChangeText={setNotes}
+          onChangeText={edit(setNotes)}
           multiline
           maxLength={MAX_NOTES_LENGTH}
           placeholder="Damage, flowering, fruit, nearby threats"
