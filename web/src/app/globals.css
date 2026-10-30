@@ -349,7 +349,8 @@
 
 /* Dots close together overlap, so the one with focus comes to the front.
    Leaflet sets the z-index inline, which is why this needs !important. */
-.leaflet-marker-icon:has(> .map-dot:focus-visible) {
+.leaflet-marker-icon:has(> .map-dot:focus-visible),
+.map-sensor:has(> span:focus-visible) {
   z-index: 1000 !important;
 }
 

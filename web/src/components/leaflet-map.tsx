@@ -2,7 +2,6 @@
 
 import "leaflet/dist/leaflet.css";
 import type {
-  CircleMarker,
   LatLngTuple,
   Map as LeafletMapType,
   Marker,
@@ -28,9 +27,8 @@ export type MapSensor = {
   alert: boolean;
 };
 
-// The same colours as globals.css. Leaflet writes them onto the SVG as
-// attributes, and attributes can't read CSS variables.
-const FOREST = "#1f6b3a";
+// The same colour as globals.css. Leaflet writes it onto the SVG as an
+// attribute, and attributes can't read CSS variables.
 const MOSS = "#5b6b60";
 
 const HQ_ICON =
@@ -54,6 +52,14 @@ function label(text: string, mono = false) {
   const span = document.createElement("span");
   span.textContent = text;
   if (mono) span.className = "font-mono";
+  return span;
+}
+
+// For a dot that has its own name for screen readers, so they don't hear it
+// twice
+function shownLabel(text: string, mono = false) {
+  const span = label(text, mono);
+  span.setAttribute("aria-hidden", "true");
   return span;
 }
 
@@ -110,11 +116,11 @@ export function LeafletMap({
         const labels: {
           rank: number;
           tooltip: Tooltip;
-          layer?: Marker | CircleMarker;
+          layer?: Marker;
           home?: Side;
           gap?: number;
         }[] = [];
-        const remember = (rank: number, layer: Marker | CircleMarker) => {
+        const remember = (rank: number, layer: Marker) => {
           const tooltip = layer.getTooltip();
           if (!tooltip) return;
           const { direction, offset } = tooltip.options;
@@ -139,7 +145,7 @@ export function LeafletMap({
         // StaticMap does. A label that would cover another label, another
         // dot or the zoom buttons or OSM note, or be cut off by the edge, on
         // both sides is hidden until zooming in or moving the map makes room
-        // for it. Pointing at its dot still shows it.
+        // for it. Pointing at its dot or tabbing to it still shows it.
         const declutter = () => {
           const frame = element.getBoundingClientRect();
           const dots = new Map(
@@ -216,6 +222,41 @@ export function LeafletMap({
           }
         };
 
+        // A sensor or a dot with no link isn't something to open, but its name
+        // can be hidden to make room, so it can be tabbed to or pointed at to
+        // show it. A finger leaves the screen as soon as it taps, so a tap
+        // keeps the name showing until the next tap somewhere else.
+        const showsItsName = (
+          shape: HTMLElement,
+          name: string,
+          marker: Marker,
+          at: LatLngTuple,
+        ) => {
+          shape.tabIndex = 0;
+          shape.setAttribute("role", "img");
+          shape.setAttribute("aria-label", name);
+          const tooltip = marker.getTooltip();
+          shape.addEventListener("focus", () => {
+            // Tabbing to one that's been panned out of sight brings it back
+            if (map && !map.getBounds().contains(at)) map.panTo(at);
+            focused = tooltip;
+            declutter();
+          });
+          shape.addEventListener("blur", () => {
+            if (focused === tooltip) focused = undefined;
+            declutter();
+          });
+          shape.addEventListener("pointerenter", () => {
+            pointed = tooltip;
+            declutter();
+          });
+          shape.addEventListener("pointerleave", (event) => {
+            if (event.pointerType !== "mouse" || pointed !== tooltip) return;
+            pointed = undefined;
+            declutter();
+          });
+        };
+
         // The map can be dragged by a dot too. A dot moves with the map, so a
         // drag that starts on one ends on it, and that shouldn't open the link.
         let dragged = false;
@@ -266,10 +307,11 @@ export function LeafletMap({
         remember(1, hq);
 
         for (const sensor of sensors) {
-          corners.push([sensor.lat, sensor.lng]);
+          const at: LatLngTuple = [sensor.lat, sensor.lng];
+          corners.push(at);
           // An element rather than HTML, so it can tell when it's pointed at
           const square = document.createElement("span");
-          const marker = L.marker([sensor.lat, sensor.lng], {
+          const marker = L.marker(at, {
             icon: L.divIcon({
               html: square,
               className: [
@@ -281,10 +323,10 @@ export function LeafletMap({
             }),
             interactive: false,
             keyboard: false,
-            // Under the plants, so a plant's link still opens where they overlap
+            // Under the plants, so a plant's link opens where they overlap
             zIndexOffset: -1000,
           })
-            .bindTooltip(label(sensor.id, true), {
+            .bindTooltip(shownLabel(sensor.id, true), {
               permanent: true,
               direction: "right",
               offset: [10, 0],
@@ -292,20 +334,14 @@ export function LeafletMap({
             })
             .addTo(map);
           remember(2, marker);
-
-          // A sensor isn't a link, but pointing at it shows its name like a
-          // plant dot. A finger leaves the screen as soon as it taps, so a
-          // tap keeps the name showing until the next tap somewhere else.
-          const tooltip = marker.getTooltip();
-          square.addEventListener("pointerenter", () => {
-            pointed = tooltip;
-            declutter();
-          });
-          square.addEventListener("pointerleave", (event) => {
-            if (event.pointerType !== "mouse" || pointed !== tooltip) return;
-            pointed = undefined;
-            declutter();
-          });
+          // Said in words, since a screen reader can't see it's hollow or
+          // circled
+          const name = [
+            `Sensor ${sensor.id}`,
+            sensor.online ? "online" : "offline",
+            ...(sensor.alert ? ["with an alert"] : []),
+          ].join(", ");
+          showsItsName(square, name, marker, at);
         }
         // Leaflet doesn't count a drag as a click, so moving the map keeps a
         // tapped sensor's name showing
@@ -320,22 +356,22 @@ export function LeafletMap({
           const at: LatLngTuple = [point.lat, point.lng];
           corners.push(at);
           if (!point.link) {
-            const dot = L.circleMarker(at, {
-              radius: 7,
-              color: "#ffffff",
-              weight: 2.5,
-              fillColor: FOREST,
-              fillOpacity: 1,
+            const dot = document.createElement("span");
+            dot.className = "map-dot";
+            const marker = L.marker(at, {
+              icon: L.divIcon({ html: dot, className: "", iconSize: [24, 24] }),
               interactive: false,
+              keyboard: false,
             })
-              .bindTooltip(label(point.label), {
+              .bindTooltip(shownLabel(point.label), {
                 permanent: true,
                 direction: "right",
-                offset: [8, 0],
+                offset: [10, 0],
                 className: "map-label",
               })
               .addTo(map);
-            remember(0, dot);
+            remember(0, marker);
+            showsItsName(dot, point.label, marker, at);
             continue;
           }
 
@@ -358,15 +394,12 @@ export function LeafletMap({
             // Enter gives a click with no pointer (detail 0), so it always opens
             if (dragged && event.detail > 0) event.preventDefault();
           });
-          // The link already says it, so screen readers don't hear it twice
-          const shown = label(point.label);
-          shown.setAttribute("aria-hidden", "true");
           const marker = L.marker(at, {
             icon: L.divIcon({ html: link, className: "", iconSize: [24, 24] }),
             interactive: false,
             keyboard: false,
           })
-            .bindTooltip(shown, {
+            .bindTooltip(shownLabel(point.label), {
               permanent: true,
               direction: "right",
               offset: [10, 0],
