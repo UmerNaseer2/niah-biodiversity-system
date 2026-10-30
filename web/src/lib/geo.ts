@@ -4,7 +4,11 @@
 
 export const GRID_DEG = 0.004;
 
-/** Park HQ at Pangkalan Lubang, same as the mobile app */
+/**
+ * Park HQ at Pangkalan Lubang, the same point as the mobile app's mock
+ * records. Nobody has checked it against the real HQ yet, see "Park HQ" in
+ * the web README before changing it.
+ */
 export const PARK_HQ = { lat: 3.8141, lng: 113.7787 };
 
 export type Area = { south: number; west: number; north: number; east: number };

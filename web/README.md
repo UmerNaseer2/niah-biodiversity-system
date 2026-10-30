@@ -153,6 +153,15 @@ planned for, so it's clear what's real during the demo. The item numbers match t
   into the visitor's browser. That's fine under OSM's tile policy for a student project with little
   traffic, as long as the attribution in the corner stays. If the site ever gets real traffic it
   should move to a tile provider that allows it.
+- Park HQ is `PARK_HQ` in `src/lib/geo.ts`. The maps mark it and always keep it in view, and a
+  tree tag page whose plant has a public spot says how far it is from HQ ("about 130 m north of
+  park HQ"). It's the same point the mobile app's mock records sit around and the simulator step
+  in `mobile/README.md` uses, but nobody has checked it against the real HQ buildings, and on the
+  OSM tiles it lands in the forest. Someone who knows the park (SFC, or a team member who has
+  been) should find the HQ on the map before launch. Changing the point moves the HQ marker and
+  the distances on the tag pages, but no plant moves, since every record has its own point. If it
+  changes, change the comment in `mobile/src/data/mock-records.ts` and the simulator step in
+  `mobile/README.md` too.
 - Every staff page starts with `if (!(await requireStaff())) return null;` from
   `src/lib/auth.ts`, and a new staff page needs it too. The check in `dashboard/layout.tsx` isn't
   enough on its own. Next renders a page and its layout at the same time, so a layout that shows

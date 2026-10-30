@@ -257,4 +257,6 @@ clear if it has one.
   the map. See round 7 above.
 - **Park HQ may be in the wrong place.** The `PARK_HQ` point in `lib/geo.ts` (shared with the
   mobile app) lands in the forest on the real map, not on the HQ buildings. It needs checking
-  against the real HQ before the "m from park HQ" directions mean much.
+  against the real HQ before the "m from park HQ" directions mean much. Since 30 Oct the
+  [web README](../../web/README.md#notes-for-the-team) says what uses the point, who should check
+  it and what else to change with it.
