@@ -9,8 +9,9 @@ policies from our SQL files decide who can upload, list and delete.
 ## What it does
 
 - **Photos on the species edit page** (`/dashboard/species/[slug]/edit`, under the form): officers
-  and admins upload a photo with a caption and who took it, pick the main photo and remove photos.
-  A species can have up to 12. Each change saves straight away.
+  and admins upload a photo with a caption and who took it, change the caption and credit later,
+  pick the main photo and remove photos. A species can have up to 12. Each change saves straight
+  away.
 - **Uploads are cleaned up on the server.** The website takes JPEG, PNG and WebP files up to 4 MB,
   checked in the browser and again on the server. `sharp` turns the photo the right way up, makes
   it a JPEG up to 1600 pixels across and leaves out the EXIF data, so a location the phone saved in
@@ -66,6 +67,27 @@ policies from our SQL files decide who can upload, list and delete.
 | Its delete page says the 2 photos go too. After deleting, its photo folder is empty | Pass |
 | A seed record with no photos says "No photos came with this record.", and a seed record that says it has photos explains they can't be found | Pass |
 
+## Round 2: editing the caption and credit
+
+Added on 29 Oct on the `photo-caption-edit` branch, on the same stand-in. Each photo on the species
+edit page has "Edit caption and credit", which opens a small form with both filled in. It's a
+`<details>` element, so it opens without JavaScript too. The server checks the same rules as an
+upload (`checkPhotoDetails` in `web/src/lib/species-photos.ts`) and saves the same way as the other
+photo changes, so a save from a photos list that changed first does nothing. The photo file itself
+doesn't change.
+
+| Test | Result |
+| --- | --- |
+| "Edit caption and credit" on the Belian photo opens the form with the saved caption and credit, and its label changes to "Close without saving" | Pass |
+| Saving with an empty caption shows "Add a caption that says what the photo shows." under the label, marks the field invalid and moves focus to it | Pass |
+| A new caption with extra spaces saves as "Caption and credit saved.", with the spaces tidied. The form closes, focus goes to the Photos heading, and the card and its alt text show the new caption | Pass |
+| Opening the form again shows the new caption, not the old one | Pass |
+| Typing a new credit and then closing the form throws the typing away | Pass |
+| A new credit saved with the Enter key shows on the public plant page straight away | Pass |
+| The form sent the way a browser without JavaScript sends it, with a blank caption: the page comes back with "Nothing was saved. Add a caption that says what the photo shows." and the caption doesn't change | Pass |
+| The same, with the original caption: it saves, so the Belian photo was left as it started | Pass |
+| `npm run lint`, `npx tsc --noEmit` and `npm run build` | Pass |
+
 ## Not tested yet
 
 - A record that came from the app with photos the phone hasn't uploaded yet. The page has text for
@@ -83,5 +105,7 @@ policies from our SQL files decide who can upload, list and delete.
   species but should change before there are many.
 - **Deleting an account doesn't delete its record photos.** The folder is named after the account,
   so the record edit page can't find them any more, and they stay in the bucket.
-- **Photos can't be edited.** To change a caption, upload the photo again and remove the old one.
+- **Fixed on 29 Oct:** photos couldn't be edited, so changing a caption meant uploading the photo
+  again. The caption and credit can now be changed (round 2). The photo itself still can't be
+  swapped or cropped, so a new picture is still a new upload.
 - **No history.** Nothing records who added or removed a photo.

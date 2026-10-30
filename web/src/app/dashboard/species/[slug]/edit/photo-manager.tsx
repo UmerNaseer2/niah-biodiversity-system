@@ -17,6 +17,7 @@ import {
   MAX_PHOTOS,
   UPLOAD_TYPES,
   checkPhoto,
+  checkPhotoDetails,
   mainPhoto,
   type PhotoErrors,
   type PhotoFieldId,
@@ -77,6 +78,14 @@ export function PhotoManager({
   // Which photo's Remove is asking first. It goes by place, since two outside
   // links can be the same
   const [confirming, setConfirming] = useState<number | null>(null);
+  // Which photo's caption form has a problem, and what it is
+  const [detailErrors, setDetailErrors] = useState<{
+    index: number;
+    errors: PhotoErrors;
+  } | null>(null);
+  // Goes up each time a change saves, so the caption forms close and start
+  // from what was saved
+  const [saved, setSaved] = useState(0);
   const [focusRequest, setFocusRequest] = useState<{ elementId: string } | null>(
     null,
   );
@@ -106,6 +115,8 @@ export function PhotoManager({
       setFocusRequest({ elementId: "photo-manage-error" });
     } else if (manage.status === "done") {
       setNotice(manage.message);
+      setDetailErrors(null);
+      setSaved((count) => count + 1);
       // The button that was pressed may be gone now, so focus goes back to the top
       setFocusRequest({ elementId: "photos-heading" });
     }
@@ -165,6 +176,40 @@ export function PhotoManager({
     setManageError(null);
     setNotice("");
     startTransition(() => manageAction(formData));
+  }
+
+  function handleDetails(event: FormEvent<HTMLFormElement>, index: number) {
+    event.preventDefault();
+    if (busy) return;
+    const formData = new FormData(event.currentTarget);
+    const found = checkPhotoDetails(
+      tidy(String(formData.get("caption") ?? "")),
+      tidy(String(formData.get("credit") ?? "")),
+    );
+    setManageError(null);
+    setNotice("");
+    if (Object.keys(found).length > 0) {
+      setDetailErrors({ index, errors: found });
+      setFocusRequest({
+        elementId: `photo-${index}-${found["photo-caption"] ? "caption" : "credit"}`,
+      });
+      return;
+    }
+    setDetailErrors(null);
+    startTransition(() => manageAction(formData));
+  }
+
+  function clearDetailError(index: number, id: PhotoFieldId) {
+    if (detailErrors?.index !== index || !detailErrors.errors[id]) return;
+    const errors = { ...detailErrors.errors };
+    delete errors[id];
+    setDetailErrors({ index, errors });
+  }
+
+  function closeDetails(details: HTMLDetailsElement, index: number) {
+    // Closing it throws away what was typed, so it opens on the saved caption
+    details.querySelector("form")?.reset();
+    if (detailErrors?.index === index) setDetailErrors(null);
   }
 
   function askFirst(event: MouseEvent<HTMLButtonElement>, index: number) {
@@ -230,6 +275,9 @@ export function PhotoManager({
         <ul className="mt-5 grid gap-4 sm:grid-cols-2">
           {photos.map((photo, index) => {
             const isMain = photo === main;
+            const fieldErrors = detailErrors?.index === index ? detailErrors.errors : {};
+            const captionId = `photo-${index}-caption`;
+            const creditId = `photo-${index}-credit`;
             return (
               // Two outside links can be the same, so the index goes in too
               <li key={`${index}-${photo.key}`} className="card overflow-hidden">
@@ -253,6 +301,76 @@ export function PhotoManager({
                     Photo: {photo.credit}
                     {!photo.path && ". Linked from another site."}
                   </p>
+
+                  {/* A details element opens without JavaScript too */}
+                  <details
+                    key={saved}
+                    onToggle={(event) => {
+                      if (!event.currentTarget.open) closeDetails(event.currentTarget, index);
+                    }}
+                    className="group mt-3"
+                  >
+                    <summary className="inline-flex cursor-pointer list-none items-center gap-1.5 text-sm font-bold underline underline-offset-4 hover:text-moss [&::-webkit-details-marker]:hidden">
+                      <Icon name="pencil" className="size-4" />
+                      <span className="group-open:hidden">Edit caption and credit</span>
+                      <span className="hidden group-open:inline">Close without saving</span>
+                    </summary>
+                    <form
+                      action={manageAction}
+                      onSubmit={(event) => handleDetails(event, index)}
+                      noValidate
+                      className="mt-3 space-y-4"
+                    >
+                      <input type="hidden" name="slug" value={slug} />
+                      <input type="hidden" name="key" value={photo.key} />
+                      <input type="hidden" name="index" value={index} />
+                      <input type="hidden" name="intent" value="details" />
+                      <div>
+                        <label htmlFor={captionId} className="text-sm font-bold">
+                          Caption
+                        </label>
+                        <p id={`${captionId}-hint`} className={HINT}>
+                          What the photo shows. Don’t say where in the park the
+                          plant is.
+                        </p>
+                        <FieldError id={captionId} message={fieldErrors["photo-caption"]} />
+                        <textarea
+                          id={captionId}
+                          name="caption"
+                          rows={3}
+                          defaultValue={photo.caption}
+                          maxLength={MAX_CAPTION}
+                          onChange={() => clearDetailError(index, "photo-caption")}
+                          aria-invalid={Boolean(fieldErrors["photo-caption"])}
+                          aria-describedby={describedBy(captionId, fieldErrors["photo-caption"])}
+                          className="field mt-1.5"
+                        />
+                      </div>
+                      <div>
+                        <label htmlFor={creditId} className="text-sm font-bold">
+                          Taken by
+                        </label>
+                        <p id={`${creditId}-hint`} className={HINT}>
+                          Shows under the photo after “Photo:”.
+                        </p>
+                        <FieldError id={creditId} message={fieldErrors["photo-credit"]} />
+                        <input
+                          id={creditId}
+                          name="credit"
+                          type="text"
+                          defaultValue={photo.credit}
+                          maxLength={MAX_CREDIT}
+                          onChange={() => clearDetailError(index, "photo-credit")}
+                          aria-invalid={Boolean(fieldErrors["photo-credit"])}
+                          aria-describedby={describedBy(creditId, fieldErrors["photo-credit"])}
+                          className="field mt-1.5"
+                        />
+                      </div>
+                      <button type="submit" aria-disabled={busy} className="btn btn-primary">
+                        {managing ? "Saving…" : "Save caption and credit"}
+                      </button>
+                    </form>
+                  </details>
 
                   {confirming === index ? (
                     <form action={manageAction} onSubmit={handleManage} className="mt-3">
