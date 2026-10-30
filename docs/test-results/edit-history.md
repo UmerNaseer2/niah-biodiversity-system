@@ -15,8 +15,9 @@ Now:
 - `supabase/013_edit_history.sql` adds two tables, `record_history` and `species_history`. A
   trigger adds a row every time a record or species is saved with a change in it. The row has who
   saved it, when, and what each changed column was before and after.
-- Where a plant grows never goes in. For `records.gps` and the species' spots the row only says
-  whether there was a spot before and after, so the history can't be used to find a plant.
+- The map location never goes in. For `records.gps` and the species' spots the row only says
+  whether there was a spot before and after. Text like notes is kept word for word, so a place
+  someone typed stays in it, the same as the notes themselves. Only officers and admins can read it.
 - The name is kept as well as the account, so the history still says who it was after their
   account is deleted. A row with no name was saved in the Supabase dashboard (the Table Editor or
   the SQL editor), where nobody is signed in.

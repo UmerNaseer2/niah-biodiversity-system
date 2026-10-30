@@ -23,7 +23,7 @@ kept, and you can fix the problem and run it again.
 | `010_deleted_records.sql` | Keeps the ID of every deleted record, with who deleted it and when, so a phone can't upload it again | 3, 17 | Yes |
 | `011_exact_location_downloads.sql` | Keeps a list of every report downloaded with the exact spots of threatened and protected plants, with who downloaded it and when. Only admins can read the list, and nobody can change it | 21 | Yes |
 | `012_report_counts.sql` | Counts the records for the Reports page in the database, as whoever is asking, so the page doesn't load every record to count them | 21 | Yes |
-| `013_edit_history.sql` | Keeps a history of every change to a record or species, with who saved it and when, for the edit pages. Only officers and admins can read it, and nobody can change it. It never keeps where a plant is | 17, 18 | Yes |
+| `013_edit_history.sql` | Keeps a history of every change to a record or species, with who saved it and when, for the edit pages. Only officers and admins can read it, and nobody can change it. It never keeps a plant's map location, but text like notes is kept word for word | 17, 18 | Yes |
 | `014_photo_folder.sql` | Keeps the name of each record's photo folder, so the website can still show and delete a record's photos after the account that sent it is deleted | 18 | Yes |
 | `015_species_rough_area.sql` | Keeps rough area only on for every threatened or protected species, so the first save on the edit page doesn't write a false history line. The public sees the same as before | 17 | Yes |
 
