@@ -43,6 +43,15 @@ export async function openRecordsStore(): Promise<RecordsStore> {
         throw new Error("A record that's on the server can't have an upload problem.");
       }
     },
+    async removeDeleted(id) {
+      const index = saved.findIndex(
+        (record) => record.id === id && record.uploadProblem === 'deleted',
+      );
+      if (index === -1) {
+        throw new Error('Only a record an officer deleted on the website can be removed.');
+      }
+      saved.splice(index, 1);
+    },
     async loadSpecies() {
       return [...species];
     },

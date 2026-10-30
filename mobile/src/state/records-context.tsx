@@ -36,6 +36,11 @@ type RecordsContextValue = {
   /** Saves what happened to an upload on the phone, then updates the record in the list. */
   saveUploadOutcome: (id: string, outcome: UploadOutcome) => Promise<void>;
   /**
+   * Takes a record an officer deleted on the website off the phone, then off the list. Throws
+   * for any other record and the list stays as it was.
+   */
+  removeDeleted: (id: string) => Promise<void>;
+  /**
    * The species the New Record form suggests: the last list downloaded, or the one that comes
    * with the app if there hasn't been a download yet.
    */
@@ -219,6 +224,15 @@ export function RecordsProvider({ children }: { children: ReactNode }) {
     );
   }
 
+  async function removeDeleted(id: string) {
+    await store.removeDeleted(id);
+    setState((current) =>
+      current.status === 'ready'
+        ? { ...current, saved: current.saved.filter((record) => record.id !== id) }
+        : current,
+    );
+  }
+
   async function replaceSpecies(list: SpeciesOption[]) {
     await store.replaceSpecies(list);
     setState((current) => (current.status === 'ready' ? { ...current, species: list } : current));
@@ -235,6 +249,7 @@ export function RecordsProvider({ children }: { children: ReactNode }) {
         findByTag,
         loadWaiting,
         saveUploadOutcome,
+        removeDeleted,
         species,
         replaceSpecies,
       }}>

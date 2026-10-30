@@ -15,7 +15,12 @@ import { AccessibilityInfo, Text } from 'react-native';
 import { MOCK_RECORDS } from '@/data/mock-records';
 import { SPECIES_LIST, type SpeciesOption } from '@/data/species-list';
 import { DATABASE_NAME, MIGRATIONS } from '@/db/database';
-import { EMPTY_SPECIES_LIST, NO_SUCH_RECORD, openRecordsStore } from '@/db/records-store';
+import {
+  EMPTY_SPECIES_LIST,
+  NO_SUCH_RECORD,
+  NOT_DELETED,
+  openRecordsStore,
+} from '@/db/records-store';
 import { tagCodeFor } from '@/lib/id';
 import { RecordsProvider, useRecords } from '@/state/records-context';
 import type { NewPlantRecord, PlantRecord } from '@/types/plant-record';
@@ -316,6 +321,44 @@ describe('syncing', () => {
       ).rejects.toThrow(NO_SUCH_RECORD);
     });
     expect(result.current.records).toEqual(before);
+  });
+});
+
+describe('removing a record an officer deleted', () => {
+  it('takes it off the list and the phone, and the counts go down', async () => {
+    const { result } = await renderRecords();
+    let deleted: PlantRecord | undefined;
+    let kept: PlantRecord | undefined;
+    await act(async () => {
+      deleted = await result.current.addRecord(draft);
+      kept = await result.current.addRecord(draft);
+    });
+    await act(async () => {
+      await result.current.saveUploadOutcome(deleted!.id, { kind: 'problem', problem: 'deleted' });
+    });
+    expect(result.current.pendingCount).toBe(samplesPending + 2);
+
+    await act(async () => {
+      await result.current.removeDeleted(deleted!.id);
+    });
+    expect(result.current.getRecord(deleted!.id)).toBeUndefined();
+    expect(result.current.getRecord(kept!.id)).toEqual(kept);
+    expect(result.current.pendingCount).toBe(samplesPending + 1);
+    expect((await savedOnPhone()).map((record) => record.id)).toEqual([kept!.id]);
+  });
+
+  it('throws and leaves the list as it was for any other record', async () => {
+    const { result } = await renderRecords();
+    let waiting: PlantRecord | undefined;
+    await act(async () => {
+      waiting = await result.current.addRecord(draft);
+    });
+    const before = result.current.records;
+    await act(async () => {
+      await expect(result.current.removeDeleted(waiting!.id)).rejects.toThrow(NOT_DELETED);
+    });
+    expect(result.current.records).toEqual(before);
+    expect(await savedOnPhone()).toEqual([waiting]);
   });
 });
 

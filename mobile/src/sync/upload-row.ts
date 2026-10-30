@@ -122,7 +122,8 @@ export function uploadProblemMessage(problem: UploadProblem) {
     case 'deleted':
       return (
         "An officer deleted this record on the website, so the server won't take it again. It's " +
-        'still on this phone. Ask an officer if you think it should be put back.'
+        'still on this phone. Ask an officer if you think it should be put back, or remove it ' +
+        'from this phone if not.'
       );
   }
 }

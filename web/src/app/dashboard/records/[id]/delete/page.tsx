@@ -98,7 +98,8 @@ export default async function DeleteRecordPage({
           <li>
             The phone that recorded it keeps its own copy. If that phone hasn’t
             synced the record yet, the server turns it down at the next sync and
-            the phone says an officer deleted it. You can’t undo this.
+            the phone says an officer deleted it, with a button to remove it from
+            the phone. You can’t undo this.
           </li>
         </ul>
         <DeleteRecordForm id={record.id} version={String(data.updated_at ?? "")} />

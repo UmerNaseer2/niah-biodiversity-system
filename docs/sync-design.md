@@ -124,7 +124,8 @@ empty instead, for the old records too, and turns down 0 or less.
 
 - **Fixed on 29 Oct:** if an officer deleted a record before the phone had marked it synced, the
   next sync uploaded it again. Since 010 the server turns it down and the phone says an officer
-  deleted it (see "A deleted record stays deleted" above).
+  deleted it (see "A deleted record stays deleted" above). Since 30 Oct the record's page on the
+  phone has a button to remove it from the phone.
 - Tag codes have 6 characters, so there are about 16 million of them. A clash is rare, but it
   gets likely once there are a few thousand records. The phone already picks a new ID when a new
   record's tag clashes with one on the same phone, and the server catches a clash between two
