@@ -24,6 +24,7 @@ export const SQL_FILES = [
   '012_report_counts.sql',
   '013_edit_history.sql',
   '014_photo_folder.sql',
+  '015_species_rough_area.sql',
 ];
 
 export function readSql(file) {

@@ -555,7 +555,7 @@ describe('the views after 007', () => {
     assert.deepEqual(await columnsOf('species_staff'), await columnsOf('species'));
     const sql = 'SELECT rough_area_only FROM public.species_staff WHERE id = $1';
     assert.deepEqual(await selectAs(db, officer, sql, ['koompassia-excelsa']), [
-      { rough_area_only: false },
+      { rough_area_only: true },
     ]);
   });
 });
