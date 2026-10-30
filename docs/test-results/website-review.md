@@ -78,6 +78,7 @@ hidden spot. Each fix below was tried on the stand-in the same way as round 1.
 | `record-notes-line-breaks` | A form sends each line break in the notes box as two characters (`\r\n`), but the box counts it as one. Notes that filled the box, with line breaks, were turned down with "Notes can be up to 1000 characters." even when nobody touched them. Saving any record with line breaks in its notes also logged a notes change in its history | Line breaks are turned back into `\n` before the check, like the species form already does. The limit matches the box, and notes nobody touched save exactly as they were |
 | `record-time-seconds` | The Recorded on box only goes down to the minute, so saving a record from the edit page cut the seconds off a time the phone saved, even when nobody touched the box. The history then said "Recorded on changed from 12 Oct 2026, 10:40 pm to 12 Oct 2026, 10:40 pm" | If the box still shows the stored minute, the stored time is kept as it is. A history change that reads the same before and after says "changed slightly (still ...)" instead |
 | `report-date-check` | The reports page and the CSV link only checked a date had the right shape. A day that doesn't exist, like `to=2026-13-01`, crashed both with a 500. A day like 30 February got to the database, which turned it down, and the page said the records didn't load and to ask an admin to check the database | A day that doesn't exist counts as no limit, the same as a date that isn't one at all, so the page and the file still load |
+| `exact-download-origin` | The CSV link with `exact=1` worked from anywhere the officer was signed in. The sign in cookies still go with a link clicked on another site, so a page somewhere else could start a download with exact spots and put the officer's name on the admins' list without them meaning to | Browsers say where a request came from. A download with exact spots is only made when it came from the site itself, or from a typed address or a bookmark. From anywhere else it's turned down with a 403 that says to download it from the Reports page. Downloads without exact spots work the same as before |
 
 | Test | Result |
 | --- | --- |
@@ -92,6 +93,10 @@ hidden spot. Each fix below was tried on the stand-in the same way as round 1.
 | Before the fix: opened the reports page and the CSV link with `?to=2026-13-01`, and the page with `?from=2026-02-30` | The first two gave a 500. The third said "The records didn’t load" |
 | After the fix: the same three, plus the page with both bad dates at once | All load. The page says "any date", like it does with no dates, and the file has all 8 records |
 | `?from=2028-02-29` and `?from=2026-10-01&to=2026-10-05` | Still kept as limits. The second file has 3 records |
+| Before the fix: asked for the CSV with `exact=1` as if from a link on another site (`Sec-Fetch-Site: cross-site`) | `200` and the file, and a new row on the admins' list |
+| After the fix: the same, and the same again as `same-site` | Both `403` with the message, no file, and the list stays at the same number of rows |
+| After the fix: `exact=1` as `same-origin` (the Reports page form), `none` (a typed address) and with no header at all | All `200` and the file, and the list goes up by 3 rows |
+| After the fix: the CSV without exact spots as `cross-site` | `200` and the file, and no new row |
 
 ## Not tested yet
 
@@ -101,4 +106,7 @@ hidden spot. Each fix below was tried on the stand-in the same way as round 1.
   so the fallback description was read, not tried.
 - Two photos with the same outside link. The stand-in only stores uploads, so the code for that
   case was read, not tried.
+- Pressing Download on the Reports page in a real browser. The browser pane here doesn't save
+  files, so the header the form sends was set by hand. The form is a plain GET on the same site,
+  so a browser sends `same-origin` for it.
 - The hosted Supabase project, which needs 003 to 009 run first.
