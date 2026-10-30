@@ -40,6 +40,15 @@ export function filtersFrom(params: Record<string, unknown>): ReportFilters {
   return { scope: params.scope === "all" ? "all" : "published", from, to };
 }
 
+/**
+ * Which page of the downloads with exact spots to show, from ?downloads=2.
+ * Page 1 is the newest, and anything that isn't a page number gives that.
+ */
+export function downloadPageFrom(params: Record<string, unknown>) {
+  const page = typeof params.downloads === "string" ? Number(params.downloads) : 1;
+  return Number.isSafeInteger(page) && page >= 1 ? page : 1;
+}
+
 /** The same filters as a query string, for the CSV link */
 export function filtersQuery(filters: ReportFilters) {
   const query = new URLSearchParams();

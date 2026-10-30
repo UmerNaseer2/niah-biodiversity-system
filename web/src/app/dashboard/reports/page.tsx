@@ -8,6 +8,7 @@ import { CONDITION_LABEL } from "@/lib/condition";
 import { formatDate, formatDateTime, plural } from "@/lib/format";
 import {
   datesLabel,
+  downloadPageFrom,
   filtersFrom,
   filtersQuery,
   SCOPE_LABEL,
@@ -38,15 +39,18 @@ export default async function ReportsPage({
 }: PageProps<"/dashboard/reports">) {
   const session = await requireStaff();
   if (!session) return null;
-  const filters = filtersFrom(await searchParams);
+  const params = await searchParams;
+  const filters = filtersFrom(params);
   const query = filtersQuery(filters).toString();
   const isAdmin = session.role === "admin";
   const [report, downloads] = await Promise.all([
     loadReport(filters, PREVIEW_ROWS),
-    isAdmin ? loadExactDownloads() : null,
+    isAdmin ? loadExactDownloads(downloadPageFrom(params)) : null,
   ]);
   // Only admins can read the list, so officers don't get the section at all
-  const downloadList = isAdmin && <DownloadList downloads={downloads} />;
+  const downloadList = isAdmin && (
+    <DownloadList list={downloads} query={query} />
+  );
 
   const header = (
     <PageHeader
