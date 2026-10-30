@@ -90,7 +90,8 @@ export function PlantSearch({
   }
 
   let status = `Showing all ${plural(plants.length, "plant")}`;
-  if (shown.length === 0) status = "No plants match";
+  if (plants.length === 0) status = "No plants yet";
+  else if (shown.length === 0) status = "No plants match";
   else if (shown.length < plants.length) {
     status = `Showing ${shown.length} of ${plural(plants.length, "plant")}`;
   }
@@ -142,7 +143,15 @@ export function PlantSearch({
         </div>
       </div>
 
-      {shown.length === 0 ? (
+      {plants.length === 0 ? (
+        <div className="card mt-6 flex flex-col items-center px-6 py-12 text-center">
+          <Icon name="leaf" className="size-8 text-pencil" />
+          <p className="mt-3 text-lg font-bold">No plants yet</p>
+          <p className="mt-1 max-w-sm text-moss">
+            Plants show up here once our field teams start recording them.
+          </p>
+        </div>
+      ) : shown.length === 0 ? (
         <div className="card mt-6 flex flex-col items-center px-6 py-12 text-center">
           <Icon name="search" className="size-8 text-pencil" />
           <p className="mt-3 text-lg font-bold">

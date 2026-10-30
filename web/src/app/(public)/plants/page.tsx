@@ -26,7 +26,7 @@ export default async function PlantsPage({
   // Only what the list needs goes to the browser. No records, no coordinates.
   const plants: PlantSummary[] = species.map((s) => ({
     slug: s.slug,
-    name: s.commonNames[0],
+    name: s.commonNames[0] ?? s.scientificName,
     otherNames: s.commonNames.slice(1),
     scientificName: s.scientificName,
     newerName: s.newerName ?? null,
