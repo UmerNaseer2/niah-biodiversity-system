@@ -4,7 +4,7 @@ Round 1 was on 29 Oct 2026 on Umer's Mac (Node 22) on the `item-20-maps` branch.
 Supabase project doesn't have the SQL files after 002 yet, so the pages were tried against the
 Supabase stand-in in `supabase/tests/stand-in.js` (see `web/README.md`), with the stand-in's own
 sample records. Round 2, on the same day on the `map-dot-links` branch, made the plant dots into
-links.
+links. Round 3, on 30 Oct on the `map-label-overlap` branch, stopped the labels overlapping.
 
 ## What it does
 
@@ -81,6 +81,25 @@ already covered by the database tests, and nothing in the database changed in th
 | Tag NNP-D00D01: its one dot stays a plain dot | Pass |
 | No errors in the browser console from clicking or pressing Enter on the dots | Pass |
 
+## Round 3: labels make room for each other
+
+Tested on 30 Oct 2026. Plants close together used to have their names printed on top of each other
+and on top of the dots, so on the overview a few of them couldn't be read at all. Now the map checks
+every label after each zoom and when the map changes size. A label that would cover a label already
+shown, or a dot that isn't its own, is hidden until there's room for it. Plant names go first, then
+park HQ, sensors and the rough area labels. Pointing at a dot or tabbing to it shows its name even
+when another label was in the way, and that label steps aside until the pointer or focus moves on.
+
+| Test | Result |
+| --- | --- |
+| Overview at the zoom it opens at: 8 of the 15 labels show, and none of them touch another label or a dot | Pass |
+| One zoom in: 10 labels show. Two zoom ins: 11. Still no label touches another label or a dot once the zoom has finished | Pass |
+| Tabbing to the Stand-in tree dot, whose name was hidden, shows its name, and the Slipper orchid name next to it hides. Moving focus away puts both back | Pass |
+| Pointing at the same dot does the same, and moving the pointer off puts it back | Pass |
+| Overview at phone width (400 px): 8 labels show, none overlapping | Pass |
+| Sensors page: all 5 sensor names and park HQ show, since nothing is in the way | Pass |
+| Tapang and Slipper orchid plant pages: "Rough area" and "Park HQ" both show | Pass |
+
 ## Not tested yet
 
 - The "The map didn’t load" message. It shows if Leaflet's code can't be fetched, which is hard to
@@ -94,8 +113,15 @@ already covered by the database tests, and nothing in the database changed in th
 
 ## Known limits
 
-- **Labels and dots can overlap** when plants are close together, like on the overview. Zooming in
-  with the buttons spreads them out. A dot hidden under another one can still be reached with Tab.
+- **Fixed on 30 Oct:** labels used to overlap each other and the dots when plants were close
+  together, like on the overview. Now a label that's in the way hides until zooming in makes room.
+  See round 3 above.
+- **Dots can still overlap** when plants are only a few metres apart. Zooming in spreads them out,
+  and a dot under another one can still be reached with Tab, which also shows its name.
+- **A sensor's name has no way to show on its own.** Plant names show when you point at the dot,
+  but a hidden sensor name only comes back after zooming in. The sensors page lists them all.
+- **A label near the edge of the map gets cut off,** for example on a phone. Dragging the map
+  brings it back in.
 - **Fixed on 29 Oct:** the dots used to be pictures only, so they couldn't be focused or clicked to
   open a record. Now each plant dot is a link. See round 2 above.
 - **The tiles come from openstreetmap.org.** Every visitor's browser asks OSM for them directly, so

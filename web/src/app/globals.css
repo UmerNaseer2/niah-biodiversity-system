@@ -314,6 +314,13 @@
   display: none;
 }
 
+/* A label that would cover another one or a dot is hidden until there's room
+   (declutter in leaflet-map.tsx). Screen readers still get it. Leaflet sets the
+   opacity inline, which is why this needs !important. */
+.map-frame .leaflet-tooltip.map-label-hidden {
+  opacity: 0 !important;
+}
+
 /* A plant dot that's a link. The link is bigger than the dot so it's easier to hit. */
 .map-dot {
   display: flex;
