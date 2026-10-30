@@ -1,6 +1,13 @@
 import * as Location from 'expo-location';
 import { Stack } from 'expo-router';
-import { act, fireEvent, renderRouter, screen, testRouter } from 'expo-router/testing-library';
+import {
+  act,
+  fireEvent,
+  renderRouter,
+  screen,
+  testRouter,
+  waitFor,
+} from 'expo-router/testing-library';
 import { deleteDatabaseAsync, SQLiteDatabase } from 'expo-sqlite';
 import { AccessibilityInfo, Linking } from 'react-native';
 
@@ -57,7 +64,8 @@ function newestRecord() {
 
 const speciesBox = () => screen.getByLabelText('Species, required');
 const commonNameBox = () => screen.getByLabelText('Common name');
-const heightBox = () => screen.getByLabelText('Height');
+// The "m" drawn in the box is hidden from screen readers, so the unit is part of the label.
+const heightBox = () => screen.getByLabelText('Height, in metres');
 const saveButton = () => screen.getByRole('button', { name: 'Save record' });
 
 /** Presses Capture location and waits until the phone is looking for satellites. */
@@ -175,6 +183,34 @@ describe('New record screen', () => {
       speciesSlug: 'ficus-benjamina',
       commonName: 'Weeping fig',
     });
+  });
+
+  it('picks a species with no common names without filling in a blank one', async () => {
+    // The website lets a species go on the list before anyone has added a common name.
+    const store = await openRecordsStore();
+    try {
+      await store.replaceSpecies([
+        { slug: 'ficus-aurantiacea', scientificName: 'Ficus aurantiacea', commonNames: [] },
+      ]);
+    } finally {
+      await store.close();
+    }
+
+    await renderForm();
+    fireEvent.changeText(speciesBox(), 'aurant');
+    fireEvent.press(screen.getByRole('button', { name: 'Use Ficus aurantiacea' }));
+    expect(speciesBox()).toHaveDisplayValue('Ficus aurantiacea');
+    expect(commonNameBox()).toHaveDisplayValue('');
+    expect(screen.getByText('On the species list.')).toBeVisible();
+    await captureLocation();
+    await saveAndOpen();
+
+    const saved = newestRecord();
+    expect(saved).toMatchObject({
+      speciesName: 'Ficus aurantiacea',
+      speciesSlug: 'ficus-aurantiacea',
+    });
+    expect(saved?.commonName).toBeUndefined();
   });
 
   it('keeps a common name that was already typed when a species is picked', async () => {
@@ -340,6 +376,27 @@ describe('New record screen', () => {
     }
   });
 
+  it('takes the save error away once something in the form is changed', async () => {
+    const insert = jest
+      .spyOn(SQLiteDatabase.prototype, 'runAsync')
+      .mockRejectedValueOnce(new Error('database or disk is full'));
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      await renderForm();
+      fireEvent.changeText(speciesBox(), 'Shorea macrophylla');
+      await captureLocation();
+      fireEvent.press(saveButton());
+      const message = "Couldn't save the record on this phone. Try again.";
+      expect(await screen.findByRole('alert')).toHaveTextContent(message);
+
+      fireEvent.changeText(screen.getByLabelText('Notes'), 'Two seedlings nearby');
+      expect(screen.queryByText(message)).toBeNull();
+    } finally {
+      insert.mockRestore();
+      warn.mockRestore();
+    }
+  });
+
   it('saves once when Save is tapped twice quickly', async () => {
     const insert = jest.spyOn(SQLiteDatabase.prototype, 'runAsync');
     try {
@@ -374,6 +431,23 @@ describe('New record screen', () => {
 
     await saveAndOpen();
     expect(newestRecord()?.location?.accuracyM).toBe(18);
+  });
+
+  it('turns the GPS off when another screen opens on top', async () => {
+    const remove = jest.fn();
+    watchPosition.mockResolvedValue({ remove });
+    await renderForm();
+    await startCapture();
+
+    const other = MOCK_RECORDS[0];
+    testRouter.push(`/record/${other.id}`);
+    expect(await screen.findByText(`Tag ${other.tagCode}`)).toBeVisible();
+    await waitFor(() => expect(remove).toHaveBeenCalledTimes(1));
+
+    // Coming back leaves it off until Capture location is pressed again.
+    testRouter.back('/new-record');
+    expect(screen.getByRole('button', { name: 'Capture location' })).toBeVisible();
+    expect(watchPosition).toHaveBeenCalledTimes(1);
   });
 
   it('tells screen reader users when the location is captured', async () => {

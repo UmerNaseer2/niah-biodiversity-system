@@ -9,6 +9,8 @@ export const IMPROVE_FOR_MS = 30_000;
 // Phones can hand back a fix they saved from earlier, which could be from somewhere else
 // entirely. Anything older than this when the capture started gets skipped.
 export const MAX_READING_AGE_MS = 10_000;
+// How far behind the phone's clock we let the GPS clock be. See isFreshReading.
+export const MAX_CLOCK_GAP_MS = 60_000;
 
 /** The parts of an expo-location reading we use. Kept separate so the logic is easy to test. */
 export type PhoneLocation = {
@@ -91,12 +93,18 @@ export function toGpsReading({ coords, timestamp }: PhoneLocation): GpsReading |
 /**
  * Skips fixes the phone saved from before the capture started. Android stamps fixes with the GPS
  * clock, which can be a little off from the phone's own clock, so a fix that's newer than the
- * first one in this capture always counts as fresh.
+ * first one in this capture also counts as fresh. That only holds when the first fix is itself
+ * from the last minute or so. A first fix from an hour ago is a saved one, and a second saved
+ * fix from half an hour ago is newer than it but still from somewhere else.
  */
 export function isFreshReading(timestamp: number, startedAt: number, firstTimestamp?: number) {
+  if (timestamp >= startedAt - MAX_READING_AGE_MS) {
+    return true;
+  }
   return (
-    timestamp >= startedAt - MAX_READING_AGE_MS ||
-    (firstTimestamp !== undefined && timestamp > firstTimestamp)
+    firstTimestamp !== undefined &&
+    firstTimestamp >= startedAt - MAX_CLOCK_GAP_MS &&
+    timestamp > firstTimestamp
   );
 }
 

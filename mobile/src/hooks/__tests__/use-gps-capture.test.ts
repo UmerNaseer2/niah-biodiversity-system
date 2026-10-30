@@ -1,7 +1,7 @@
 import * as Location from 'expo-location';
 import { act, renderHook, waitFor } from 'expo-router/testing-library';
 
-import { useGpsCapture } from '@/hooks/use-gps-capture';
+import { useGpsCapture, type GpsCaptureOptions } from '@/hooks/use-gps-capture';
 import { FIRST_FIX_TIMEOUT_MS, IMPROVE_FOR_MS } from '@/lib/gps';
 
 jest.mock('expo-location');
@@ -305,6 +305,43 @@ describe('useGpsCapture', () => {
     act(() => onError?.('Location services are disabled'));
     expect(result.current.status).toBe('error');
     expect(remove).toHaveBeenCalledTimes(1);
+  });
+
+  it('stops watching when the screen is out of sight, and waits to be started again', async () => {
+    const hook = renderHook((props: GpsCaptureOptions) => useGpsCapture(props), {
+      initialProps: { active: true },
+    });
+    act(() => hook.result.current.start());
+    await waitFor(() => expect(hook.result.current.status).toBe('searching'));
+
+    hook.rerender({ active: false });
+    expect(remove).toHaveBeenCalledTimes(1);
+    expect(hook.result.current.status).toBe('idle');
+    expect(hook.result.current.locating).toBe(false);
+    sendFix(fix(4.6));
+    expect(hook.result.current.location).toBeUndefined();
+
+    // Coming back doesn't turn the GPS on by itself.
+    hook.rerender({ active: true });
+    expect(hook.result.current.status).toBe('idle');
+    expect(watchPosition).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps a saved location when a retake is stopped by leaving the screen', async () => {
+    const hook = renderHook((props: GpsCaptureOptions) => useGpsCapture(props), {
+      initialProps: { active: true },
+    });
+    act(() => hook.result.current.start());
+    await waitFor(() => expect(hook.result.current.status).toBe('searching'));
+    sendFix(fix(4.6));
+    const saved = hook.result.current.location;
+    expect(saved?.accuracyM).toBe(5);
+
+    act(() => hook.result.current.start());
+    await waitFor(() => expect(hook.result.current.status).toBe('searching'));
+    hook.rerender({ active: false });
+    expect(hook.result.current.status).toBe('done');
+    expect(hook.result.current.location).toBe(saved);
   });
 
   it('stops watching when the screen goes away', async () => {

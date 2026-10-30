@@ -8,20 +8,24 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { SyncBadge } from '@/components/ui/sync-badge';
 import { Spacing } from '@/constants/theme';
+import { useNow } from '@/hooks/use-now';
 import { isToday } from '@/lib/format';
 import { useRecords } from '@/state/records-context';
 
 export default function HomeScreen() {
   const router = useRouter();
   const { records, pendingCount } = useRecords();
-  const today = records.filter((record) => isToday(record.recordedAt));
+  // Changes when the app comes back to the front, which also redraws the "Today" and "Yesterday"
+  // on the recent records below.
+  const now = useNow();
+  const today = records.filter((record) => isToday(record.recordedAt, now));
   const todayPending = today.filter((record) => record.syncStatus === 'pending').length;
   const todaySynced = today.filter((record) => record.syncStatus === 'synced').length;
   const plantsRecorded = today.length === 1 ? 'plant recorded' : 'plants recorded';
 
   return (
     <Screen eyebrow="Niah National Park" title="Ground-truthing">
-      <SyncBadge pending={pendingCount} />
+      <SyncBadge pending={pendingCount} total={records.length} />
 
       <Card>
         <View style={styles.today}>

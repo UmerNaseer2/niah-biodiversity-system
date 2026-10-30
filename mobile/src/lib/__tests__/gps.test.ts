@@ -3,6 +3,7 @@ import {
   INITIAL_GPS_STATE,
   isCapturing,
   isFreshReading,
+  MAX_CLOCK_GAP_MS,
   MAX_READING_AGE_MS,
   pickBetter,
   toGpsReading,
@@ -66,9 +67,18 @@ describe('isFreshReading', () => {
   });
 
   it('trusts a fix newer than the first one, in case the GPS clock is behind the phone', () => {
-    const first = START - 60_000;
+    const first = START - MAX_CLOCK_GAP_MS;
     expect(isFreshReading(first + 1000, START, first)).toBe(true);
     expect(isFreshReading(first, START, first)).toBe(false);
+  });
+
+  it('does not trust a fix newer than the first one when the first one is old', () => {
+    // Both are fixes the phone saved earlier, an hour ago and half an hour ago.
+    const first = START - 60 * 60_000;
+    expect(isFreshReading(START - 30 * 60_000, START, first)).toBe(false);
+    expect(isFreshReading(first + 1000, START, START - MAX_CLOCK_GAP_MS - 1)).toBe(false);
+    // A fix from after the capture started still counts, whatever came first.
+    expect(isFreshReading(START + 1000, START, first)).toBe(true);
   });
 });
 
@@ -118,6 +128,24 @@ describe('gpsReducer', () => {
 
     const next = gpsReducer(state, location(fix(6, START + 1000)));
     expect(next.saved?.accuracyM).toBe(6);
+  });
+
+  it('skips two saved fixes in a row, even though the second is newer', () => {
+    let state = run(start, searching, location(fix(30, START - 60 * 60_000)));
+    state = gpsReducer(state, location(fix(5, START - 30 * 60_000)));
+    expect(state.status).toBe('searching');
+    expect(state.best).toBeUndefined();
+    expect(state.saved).toBeUndefined();
+  });
+
+  it('trusts a GPS clock that is a little behind once the first fix has come in', () => {
+    // Every fix is stamped 20 seconds behind the phone's clock.
+    let state = run(start, searching, location(fix(30, START - 20_000)));
+    expect(state.status).toBe('searching');
+
+    state = gpsReducer(state, location(fix(18, START - 19_000)));
+    expect(state.status).toBe('improving');
+    expect(state.best?.accuracyM).toBe(18);
   });
 
   it('skips a reading with no accuracy', () => {

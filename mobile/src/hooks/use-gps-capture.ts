@@ -48,13 +48,27 @@ export type GpsCapture = {
   clear: () => void;
 };
 
+export type GpsCaptureOptions = {
+  /** False while the screen is out of sight, like when another tab is open. Defaults to true. */
+  active?: boolean;
+};
+
 /**
  * Gets a GPS fix for a plant record with expo-location. It watches the position instead of asking
  * once, so it can wait for a good fix, and it stops watching as soon as the capture is over.
  */
-export function useGpsCapture(): GpsCapture {
+export function useGpsCapture({ active = true }: GpsCaptureOptions = {}): GpsCapture {
   const [state, dispatch] = useReducer(gpsReducer, INITIAL_GPS_STATE);
   const locating = isCapturing(state.status);
+
+  // Tabs stay mounted when you switch away, so without this the GPS would keep running (and
+  // draining the battery) on a screen nobody is looking at. Cancel keeps a location that was
+  // already saved, and Capture location starts again when they come back.
+  useEffect(() => {
+    if (!active) {
+      dispatch({ type: 'cancel' });
+    }
+  }, [active]);
 
   // Runs once per capture. The cleanup stops the watch when the capture ends or the screen goes
   // away, and `active` makes sure nothing from an old capture changes the state after that.

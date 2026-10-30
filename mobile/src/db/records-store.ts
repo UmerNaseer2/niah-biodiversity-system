@@ -2,7 +2,7 @@ import type { SpeciesOption } from '@/data/species-list';
 import type { UploadOutcome } from '@/sync/upload-row';
 import type { PlantRecord, UploadProblem } from '@/types/plant-record';
 
-import { openDatabase } from './database';
+import { BUSY_TIMEOUT_MS, openDatabase } from './database';
 
 /** The records saved on this phone, and the species list downloaded with them. */
 export type RecordsStore = {
@@ -37,6 +37,16 @@ export const NO_SUCH_RECORD = 'No record with that ID is saved on this phone.';
 // read a table, so an empty download is much more likely to be that than every species being gone.
 export const EMPTY_SPECIES_LIST =
   'The species list that came down was empty, so the old one stays.';
+
+// How many times replacing the species list is tried when the database is busy, and how long it
+// waits before the next try (this many milliseconds times the try it's on).
+export const SPECIES_TRIES = 3;
+const SPECIES_RETRY_WAIT_MS = 200;
+
+/** SQLITE_BUSY. Both phones put SQLite's own message for it in the error. */
+function isBusyError(error: unknown) {
+  return error instanceof Error && /database is locked/i.test(error.message);
+}
 
 /** One row of plant_records the way SQLite hands it back, with null for an empty column. */
 type RecordRow = {
@@ -184,20 +194,45 @@ export async function openRecordsStore(): Promise<RecordsStore> {
       // This runs on its own connection, so a record saved at the same time can't end up inside
       // the transaction and get undone with it if the list fails. The record waits instead (see
       // busy_timeout in database.ts).
-      await db.withExclusiveTransactionAsync(async (txn) => {
-        await txn.runAsync('DELETE FROM species');
-        for (const option of list) {
-          await txn.runAsync(
-            `INSERT INTO species (slug, scientific_name, common_names)
-            VALUES ($slug, $scientificName, $commonNames)`,
-            {
-              $slug: option.slug,
-              $scientificName: option.scientificName,
-              $commonNames: JSON.stringify(option.commonNames),
-            },
-          );
+      //
+      // The Jest stand-in for expo-sqlite can't show any of this. Its second connection is the
+      // same sql.js database as the first and shares its transactions, so a test never sees two
+      // connections fight over the write lock or one of them wait. Only a real phone can.
+      const replace = () =>
+        db.withExclusiveTransactionAsync(async (txn) => {
+          // expo-sqlite opens a new connection for this every time, and a new connection doesn't
+          // wait at all when the database is busy, so a record being saved would fail the list
+          // straight away. Setting the wait here is still in time, because expo-sqlite starts the
+          // transaction with a plain BEGIN, which doesn't lock anything until the DELETE.
+          await txn.execAsync(`PRAGMA busy_timeout = ${BUSY_TIMEOUT_MS}`);
+          await txn.runAsync('DELETE FROM species');
+          for (const option of list) {
+            await txn.runAsync(
+              `INSERT INTO species (slug, scientific_name, common_names)
+              VALUES ($slug, $scientificName, $commonNames)`,
+              {
+                $slug: option.slug,
+                $scientificName: option.scientificName,
+                $commonNames: JSON.stringify(option.commonNames),
+              },
+            );
+          }
+        });
+
+      // If SQLite still says busy, like when a save takes longer than the wait above, the whole
+      // transaction was rolled back, so it's safe to try it again from the start. Any other error
+      // is a problem with the list itself and trying again won't help.
+      for (let tryNumber = 1; ; tryNumber++) {
+        try {
+          await replace();
+          return;
+        } catch (error) {
+          if (tryNumber >= SPECIES_TRIES || !isBusyError(error)) {
+            throw error;
+          }
+          await new Promise((resolve) => setTimeout(resolve, SPECIES_RETRY_WAIT_MS * tryNumber));
         }
-      });
+      }
     },
 
     close() {

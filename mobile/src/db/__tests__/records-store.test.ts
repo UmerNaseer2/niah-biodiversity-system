@@ -1,4 +1,4 @@
-import { deleteDatabaseAsync } from 'expo-sqlite';
+import { deleteDatabaseAsync, SQLiteDatabase } from 'expo-sqlite';
 
 import type { SpeciesOption } from '@/data/species-list';
 import { DATABASE_NAME } from '@/db/database';
@@ -6,6 +6,7 @@ import {
   EMPTY_SPECIES_LIST,
   NO_SUCH_RECORD,
   openRecordsStore,
+  SPECIES_TRIES,
   type RecordsStore,
 } from '@/db/records-store';
 import type { GpsReading, PlantRecord, UploadProblem } from '@/types/plant-record';
@@ -260,6 +261,64 @@ describe('species list', () => {
     await store.replaceSpecies([belian]);
     await expect(store.replaceSpecies([])).rejects.toThrow(EMPTY_SPECIES_LIST);
     expect(await store.loadSpecies()).toEqual([belian]);
+  });
+
+  it('tells the connection it writes on to wait when the database is busy', async () => {
+    const exec = jest.spyOn(SQLiteDatabase.prototype, 'execAsync');
+    try {
+      await store.replaceSpecies([belian]);
+      // BEGIN comes first, but it doesn't lock anything, so the wait is set before the DELETE.
+      expect(exec.mock.calls.map(([source]) => source)).toEqual([
+        'BEGIN',
+        'PRAGMA busy_timeout = 5000',
+        'COMMIT',
+      ]);
+    } finally {
+      exec.mockRestore();
+    }
+  });
+
+  it('tries again when the database is busy', async () => {
+    await store.replaceSpecies([belian]);
+    // The message the phone gives when a record is being saved on the other connection.
+    const busy = new Error(
+      "Call to function 'NativeStatement.runAsync' has been rejected.\n" +
+        '→ Caused by: Error code 5: database is locked',
+    );
+    const run = jest.spyOn(SQLiteDatabase.prototype, 'runAsync').mockRejectedValueOnce(busy);
+    try {
+      await store.replaceSpecies([fig, belian]);
+      expect(await store.loadSpecies()).toEqual([fig, belian]);
+    } finally {
+      run.mockRestore();
+    }
+  });
+
+  it('gives up and keeps the old list when the database stays busy', async () => {
+    await store.replaceSpecies([belian]);
+    const busy = new Error('Error code 5: database is locked');
+    const run = jest.spyOn(SQLiteDatabase.prototype, 'runAsync');
+    for (let i = 0; i < SPECIES_TRIES; i++) {
+      run.mockRejectedValueOnce(busy);
+    }
+    try {
+      await expect(store.replaceSpecies([fig])).rejects.toThrow(busy);
+      // Only the DELETE at the start of each try, since each one failed straight away.
+      expect(run).toHaveBeenCalledTimes(SPECIES_TRIES);
+    } finally {
+      run.mockRestore();
+    }
+    expect(await store.loadSpecies()).toEqual([belian]);
+  });
+
+  it("doesn't try again when the list itself is the problem", async () => {
+    const transaction = jest.spyOn(SQLiteDatabase.prototype, 'withExclusiveTransactionAsync');
+    try {
+      await expect(store.replaceSpecies([belian, belian])).rejects.toThrow('UNIQUE constraint');
+      expect(transaction).toHaveBeenCalledTimes(1);
+    } finally {
+      transaction.mockRestore();
+    }
   });
 
   it('still has the list after it is closed and opened again', async () => {

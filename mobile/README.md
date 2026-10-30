@@ -18,7 +18,7 @@ are in `src/sync/` since item 3, ready for the "Sync now" button in item 10
 | Home | How many plants were recorded today and whether anything is waiting to sync |
 | Scan | The camera, which opens a record from its QR tag, plus a box to type a tag code by hand |
 | New Record | The plant form, with species suggestions, GPS capture and photo slots |
-| My Records | Every record on the phone, each tagged "Pending sync" or "Synced" |
+| My Records | Every record on the phone, tagged "Pending sync", "Synced" or "Couldn't upload" |
 | Profile | Where sign in will go, plus some info about the phone and app |
 
 Tapping a record (or saving a new one) opens its page.
@@ -53,7 +53,7 @@ src/
     record/[id].tsx     one plant record
   components/           Screen, ListScreen, RecordRow, LocationCapture, LocationSummary, QrScanner
                         and the two tab bars
-    ui/                 small pieces: Button, Card, Field, Chip, Pill, SyncBadge...
+    ui/                 small pieces: Button, Card, Field, Chip, Pill, SyncBadge, SyncBanner...
   constants/            colours, spacing and icon names
   data/
     mock-records.ts     fake records for testing
@@ -62,7 +62,8 @@ src/
     database.ts         opens niah.db and runs the steps that set up and update its tables
     records-store.ts    saves and loads records, the records waiting to upload and the species
                         list. The .web.ts one keeps them in memory instead
-  hooks/                use-gps-capture.ts (GPS with expo-location), plus the theme hooks
+  hooks/                use-gps-capture.ts (GPS with expo-location), use-now.ts (the time, read
+                        again when the app comes back to the front), plus the theme hooks
   lib/                  formatting, the GPS and QR rules, the height and form checks, species
                         search, IDs and tag codes
   state/                records-context.tsx loads the saved records when the app starts and
@@ -104,7 +105,9 @@ what's fake.
   restarts. The fake records are never saved, and they don't show at all in a store build. To start
   again with an empty list, delete the app (or Expo Go) and install it again.
 - To change the database, add a new step to the end of `MIGRATIONS` in `src/db/database.ts`. Never
-  edit a step that's already merged, because a phone that ran it won't run it again.
+  edit a step that's already merged, because a phone that ran it won't run it again. If a phone's
+  database is newer than the app (say you went back to an older build), the app asks you to update
+  it and doesn't touch the records.
 - The web version is only a quick way to check layouts. The real website is in `/web`. On the web,
   records are only kept in memory, so a new one is gone when the page reloads, even though the
   My Records banner says it's saved on the phone.
@@ -131,8 +134,9 @@ npm test
 
 Jest runs the tests in the `__tests__` folders, which sit next to the code they check. They cover
 the helpers in `src/lib` (dates, heights, the form checks, the GPS and QR rules, species search, IDs
-and tag lookup), the GPS hook in `src/hooks` against a mocked `expo-location`, the database and
-records store in `src/db`, the records provider in `src/state`, and the upload rules in `src/sync`
+and tag lookup), the GPS and clock hooks in `src/hooks` (GPS against a mocked `expo-location`),
+the sync badge and banner in `src/components/ui`, the database and records store in `src/db`, the
+records provider in `src/state`, and the upload rules in `src/sync`
 (against the same example records as the SQL tests in `supabase/tests/`). They also make sure the
 mock data follows the same rules as the app.
 

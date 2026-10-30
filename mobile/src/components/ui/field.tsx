@@ -17,6 +17,8 @@ type FieldProps = Omit<TextInputProps, 'style'> & {
   required?: boolean;
   /** Unit shown inside the box, like "m". */
   suffix?: string;
+  /** The unit the way a screen reader should say it, like "metres". Defaults to the suffix. */
+  suffixLabel?: string;
   hint?: string;
   error?: string;
   ref?: Ref<TextInput>;
@@ -26,6 +28,7 @@ export function Field({
   label,
   required,
   suffix,
+  suffixLabel,
   hint,
   error,
   multiline,
@@ -45,6 +48,13 @@ export function Field({
     }
   }, [error]);
 
+  // The unit is hidden from screen readers where it's drawn, so it goes in the label instead,
+  // like "Height, in metres".
+  const unit = suffixLabel ?? suffix;
+  const spokenLabel = [label, unit ? `in ${unit}` : undefined, required ? 'required' : undefined]
+    .filter(Boolean)
+    .join(', ');
+
   let borderColor: string = theme.outline;
   if (error) {
     borderColor = theme.danger;
@@ -61,7 +71,7 @@ export function Field({
       <View style={[styles.box, { borderColor, backgroundColor: theme.background }]}>
         <TextInput
           ref={ref}
-          aria-label={required ? `${label}, required` : label}
+          aria-label={spokenLabel}
           accessibilityHint={error ?? hint}
           multiline={multiline}
           placeholderTextColor={theme.textSecondary}
