@@ -88,13 +88,29 @@ doesn't change.
 | The same, with the original caption: it saves, so the Belian photo was left as it started | Pass |
 | `npm run lint`, `npx tsc --noEmit` and `npm run build` | Pass |
 
+## Round 3: Remove asks first without JavaScript
+
+Added on 29 Oct on the `remove-asks-without-js` branch, on the same stand-in. With JavaScript,
+Remove already asked "Remove this photo?" before doing anything. Without it, the button removed
+the photo straight away. Now the server only removes a photo when the form says it was confirmed.
+The first press without JavaScript sends the page back with the same question on that photo, and
+"Keep it" is a link that loads the page again.
+
+| Test | Result |
+| --- | --- |
+| With JavaScript: Remove on the Tapang photo asks first and moves focus to the question. Keep it puts focus back on Remove, and nothing is removed | Pass |
+| A test photo uploaded the way a browser without JavaScript sends it shows as photo 2 | Pass |
+| Its Remove sent without JavaScript: the page comes back asking "Remove this photo? Its file is deleted too." on that photo only, and both photos are still there | Pass |
+| The question's Remove sent from that page: "Photo removed.", and only the Tapang photo is left | Pass |
+| `npm run lint`, `npx tsc --noEmit` and `npm run build` | Pass |
+
 ## Not tested yet
 
 - A record that came from the app with photos the phone hasn't uploaded yet. The page has text for
   it, but it wasn't tried.
 - The 12 photo limit through the page. The database test checks 13 is turned down.
 - Keyboard-only use beyond the focus checks above, a screen reader, and the pages with JavaScript
-  turned off. Without JavaScript, Remove removes straight away instead of asking.
+  turned off, apart from the forms tried that way above.
 - The pages against the hosted project, which needs 003 to 009 run first. The stand-in copies the
   buckets' size and file type limits, but Supabase's own Storage server hasn't been tried.
 
