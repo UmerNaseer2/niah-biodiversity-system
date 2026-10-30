@@ -2,6 +2,7 @@ import type { Condition } from "./condition";
 import { parkTime } from "./format";
 import { roughCentre } from "./geo";
 import { publicClient } from "./supabase";
+import { readAll } from "./supabase/read-all";
 import { tagCode } from "./tags";
 import {
   findPublishedByTag,
@@ -90,10 +91,14 @@ export async function getPublishedCounts(): Promise<Record<string, number>> {
     );
   }
 
-  const { data, error } = await client
-    .from("records_public")
-    .select("species_slug")
-    .eq("status", "published");
+  const { data, error } = await readAll((from, to) =>
+    client
+      .from("records_public")
+      .select("species_slug", { count: "exact" })
+      .eq("status", "published")
+      .order("id")
+      .range(from, to),
+  );
   if (error) throw new Error(`Couldn't load the record counts: ${error.message}`);
 
   const counts: Record<string, number> = {};
@@ -111,12 +116,16 @@ export async function getPublishedRecordsForSpecies(slug: string): Promise<Publi
   const client = await publicClient();
   if (!client) return publishedForSpecies(slug).map(fromMock).sort(newestFirst);
 
-  const { data, error } = await client
-    .from("records_public")
-    .select(COLUMNS)
-    .eq("species_slug", slug)
-    .eq("status", "published")
-    .order("recorded_at", { ascending: false });
+  const { data, error } = await readAll((from, to) =>
+    client
+      .from("records_public")
+      .select(COLUMNS, { count: "exact" })
+      .eq("species_slug", slug)
+      .eq("status", "published")
+      .order("recorded_at", { ascending: false })
+      .order("id")
+      .range(from, to),
+  );
   if (error) throw new Error(`Couldn't load the records for ${slug}: ${error.message}`);
   return data.map(fromRow);
 }

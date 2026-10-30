@@ -7,6 +7,7 @@ import { LatinName } from "@/components/plant-bits";
 import { requireStaff } from "@/lib/auth";
 import { plural } from "@/lib/format";
 import { speciesFromRow } from "@/lib/species-db";
+import { readAll } from "@/lib/supabase/read-all";
 import { createClient } from "@/lib/supabase/server";
 import { DeleteSpeciesForm } from "./delete-species-form";
 
@@ -26,7 +27,14 @@ export default async function DeleteSpeciesPage({
   const supabase = await createClient();
   const [speciesResult, recordsResult] = await Promise.all([
     supabase.from("species_staff").select("*").eq("id", slug).maybeSingle(),
-    supabase.from("records_staff").select("status").eq("species_slug", slug),
+    readAll((from, to) =>
+      supabase
+        .from("records_staff")
+        .select("status", { count: "exact" })
+        .eq("species_slug", slug)
+        .order("id")
+        .range(from, to),
+    ),
   ]);
 
   const breadcrumb = (

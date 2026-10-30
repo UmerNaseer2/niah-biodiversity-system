@@ -1007,3 +1007,36 @@ describe('a sign in that has run out', () => {
     assert.equal(rows.body.code, 'PGRST301');
   });
 });
+
+describe('a stand-in that sends a few rows at a time', () => {
+  let capped;
+
+  before(async () => {
+    capped = await startStandIn({ port: 0, maxRows: 3, log: () => {} });
+  });
+
+  after(() => capped.close());
+
+  test('a read gets maxRows rows at most, and offset and the count still work', async () => {
+    const { access_token: token } = await sessionFor(officer, capped.url);
+    const counted = { token, headers: { Prefer: 'count=exact' } };
+    const query = '/rest/v1/records_staff?select=id&order=recorded_at.desc,id';
+
+    const first = await callAt(capped.url, query, counted);
+    assert.equal(first.status, 200);
+    assert.equal(first.body.length, 3);
+    assert.equal(first.headers.get('content-range'), '0-2/10');
+
+    // Asking for more than maxRows still gets maxRows, like Max rows on Supabase
+    const asked = await callAt(capped.url, `${query}&limit=999`, counted);
+    assert.equal(asked.body.length, 3);
+
+    const seen = [];
+    for (let from = 0; from < 10; from += 3) {
+      const page = await callAt(capped.url, `${query}&limit=3&offset=${from}`, counted);
+      seen.push(...page.body.map((row) => row.id));
+    }
+    assert.equal(new Set(seen).size, 10);
+    assert.deepEqual(seen.slice(0, 3), first.body.map((row) => row.id));
+  });
+});

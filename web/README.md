@@ -81,6 +81,11 @@ accounts get "No access". The stand-in lists the accounts when it starts, and th
 This only works with `npm run dev`. The stand-in's URL is http, so a production build of the
 website says sign in isn't set up.
 
+Supabase sends at most 1000 rows for one request, so the pages that need every row (the counts,
+the records list, the report and the CSV) read them through `readAll()` in
+`src/lib/supabase/read-all.ts`, a page at a time. Start the stand-in with `STAND_IN_MAX_ROWS=3`
+to try that with the sample records.
+
 ## What's where
 
 ```

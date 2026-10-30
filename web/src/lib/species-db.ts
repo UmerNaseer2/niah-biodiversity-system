@@ -1,4 +1,5 @@
 import { publicClient } from "./supabase";
+import { readAll } from "./supabase/read-all";
 import { species as mockSpecies, type Species } from "@/data/species";
 import { parkTime } from "@/lib/format";
 import { isIucnCode } from "@/lib/iucn";
@@ -53,8 +54,10 @@ async function photosFor(
   client: PublicClient,
   slug?: string,
 ): Promise<Map<string, SpeciesPhoto[]>> {
-  const query = client.from("species_photos_public").select("id, photos");
-  const { data, error } = await (slug ? query.eq("id", slug) : query);
+  const { data, error } = await readAll((from, to) => {
+    const query = client.from("species_photos_public").select("id, photos", { count: "exact" });
+    return (slug ? query.eq("id", slug) : query).order("id").range(from, to);
+  });
   if (error) {
     console.error("Couldn't load the species photos:", error.message);
     return new Map();
@@ -74,10 +77,14 @@ export async function getSpeciesList(): Promise<Species[]> {
   if (!client) return mockSpecies;
 
   const [{ data, error }, photos] = await Promise.all([
-    client
-      .from("species_public")
-      .select("*")
-      .order("scientific_name", { ascending: true }),
+    readAll((from, to) =>
+      client
+        .from("species_public")
+        .select("*", { count: "exact" })
+        .order("scientific_name", { ascending: true })
+        .order("id")
+        .range(from, to),
+    ),
     photosFor(client),
   ]);
   if (error) throw new Error(`Couldn't load the species list: ${error.message}`);

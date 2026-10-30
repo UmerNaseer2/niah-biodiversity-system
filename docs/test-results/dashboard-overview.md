@@ -67,5 +67,7 @@ which only happens with `npm run dev` and isn't part of the site.
 - The hosted Supabase project, which needs 003 to 009 run first.
 - A records table bigger than 1000 rows. Hosted Supabase only sends 1000 rows per request, so the
   counts would stop at 1000 until the pages read the rows in pages.
+  **Fixed on 29 Oct:** the pages read the rows a page at a time now, and a stand-in that sends 3
+  rows per request gives the same counts (see `read-past-row-cap.md`).
 - What the page looks like when the records fail to load. The stand-in can't be told to fail one
   view, so only the code path was read, not tried.

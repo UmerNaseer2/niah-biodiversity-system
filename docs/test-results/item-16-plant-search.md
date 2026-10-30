@@ -125,6 +125,10 @@ The tagged plant counts on `/plants` come from reading the species of every appr
 hosted project sends at most 1000 rows for one request, so past 1000 approved records the counts
 come out too low. A count in the database (a view or a function) would fix it.
 
+**Fixed on 29 Oct:** the website reads the rows a page at a time until it has them all, so the
+counts are right past 1000 records too (see `read-past-row-cap.md`). A count in the database
+would still be quicker once there are many thousands.
+
 ### Fixed while testing
 
 - A record with no species was counted on the plant list under a species called "null".
