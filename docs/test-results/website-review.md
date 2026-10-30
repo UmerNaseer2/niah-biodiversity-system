@@ -4,7 +4,7 @@ Round 1 was on 29 Oct 2026 on Umer's Mac (macOS, Node 22.22.3) on the `web-revie
 branch. The pages were tried against the Supabase stand-in in `supabase/tests/stand-in.js` (see
 `web/README.md`), with the stand-in's own sample records and test accounts, not the hosted project.
 Round 2, on 30 Oct, fixed what a second review of the whole project found, one branch per fix. See
-round 2 below.
+round 2 below. Round 3, later that day, fixed what a review of the earlier fixes found.
 
 ## What changed
 
@@ -98,6 +98,55 @@ hidden spot. Each fix below was tried on the stand-in the same way as round 1.
 | After the fix: `exact=1` as `same-origin` (the Reports page form), `none` (a typed address) and with no header at all | All `200` and the file, and the list goes up by 3 rows |
 | After the fix: the CSV without exact spots as `cross-site` | `200` and the file, and no new row |
 
+## Round 3: reviewing the fixes
+
+Later on 30 Oct a review went back over the earlier fixes and the items finished since. Each
+website fix below was tried on the stand-in, the same way as before. The phone fixes from the same
+review are in [deleted-records.md](deleted-records.md), under round 3.
+
+| Branch | What was wrong | Now |
+| --- | --- | --- |
+| `species-rough-backfill` | A threatened or protected species could still have rough area only switched off, because the public rule hid it anyway. The first save on its edit page turned the switch on, so the history said "On the public map changed from Exact spot to Rough area only" even though the public saw no change | `supabase/015_species_rough_area.sql` turns the switch on for these species without a history line and keeps it on. The public sees the same as before |
+| `report-date-limits` | Round 2's date check let through year 0, which the database doesn't have, and the last day of year 9999, where the day after a "to" date doesn't fit. The page said the records didn't load and the CSV link gave a 500 | Both count as no limit, like any other day that can't be used |
+| `history-whitespace-lines` | Notes that only differed by spaces or line breaks showed as "Notes changed", and opening it showed the same text twice. A short field could read "Recorded by set to" and then nothing | The history says "Notes changed slightly (only spaces or line breaks)" or "Recorded by changed slightly (still Aina)" |
+| `history-duplicate-photos` | The history matched species photos by file or link, so two photos with the same outside link counted as one. Removing one of them, or adding the same link again, said nothing | Each old photo is only matched once, in order, and whatever is left over was removed |
+| `history-text-wording` | The history section, its comment and the docs said no location goes in the history. The map location doesn't, but notes are kept word for word, so a place someone typed is kept too | They now say the map location never goes in, but typed text like notes is kept as it was typed |
+| `map-sensor-under-dots` | A sensor square could sit on top of a plant dot, so clicking the dot did nothing | Sensor squares sit under the plant dots, so the link still opens where they overlap |
+| `map-labels-keyboard` | A label with no room is hidden until its dot is pointed at or tabbed to, but only plant links could be tabbed to, and the plain dot on a tag page couldn't even be pointed at | Sensor squares and plain dots can be tabbed to and pointed at, the label shows while they have focus, and they have a name for screen readers, like "Sensor S-02, offline, with an alert". A dot that's been dragged off the map pans back into view |
+
+Round 2 said notes nobody touched save exactly as they were. That's only true for notes with plain
+line breaks and no spaces at the ends. Other notes get tidied when saved, and the history now says
+so in words that make sense.
+
+| Check | Command | Result |
+| --- | --- | --- |
+| SQL tests | `cd supabase/tests && npm test` | 239 of 239 pass |
+| Website lint | `cd web && npm run lint` | Pass |
+| Types | `cd web && npx tsc --noEmit` | Pass |
+| Build | `cd web && npm run build` | Pass. Only the two font warnings `web/README.md` explains |
+
+| Test | Result |
+| --- | --- |
+| Pressed Save changes on belian's edit page without changing anything, after 015 | "Changes saved", and the history still says nobody has changed it |
+| Before the fix: reports page and CSV link with `to=9999-12-31`, `from=0000-01-01` and `to=0000-01-01` | The page said the records didn't load and the CSV link gave a 500 |
+| After the fix: the same three | All load. The page says "any date" and the file has all 8 records |
+| `to=9999-12-30`, `from=0001-01-01` and `from=2026-10-01&to=2026-10-05` | Still kept as limits. The last file has 3 records |
+| Gave a record notes with `\r\n` and spaces at the end through the API, then pressed Save changes without changing anything | "Changes saved", and the history says "Notes changed slightly (only spaces or line breaks)" |
+| A throwaway script on the history wording: notes with only spaces, only a line break, and spaces to empty | All three say "Notes changed slightly (only spaces or line breaks)" |
+| The same script: `Aina` to ` Aina `, empty to spaces, and a time a few seconds later | "Recorded by changed slightly (still Aina)", "(still empty)" and "(still 12 Oct 2026, 10:40 pm)" |
+| The same script: real changes, and fields added and taken off | They read the same as before |
+| A throwaway script on the photo lines: one of two photos with the same link removed, then the same link added again | "Photo removed (“Two”)" and "Photo added (“Two”)" |
+| The same script: both captions changed, the main photo moved, a new photo made main, and all photos removed | Two caption lines, the right main photo line, and three removed lines |
+| At 1024 px, checked what's on top at the middle of every dot and square on the dashboard map | None of the 9 plant dots are under a sensor. 7 are on top and 2 are under another plant dot very close by. All 5 sensors are still on top where no plant is |
+| Clicked the dashboard map and pressed Tab | Goes through S-01 to S-05 in turn, each with a solid focus ring and on top of the other labels. A label that was hidden to make room shows on focus, and the one next to it hides instead |
+| On a tag page, pressed Tab to the plain dot | It looks the same as before, its name is the tag code, and the visible label is hidden from screen readers so it isn't said twice |
+| Dragged that dot off the map and pressed Tab | The map pans it back into view |
+| Browser console during the map tests | No errors |
+
+The history can't tell two photos with the same link apart, since nothing else marks which is
+which. Removing the first of two reads as "Photo caption changed from “One” to “Two”" and
+"Photo removed (“Two”)". The photos left are right, only the wording is off.
+
 ## Not tested yet
 
 - The Plants page with no species at all, since the stand-in's records need its species. The new
@@ -109,4 +158,8 @@ hidden spot. Each fix below was tried on the stand-in the same way as round 1.
 - Pressing Download on the Reports page in a real browser. The browser pane here doesn't save
   files, so the header the form sends was set by hand. The form is a plain GET on the same site,
   so a browser sends `same-origin` for it.
-- The hosted Supabase project, which needs 003 to 009 run first.
+- The history lines for two photos with the same outside link on a real save. They were only tried
+  on the function, since it takes the Table Editor to make two photos like that.
+- The map labels with a real screen reader. Their names and focus were checked in the browser with
+  real Tab presses, but nothing read them out loud.
+- The hosted Supabase project, which needs 003 to 015 run first.

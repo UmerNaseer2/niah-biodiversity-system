@@ -4,7 +4,8 @@ Tested on 29 Oct 2026 on Umer's Mac (macOS, Node 22.22.3) on the `deleted-record
 SQL was tried on PGlite (`supabase/tests/`) and the Supabase stand-in in
 `supabase/tests/stand-in.js`, not against the hosted project.
 
-Round 2, on 30 Oct on the `phone-remove-deleted` branch, let the phone remove its own copy.
+Round 2, on 30 Oct on the `phone-remove-deleted` branch, let the phone remove its own copy. Round 3,
+the same day, fixed what a review of round 2 found.
 
 ## What changed
 
@@ -108,6 +109,27 @@ The new phone tests check that:
 
 Not tried on a real phone yet. The web build of the phone app keeps records in memory and can't
 get a `deleted` answer without item 10's sync, so the button was only checked in the tests.
+
+## Round 3: fixes from the review
+
+Tested on 30 Oct 2026, one branch per fix.
+
+| Branch | What was wrong | Now |
+| --- | --- | --- |
+| `phone-outcome-after-remove` | A record with the `deleted` problem is still tried again, so it can be removed while its request is on the way. When the answer came back there was no row to mark, and that threw an error, which would stop the rest of the sync | With no row there's nothing to mark, so it does nothing. A real database failure still throws. `docs/sync-design.md` has the note for item 10 |
+| `phone-remove-flow` | Two quick taps on "Remove it" could both land before the button showed as disabled, and the second said removing it failed even though it had worked. "Keep it" left an old failure showing for next time. A screen reader wasn't told the question had appeared, and the button that had focus was gone by then | Only the first tap runs, "Keep it" clears the failure, and the question is read out when it appears |
+| `phone-test-gaps` | The GPS check only tried one edge of the globe. The button was only checked against one other problem. The web version of the records store had no tests. The test for a removal lasting after a reopen looked like it showed more than it could | 90 and 180 are tried, along with points just past them. The button is checked against every other problem. The web store is checked against the phone's rules and messages. The test says what it can't show, since the stand-in for SQLite keeps the database in memory |
+
+| Check | Command | Result |
+| --- | --- | --- |
+| Phone tests | `cd mobile && npm test -- --watchAll=false` | 364 of 364 pass, in 19 suites |
+| Phone types and lint | `cd mobile && npx tsc --noEmit && npx expo lint` | Pass |
+
+The new tests for `phone-remove-flow` were checked by taking each fix out on its own. The double
+tap, Keep it and read out tests each failed without their fix and passed with it.
+
+Still not tried on a real phone or with a real screen reader. The announcement was only checked in
+the tests, and a real sync can't happen until item 10.
 
 ## Known limits
 
