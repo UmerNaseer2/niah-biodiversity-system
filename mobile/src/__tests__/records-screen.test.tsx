@@ -1,6 +1,7 @@
 import { Stack } from 'expo-router';
-import { fireEvent, renderRouter, screen, within } from 'expo-router/testing-library';
-import { deleteDatabaseAsync } from 'expo-sqlite';
+import { act, fireEvent, renderRouter, screen, within } from 'expo-router/testing-library';
+import { deleteDatabaseAsync, SQLiteDatabase } from 'expo-sqlite';
+import { AccessibilityInfo } from 'react-native';
 
 import RecordsScreen from '@/app/(tabs)/records';
 import RecordScreen from '@/app/record/[id]';
@@ -45,7 +46,23 @@ async function renderList() {
   await screen.findByRole('heading', { name: 'My records' });
 }
 
+/** Opens the record's page, after an officer has deleted it on the website. */
+async function openDeleted() {
+  const store = await openRecordsStore();
+  try {
+    await store.saveUploadOutcome(stuck.id, { kind: 'problem', problem: 'deleted' });
+  } finally {
+    await store.close();
+  }
+  await renderList();
+  fireEvent.press(screen.getByRole('link', { name: /^Ficus benjamina, Weeping fig/ }));
+  expect(await screen.findByText(uploadProblemMessage('deleted'))).toBeVisible();
+}
+
+const removeFailed = "Couldn't remove the record from this phone. Try again.";
+
 beforeEach(async () => {
+  jest.clearAllMocks();
   await deleteDatabaseAsync(DATABASE_NAME);
   const store = await openRecordsStore();
   try {
@@ -89,19 +106,15 @@ describe('My records', () => {
   });
 
   it('offers to remove a record an officer deleted, and asks first', async () => {
-    const store = await openRecordsStore();
-    try {
-      await store.saveUploadOutcome(stuck.id, { kind: 'problem', problem: 'deleted' });
-    } finally {
-      await store.close();
-    }
-    await renderList();
-    fireEvent.press(screen.getByRole('link', { name: /^Ficus benjamina, Weeping fig/ }));
-    expect(await screen.findByText(uploadProblemMessage('deleted'))).toBeVisible();
+    await openDeleted();
 
     // Keep it puts the button back and changes nothing.
     fireEvent.press(screen.getByRole('button', { name: 'Remove from this phone' }));
-    expect(screen.getByText(/gone for good\. Remove it\?$/)).toBeVisible();
+    const question = /gone for good\. Remove it\?$/;
+    expect(screen.getByRole('alert', { name: question })).toBeVisible();
+    expect(AccessibilityInfo.announceForAccessibility).toHaveBeenCalledWith(
+      expect.stringMatching(question),
+    );
     fireEvent.press(screen.getByRole('button', { name: 'Keep it' }));
     expect(screen.queryByText(/gone for good/)).toBeNull();
 
@@ -110,6 +123,54 @@ describe('My records', () => {
     expect(await screen.findByRole('heading', { name: 'My records' })).toBeVisible();
     expect(screen.getByText(`${MOCK_RECORDS.length} records on this phone`)).toBeVisible();
     expect(screen.queryByRole('link', { name: /^Ficus benjamina, Weeping fig/ })).toBeNull();
+  });
+
+  it("says so when the record can't be removed, and Keep it clears that", async () => {
+    await openDeleted();
+    const failure = jest
+      .spyOn(SQLiteDatabase.prototype, 'runAsync')
+      .mockRejectedValueOnce(new Error('database is locked'));
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      fireEvent.press(screen.getByRole('button', { name: 'Remove from this phone' }));
+      fireEvent.press(screen.getByRole('button', { name: 'Remove it' }));
+
+      expect(await screen.findByRole('alert', { name: removeFailed })).toBeVisible();
+      expect(AccessibilityInfo.announceForAccessibility).toHaveBeenCalledWith(removeFailed);
+      expect(warn).toHaveBeenCalledWith("Couldn't remove the record.", expect.any(Error));
+      expect(screen.getByRole('button', { name: 'Remove it' })).toBeEnabled();
+
+      // Asking again starts clean, and it works now the database is free.
+      fireEvent.press(screen.getByRole('button', { name: 'Keep it' }));
+      fireEvent.press(screen.getByRole('button', { name: 'Remove from this phone' }));
+      expect(screen.queryByText(removeFailed)).toBeNull();
+      fireEvent.press(screen.getByRole('button', { name: 'Remove it' }));
+      expect(await screen.findByRole('heading', { name: 'My records' })).toBeVisible();
+      expect(screen.getByText(`${MOCK_RECORDS.length} records on this phone`)).toBeVisible();
+    } finally {
+      failure.mockRestore();
+      warn.mockRestore();
+    }
+  });
+
+  it('only removes the record once when Remove it is tapped twice quickly', async () => {
+    await openDeleted();
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      fireEvent.press(screen.getByRole('button', { name: 'Remove from this phone' }));
+      const remove = screen.getByRole('button', { name: 'Remove it' });
+      // In one act, so the button hasn't shown as disabled yet when the second tap lands.
+      act(() => {
+        fireEvent.press(remove);
+        fireEvent.press(remove);
+      });
+
+      expect(await screen.findByRole('heading', { name: 'My records' })).toBeVisible();
+      expect(warn).not.toHaveBeenCalled();
+      expect(screen.getByText(`${MOCK_RECORDS.length} records on this phone`)).toBeVisible();
+    } finally {
+      warn.mockRestore();
+    }
   });
 
   it("doesn't offer to remove a record with any other problem", async () => {

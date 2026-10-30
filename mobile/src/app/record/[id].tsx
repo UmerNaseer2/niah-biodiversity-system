@@ -1,5 +1,5 @@
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { AccessibilityInfo, Platform, StyleSheet, View } from 'react-native';
 
 import { LocationSummary } from '@/components/location-summary';
@@ -15,7 +15,17 @@ import { conditionLabel, formatHeight, formatRecordedAt } from '@/lib/format';
 import { useRecords } from '@/state/records-context';
 import { uploadProblemMessage } from '@/sync/upload-row';
 
+const REMOVE_ASK =
+  "The server doesn't have this record any more, so once it's off this phone it's gone for " +
+  'good. Remove it?';
 const REMOVE_FAILED = "Couldn't remove the record from this phone. Try again.";
+
+/** Reads a message out on a phone. On the web a role="alert" on the message does the same job. */
+function announce(message: string) {
+  if (Platform.OS !== 'web') {
+    AccessibilityInfo.announceForAccessibility(message);
+  }
+}
 
 /**
  * Takes a record an officer deleted on the website off the phone. It asks first, because the
@@ -27,8 +37,26 @@ function RemoveDeleted({ id }: { id: string }) {
   const [asking, setAsking] = useState(false);
   const [removing, setRemoving] = useState(false);
   const [failed, setFailed] = useState(false);
+  // Two quick taps can both land before the button shows as disabled. The second would find the
+  // record already gone and say removing it failed.
+  const busy = useRef(false);
+
+  function ask() {
+    setAsking(true);
+    // The button that had focus is gone now, so nothing else would say the question appeared.
+    announce(REMOVE_ASK);
+  }
+
+  function keep() {
+    setAsking(false);
+    setFailed(false);
+  }
 
   async function remove() {
+    if (busy.current) {
+      return;
+    }
+    busy.current = true;
     setRemoving(true);
     setFailed(false);
     try {
@@ -36,34 +64,24 @@ function RemoveDeleted({ id }: { id: string }) {
       router.dismissTo('/records');
     } catch (error) {
       console.warn("Couldn't remove the record.", error);
+      busy.current = false;
       setFailed(true);
       setRemoving(false);
-      // On the web the role="alert" below does the same job.
-      if (Platform.OS !== 'web') {
-        AccessibilityInfo.announceForAccessibility(REMOVE_FAILED);
-      }
+      announce(REMOVE_FAILED);
     }
   }
 
   if (!asking) {
-    return (
-      <Button label="Remove from this phone" variant="outline" onPress={() => setAsking(true)} />
-    );
+    return <Button label="Remove from this phone" variant="outline" onPress={ask} />;
   }
 
   return (
     <View style={styles.ask}>
-      <ThemedText type="smallBold">
-        The server doesn&apos;t have this record any more, so once it&apos;s off this phone
-        it&apos;s gone for good. Remove it?
+      <ThemedText type="smallBold" role="alert">
+        {REMOVE_ASK}
       </ThemedText>
       <Button label="Remove it" onPress={remove} disabled={removing} />
-      <Button
-        label="Keep it"
-        variant="outline"
-        onPress={() => setAsking(false)}
-        disabled={removing}
-      />
+      <Button label="Keep it" variant="outline" onPress={keep} disabled={removing} />
       {failed ? (
         <ThemedText type="small" themeColor="danger" role="alert">
           {REMOVE_FAILED}
