@@ -11,13 +11,25 @@ export function versionFromFormData(formData: FormData) {
 }
 
 /**
- * Supabase gives times to the microsecond and the local stand-in only to the
- * millisecond, so a save matches any updated_at in the same millisecond as
- * the one the form loaded. Date.parse drops the extra digits.
+ * The updated_at values that count as the one the form loaded. Supabase gives
+ * times to the microsecond, so that's an exact match. The local stand-in only
+ * gives milliseconds, so there it's anything in the same millisecond, which is
+ * also what happens when a Supabase time ends in zeros (Postgres leaves them
+ * off). Date.parse drops anything past the milliseconds, so they're added back
+ * by hand.
  */
 export function versionRange(version: string) {
   const ms = Date.parse(version);
-  return { from: new Date(ms).toISOString(), to: new Date(ms + 1).toISOString() };
+  const digits = version.match(/:\d{2}\.(\d+)/)?.[1] ?? "";
+  if (digits.length <= 3) {
+    return { from: new Date(ms).toISOString(), to: new Date(ms + 1).toISOString() };
+  }
+  const micro = Number(digits.slice(3, 6).padEnd(3, "0"));
+  const at = (us: number) =>
+    new Date(ms + Math.floor(us / 1000))
+      .toISOString()
+      .replace("Z", `${String(us % 1000).padStart(3, "0")}Z`);
+  return { from: at(micro), to: at(micro + 1) };
 }
 
 /** What a form says when someone else saved first */

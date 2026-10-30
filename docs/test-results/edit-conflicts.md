@@ -4,7 +4,8 @@ Round 1 was on 29 Oct 2026 on Umer's Mac (macOS, Node 22.22.3) on the `edit-conf
 The pages were tried against the Supabase stand-in in `supabase/tests/stand-in.js` (see
 `web/README.md`), signed in as the stand-in's test officer, not against the hosted project.
 Round 2, on the same day on the `delete-checks-edits` branch, added the same check to the delete
-pages.
+pages. Round 3, on the `exact-version-times` branch, made the check exact to the microsecond when
+the time has microseconds.
 
 ## What changed
 
@@ -103,11 +104,27 @@ accept. A real species name shows it.
 The throwaway rows were removed afterwards, and the stand-in still has its 10 records and 7
 species.
 
+## Round 3: exact to the microsecond
+
+Hosted Supabase gives `updated_at` to the microsecond, like `10:12:33.123456`, but the check
+dropped everything past the milliseconds, so any save in the same thousandth of a second counted
+as the version the form loaded. `versionRange` in `web/src/lib/edit-version.ts` now keeps the
+microseconds when the time has them and only matches that exact time. A time with three digits
+or fewer after the point still matches the whole millisecond. That's what the stand-in gives, and
+it's also what Postgres sends for a time that ends in zeros, since it leaves them off.
+
+| Test | Result |
+| --- | --- |
+| Four times put through `versionRange`, the stand-in's own (`.861Z`), six digits, a time zone of +10:00, and a time with fewer digits: each gives the range expected | Pass |
+| In PGlite, rows saved at `.123456`, `.123457` and `.123999` of the same second: the version of each matches only its own row. Before, all three matched each other | Pass |
+| The round 2 check again on the stand-in, record and species: the old page's delete is refused and the reloaded page's delete goes through | Pass |
+| `npm run lint`, `npx tsc --noEmit` and `npm run build` | Pass |
+
 ## Known limits
 
-- **Two saves in the same millisecond.** The check matches any `updated_at` in the same
-  millisecond as the one the form loaded, because the stand-in only keeps milliseconds. Two
-  people would have to save within a thousandth of a second of each other for one to be missed.
+- **Fixed on 29 Oct:** two saves in the same millisecond could miss each other, because the
+  check only looked at milliseconds. On hosted it's now exact to the microsecond (round 3). The
+  stand-in only keeps milliseconds, so it still works the old way there.
 - **It doesn't merge.** If two people change different boxes, the second one still has to reload
   and type theirs again. That's simpler and safer than guessing which box each person meant.
 - **Fixed on 29 Oct:** deleting wasn't checked, so someone could delete a record or species right
@@ -119,6 +136,6 @@ species.
 ## Not tested yet
 
 - The hosted Supabase project, which needs 003 to 009 run first. Its times have microseconds,
-  which the code drops before comparing, but that hasn't been seen working there.
+  which the code now compares exactly (round 3), but that hasn't been seen working there.
 - A screen reader reading out the conflict message. It uses the same error box as the other
   errors on these forms.
