@@ -84,13 +84,16 @@ export function mainPhoto(photos: SpeciesPhoto[]) {
   return photos.find((photo) => photo.isPrimary) ?? photos[0] ?? null;
 }
 
-/** The key of a stored photo, the same way photosFromJson works it out */
-export function storedKey(value: unknown) {
+/** The key of a stored photo, worked out by photosFromJson so they always match */
+export function storedKey(value: unknown, slug: string) {
+  return photoFrom(value, slug)?.key ?? null;
+}
+
+/** The file a stored photo points to in botanical-photos, if the website uploaded it */
+export function storedPath(value: unknown, slug: string) {
   if (typeof value !== "object" || value === null) return null;
-  const photo = value as Record<string, unknown>;
-  if (typeof photo.path === "string") return photo.path;
-  if (typeof photo.url === "string") return photo.url;
-  return null;
+  const path = (value as Record<string, unknown>).path;
+  return typeof path === "string" && isUploadedPath(path, slug) ? path : null;
 }
 
 export type PhotoFieldId = "photo-file" | "photo-caption" | "photo-credit";

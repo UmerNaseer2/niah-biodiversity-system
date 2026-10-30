@@ -82,6 +82,10 @@ function exactPattern(name: string) {
   return name.replace(/[\\%_]/g, (c) => `\\${c}`);
 }
 
+// The API also reads * in a LIKE pattern as %, and a backslash doesn't stop
+// it. No scientific name has a * in it, so a name with one can't match.
+const NEVER_A_SPECIES = /\*/;
+
 export async function editRecord(
   _prev: RecordFormState,
   formData: FormData,
@@ -110,7 +114,13 @@ export async function editRecord(
   // the list leaves the record with no species yet, like the phone does.
   const name = tidy(values.speciesName);
   const [speciesResult, currentResult] = await Promise.all([
-    supabase.from("species_staff").select("id").ilike("scientific_name", exactPattern(name)).maybeSingle(),
+    NEVER_A_SPECIES.test(name)
+      ? { data: null, error: null }
+      : supabase
+          .from("species_staff")
+          .select("id")
+          .ilike("scientific_name", exactPattern(name))
+          .maybeSingle(),
     supabase.from("records_staff").select("gps").eq("id", id).maybeSingle(),
   ]);
   if (speciesResult.error) {

@@ -74,7 +74,9 @@ export function PhotoManager({
   );
   const [handledUpload, setHandledUpload] = useState(upload);
   const [handledManage, setHandledManage] = useState(manage);
-  const [confirming, setConfirming] = useState<string | null>(null);
+  // Which photo's Remove is asking first. It goes by place, since two outside
+  // links can be the same
+  const [confirming, setConfirming] = useState<number | null>(null);
   const [focusRequest, setFocusRequest] = useState<{ elementId: string } | null>(
     null,
   );
@@ -165,10 +167,10 @@ export function PhotoManager({
     startTransition(() => manageAction(formData));
   }
 
-  function askFirst(event: MouseEvent<HTMLButtonElement>, key: string, index: number) {
+  function askFirst(event: MouseEvent<HTMLButtonElement>, index: number) {
     // With JavaScript, Remove asks first. Without it the button just removes.
     event.preventDefault();
-    setConfirming(key);
+    setConfirming(index);
     setFocusRequest({ elementId: `photo-${index}-confirm` });
   }
 
@@ -234,7 +236,7 @@ export function PhotoManager({
                 {/* eslint-disable-next-line @next/next/no-img-element -- like the public gallery */}
                 <img
                   src={photo.src}
-                  alt={photo.caption}
+                  alt={photo.caption || `A photo of ${name}`}
                   loading="lazy"
                   decoding="async"
                   className="aspect-[4/3] w-full border-b border-line object-cover"
@@ -252,10 +254,11 @@ export function PhotoManager({
                     {!photo.path && ". Linked from another site."}
                   </p>
 
-                  {confirming === photo.key ? (
+                  {confirming === index ? (
                     <form action={manageAction} onSubmit={handleManage} className="mt-3">
                       <input type="hidden" name="slug" value={slug} />
                       <input type="hidden" name="key" value={photo.key} />
+                      <input type="hidden" name="index" value={index} />
                       <input type="hidden" name="intent" value="remove" />
                       <p id={`photo-${index}-confirm`} tabIndex={-1} className="text-sm font-bold">
                         Remove this photo?
@@ -280,6 +283,7 @@ export function PhotoManager({
                         <form action={manageAction} onSubmit={handleManage}>
                           <input type="hidden" name="slug" value={slug} />
                           <input type="hidden" name="key" value={photo.key} />
+                          <input type="hidden" name="index" value={index} />
                           <input type="hidden" name="intent" value="main" />
                           <button
                             type="submit"
@@ -293,11 +297,12 @@ export function PhotoManager({
                       <form action={manageAction} onSubmit={handleManage}>
                         <input type="hidden" name="slug" value={slug} />
                         <input type="hidden" name="key" value={photo.key} />
+                        <input type="hidden" name="index" value={index} />
                         <input type="hidden" name="intent" value="remove" />
                         <button
                           id={`photo-${index}-remove`}
                           type="submit"
-                          onClick={(event) => askFirst(event, photo.key, index)}
+                          onClick={(event) => askFirst(event, index)}
                           aria-disabled={busy}
                           className="btn btn-danger"
                         >

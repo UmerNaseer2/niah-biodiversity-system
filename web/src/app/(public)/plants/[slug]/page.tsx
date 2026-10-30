@@ -150,7 +150,7 @@ export default async function PlantPage({
               Photos
             </h2>
             {plant.photos.length > 0 ? (
-              <PhotoGallery photos={plant.photos} />
+              <PhotoGallery photos={plant.photos} name={name} />
             ) : (
               <div className="card flex items-center gap-4 p-4">
                 <PhotoPlaceholder className="size-16 shrink-0" />

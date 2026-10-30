@@ -166,7 +166,7 @@ export default async function TagResultPage({
                 What {name} looks like. This photo is of the species, not this
                 exact plant.
               </p>
-              <MainPhoto photos={speciesPhotos} className="mt-4 max-w-md" />
+              <MainPhoto photos={speciesPhotos} name={name} className="mt-4 max-w-md" />
             </>
           )}
           {record.photoCount > 0 && (

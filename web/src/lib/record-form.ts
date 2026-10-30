@@ -76,7 +76,9 @@ export function recordedAtForDatabase(parkTime: string) {
 
 function validParkTime(value: string) {
   if (!PARK_TIME.test(value)) return false;
-  const [date] = value.split("T");
+  const [date, time] = value.split("T");
+  const [hour, minute] = time.split(":").map(Number);
+  if (hour > 23 || minute > 59) return false;
   const check = new Date(`${date}T00:00:00Z`);
   return !Number.isNaN(check.getTime()) && check.toISOString().startsWith(date);
 }
