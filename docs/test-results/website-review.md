@@ -76,6 +76,7 @@ hidden spot. Each fix below was tried on the stand-in the same way as round 1.
 | `tag-error-alert` | On the Scan a tag page, typing a bad code and pressing Enter showed an error that a screen reader never read out, since the field already had focus and nothing moved | The error is an alert, and it's put back in the page each time a bad code is sent, so it's read out every time |
 | `plant-name-fallback` | A species with no common name had an empty heading and page title, "undefined" in its map's description and a card with no name. The form always asks for a name, but an admin can save one without through the API, and so can the SQL editor. With no species at all, the Plants page said "No plants match" and offered to clear a search nobody typed | The plant page, its title and the list use the Latin name, the heading doesn't say it twice, and Local names says "None recorded". With no species the list says there are no plants yet |
 | `record-notes-line-breaks` | A form sends each line break in the notes box as two characters (`\r\n`), but the box counts it as one. Notes that filled the box, with line breaks, were turned down with "Notes can be up to 1000 characters." even when nobody touched them. Saving any record with line breaks in its notes also logged a notes change in its history | Line breaks are turned back into `\n` before the check, like the species form already does. The limit matches the box, and notes nobody touched save exactly as they were |
+| `record-time-seconds` | The Recorded on box only goes down to the minute, so saving a record from the edit page cut the seconds off a time the phone saved, even when nobody touched the box. The history then said "Recorded on changed from 12 Oct 2026, 10:40 pm to 12 Oct 2026, 10:40 pm" | If the box still shows the stored minute, the stored time is kept as it is. A history change that reads the same before and after says "changed slightly (still ...)" instead |
 
 | Test | Result |
 | --- | --- |
@@ -84,6 +85,9 @@ hidden spot. Each fix below was tried on the stand-in the same way as round 1.
 | As the test admin, saved the stand-in tree with no common names through the API, then opened its plant page, the Plants list and its tag page | The heading and title are "Standinia exacta", Local names says "None recorded", the list card has the Latin name, and nothing says "undefined". The tag page still uses the record's own name. The names were put back afterwards |
 | Before the fix: gave a record 1000 characters of notes on 16 lines through the API, then pressed Save changes on its edit page without changing anything | "Notes can be up to 1000 characters." and nothing saved |
 | After the fix: the same save | "Changes saved". The notes are still 1000 characters with plain `\n` line breaks, and no new history entry |
+| Gave the record a time 37.123 seconds past the minute through the API, then pressed Save changes without changing anything | "Changes saved". The time still has its seconds and there's no new history entry |
+| Picked the next minute in Recorded on and saved | The time moves to that minute, and the history says "Recorded on changed from 12 Oct 2026, 10:40 pm to 12 Oct 2026, 10:41 pm" |
+| The history entries from before the fix | They say "Recorded on changed slightly (still 12 Oct 2026, 10:40 pm)" |
 
 ## Not tested yet
 

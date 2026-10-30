@@ -177,6 +177,11 @@ function valueLine(column: Column, from: unknown, to: unknown): ChangeLine {
   }
   if (!before) return { kind: "short", text: `${label} set to ${after}` };
   if (!after) return { kind: "short", text: `${label} taken off (was ${before})` };
+  // A time only shows the minute and text is trimmed, so a change of a few
+  // seconds or a space can look the same before and after
+  if (before === after) {
+    return { kind: "short", text: `${label} changed slightly (still ${after})` };
+  }
   return { kind: "short", text: `${label} changed from ${before} to ${after}` };
 }
 
