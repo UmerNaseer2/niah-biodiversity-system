@@ -23,6 +23,7 @@ export const SQL_FILES = [
   '011_exact_location_downloads.sql',
   '012_report_counts.sql',
   '013_edit_history.sql',
+  '014_photo_folder.sql',
 ];
 
 export function readSql(file) {

@@ -1,5 +1,6 @@
 import type { Condition } from "./condition";
 import { parkTime } from "./format";
+import { photoFolderOf } from "./record-photos";
 import { tagCode } from "./tags";
 import type { Values } from "./record-form";
 
@@ -25,8 +26,11 @@ export type StaffRecord = {
   recordedAt: string;
   status: "published" | "waiting" | "rejected";
   reviewedBy: string | null;
-  /** The account that sent it from the phone, which names its photo folder (005) */
-  submittedBy: string | null;
+  /**
+   * The account folder its photos are in, named after the account that sent
+   * it from the phone (005). It's kept after the account is deleted (014).
+   */
+  photoFolder: string | null;
   /** Park time of the last edit, or null when it hasn't been edited since upload (008) */
   updatedAt: string | null;
 };
@@ -63,7 +67,7 @@ export function recordFromRow(row: Record<string, unknown>): StaffRecord {
     recordedAt: parkTime(String(row.recorded_at)),
     status: row.status as StaffRecord["status"],
     reviewedBy: row.reviewed_by ? String(row.reviewed_by) : null,
-    submittedBy: row.submitted_by ? String(row.submitted_by) : null,
+    photoFolder: photoFolderOf(row),
     updatedAt: wasEdited(row) ? parkTime(String(row.updated_at)) : null,
   };
 }

@@ -60,7 +60,7 @@ Notes:
   merged ([where it stands](security/encryption-at-rest.md)).
 - Item 23, checking HTTPS on the real site. It gets checked once the website is deployed.
 - Item 24, Jason still reviews the vulnerability assessment plan.
-- The hosted Supabase project still needs 003 to 013 run, in order (`supabase/README.md`). Only
+- The hosted Supabase project still needs 003 to 014 run, in order (`supabase/README.md`). Only
   Umer can do this.
 
 # After Sprint #2 (Weeks 10 to 11)

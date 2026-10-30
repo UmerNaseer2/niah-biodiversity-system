@@ -5,6 +5,8 @@ import type { createClient } from "./supabase/server";
 // record, like <user id>/<record id>/1.jpg (supabase/005). Only that account,
 // officers and admins can open them, because a photo can show where a plant
 // grows. The website shows them with links that stop working after an hour.
+// The record keeps the folder's name in photo_folder (supabase/014), so the
+// photos can still be found after that account is deleted.
 
 type Client = Awaited<ReturnType<typeof createClient>>;
 
@@ -14,13 +16,23 @@ const LINK_SECONDS = 60 * 60;
 
 export type RecordPhoto = { src: string; name: string };
 
+/**
+ * The account folder a record's photos are in, from a records row. Before
+ * 014 is run there's no photo_folder, so it falls back to submitted_by,
+ * which is empty once the account is deleted.
+ */
+export function photoFolderOf(row: Record<string, unknown>) {
+  const folder = row.photo_folder ?? row.submitted_by;
+  return typeof folder === "string" && folder ? folder : null;
+}
+
 /** The files in a record's photo folder, or null if Storage didn't answer */
 export async function recordPhotoPaths(
   supabase: Client,
-  submittedBy: string,
+  photoFolder: string,
   recordId: string,
 ) {
-  const folder = `${submittedBy}/${recordId}`;
+  const folder = `${photoFolder}/${recordId}`;
   const { data, error } = await supabase.storage
     .from(RECORD_PHOTO_BUCKET)
     .list(folder, { limit: 100, sortBy: { column: "name", order: "asc" } });
@@ -35,10 +47,10 @@ export async function recordPhotoPaths(
 /** Links to a record's photos for the next hour, or null if Storage didn't answer */
 export async function recordPhotoLinks(
   supabase: Client,
-  submittedBy: string,
+  photoFolder: string,
   recordId: string,
 ): Promise<RecordPhoto[] | null> {
-  const paths = await recordPhotoPaths(supabase, submittedBy, recordId);
+  const paths = await recordPhotoPaths(supabase, photoFolder, recordId);
   if (!paths) return null;
   if (paths.length === 0) return [];
   const { data, error } = await supabase.storage

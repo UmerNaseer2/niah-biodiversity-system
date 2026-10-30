@@ -147,10 +147,11 @@ outside link has no small file next to it.
   thumbnails. Uploads now get a small copy too (round 4). The sample photos are outside links, so
   they still load at the size their link asks for, and photos uploaded before round 4 still use
   the full file until they're uploaded again.
-- **Deleting an account doesn't delete its record photos.** The folder is named after the account,
-  so the record edit page can't find them any more, and they stay in the bucket. Since 29 Oct
-  `supabase/README.md` says to set the person's role back to `visitor` when they leave instead of
-  deleting the account, which keeps the photos with their records.
+- **Fixed on 30 Oct:** after an account was deleted, the record edit page couldn't find the
+  photos it had sent, and deleting the record left them in the bucket. Since
+  `supabase/014_photo_folder.sql` each record keeps the name of its photo folder, so the photos
+  stay with their record. Records whose account was deleted before 014 is run still lose them.
+  See [photo-folder.md](photo-folder.md).
 - **Fixed on 29 Oct:** photos couldn't be edited, so changing a caption meant uploading the photo
   again. The caption and credit can now be changed (round 2). The photo itself still can't be
   swapped or cropped, so a new picture is still a new upload.
