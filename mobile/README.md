@@ -8,8 +8,9 @@ other sprint items have somewhere to plug in. The plant form from item 7 is fini
 suggestions and checks on what you type. Since item 8 the form gets the location from the phone's
 GPS, and a record can't be saved without one. Since item 6 the Scan tab uses the camera to read a
 plant's QR tag and open its record. Since item 9 the records are saved in SQLite on the phone, so
-they're still there after the app restarts. Nothing talks to Supabase yet, but the rules for
-uploading a record are in `src/sync/` since item 3, ready for the "Sync now" button in item 10
+they're still there after the app restarts, and the phone has a place to keep the species list and
+what happened to each upload. Nothing talks to Supabase yet, but the rules for uploading a record
+are in `src/sync/` since item 3, ready for the "Sync now" button in item 10
 ([docs/sync-design.md](../docs/sync-design.md) explains them).
 
 | Tab | What it shows |
@@ -50,8 +51,8 @@ src/
     _layout.tsx         root stack, colours and the records provider
     (tabs)/             the five tabs: index (Home), scan, new-record, records, profile
     record/[id].tsx     one plant record
-  components/           Screen, RecordRow, LocationCapture, LocationSummary, QrScanner and the
-                        two tab bars
+  components/           Screen, ListScreen, RecordRow, LocationCapture, LocationSummary, QrScanner
+                        and the two tab bars
     ui/                 small pieces: Button, Card, Field, Chip, Pill, SyncBadge...
   constants/            colours, spacing and icon names
   data/
@@ -59,7 +60,8 @@ src/
     species-list.ts     species the form suggests, with the same slugs as Supabase
   db/                   the SQLite database on the phone
     database.ts         opens niah.db and runs the steps that set up and update its tables
-    records-store.ts    saves and loads records. The .web.ts one keeps them in memory instead
+    records-store.ts    saves and loads records, the records waiting to upload and the species
+                        list. The .web.ts one keeps them in memory instead
   hooks/                use-gps-capture.ts (GPS with expo-location), plus the theme hooks
   lib/                  formatting, the GPS and QR rules, the height and form checks, species
                         search, IDs and tag codes
@@ -115,8 +117,9 @@ what's fake.
 - `src/data/species-list.ts` uses the same slugs as the species table in Supabase, but it has two
   the server doesn't have yet, *Durio graveolens* and *Dryobalanops aromatica*. A record of one
   of those still uploads, because the server keeps the species name and only clears a slug it
-  doesn't know. If you add a species, add it to both, until item 10 downloads the list when the
-  phone syncs.
+  doesn't know. If you add a species, add it to both. Once item 10 downloads the list when the
+  phone syncs, the phone keeps the downloaded one (`src/db`) and only uses this file until the
+  first sync.
 - Keys: copy `.env.example` to `.env` and ask Umer for the values. Only the Supabase anon key
   goes in the app. The service role key never goes in mobile code.
 

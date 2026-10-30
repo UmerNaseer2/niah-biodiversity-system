@@ -24,7 +24,8 @@ Notes:
 
 ## Mobile ground-truthing and sync (items 9 to 12)
 
-- [ ] 9. Offline Data Collection & Local Storage (started in Sprint #1, finishes here)
+- [x] 9. Offline Data Collection & Local Storage (started in Sprint #1). Merged 29 Oct, see
+  [test results](test-results/item-9-offline-storage.md)
 - [ ] 10. Data Synchronization Engine (Mobile ↔ Cloud)
 - [ ] 11. Photograph Capture & Attachment (Mobile)
 - [ ] 12. QR Code Generation for Plant Records
@@ -49,9 +50,9 @@ Notes:
 
 ## Carried over from Sprint #1
 
-- Item 9, saving photos on the phone with their record, keeping the species list on the phone, the
-  queue of records waiting to upload, and a FlatList for My Records. These were waiting on items
-  10 and 11.
+- Item 9, keeping the species list on the phone, the queue of records waiting to upload, and a
+  FlatList for My Records. Done 29 Oct. Saving photos on the phone with their record moved to
+  item 11, since that's the item that takes them.
 - Item 2, signing in on the phone (comes with item 10) and inviting people and changing roles on
   the website's Users and roles page. Until then an administrator does both in the Supabase
   dashboard.

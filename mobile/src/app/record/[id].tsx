@@ -12,6 +12,7 @@ import { SyncTag } from '@/components/ui/sync-badge';
 import { Spacing } from '@/constants/theme';
 import { conditionLabel, formatHeight, formatRecordedAt } from '@/lib/format';
 import { useRecords } from '@/state/records-context';
+import { uploadProblemMessage } from '@/sync/upload-row';
 
 export default function RecordScreen() {
   const router = useRouter();
@@ -54,9 +55,15 @@ export default function RecordScreen() {
           </ThemedText>
         ) : null}
         <View style={styles.tag}>
-          <SyncTag status={record.syncStatus} />
+          <SyncTag status={record.syncStatus} problem={record.uploadProblem} />
         </View>
       </View>
+
+      {record.uploadProblem ? (
+        <Card title="Couldn't upload" icon="warning">
+          <ThemedText>{uploadProblemMessage(record.uploadProblem)}</ThemedText>
+        </Card>
+      ) : null}
 
       <Card title="Details" icon="ruler">
         <InfoRow label="Height" value={formatHeight(record.heightM)} />

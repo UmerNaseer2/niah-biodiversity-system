@@ -26,7 +26,7 @@ describe('openDatabase', () => {
     const db = await openDatabase();
     try {
       expect(await versionOf(db)).toBe(MIGRATIONS.length);
-      expect(await tablesIn(db)).toEqual(['plant_records']);
+      expect(await tablesIn(db)).toEqual(['plant_records', 'species']);
       const journal = await db.getFirstAsync<{ journal_mode: string }>('PRAGMA journal_mode');
       expect(journal?.journal_mode).toBe('wal');
     } finally {
@@ -52,6 +52,55 @@ describe('openDatabase', () => {
       ]);
     } finally {
       await second.closeAsync();
+    }
+  });
+
+  it('brings a phone on the first version up to date and keeps its records', async () => {
+    // The database the Sprint #1 app made, with one record waiting to sync.
+    const old = await openDatabaseAsync(DATABASE_NAME);
+    await migrate(old, MIGRATIONS.slice(0, 1));
+    await old.runAsync(
+      `INSERT INTO plant_records (id, tag_code, species_name, condition, recorded_at)
+      VALUES ('6b1e4d2a-7c3f-4e8b-9a5d-1f2e3c4b5a60', 'NNP-6B1E4D', 'Ficus sp.', 'healthy',
+        '2026-10-16T01:13:02.000Z')`,
+    );
+    await old.closeAsync();
+
+    const db = await openDatabase();
+    try {
+      expect(await versionOf(db)).toBe(MIGRATIONS.length);
+      expect(await tablesIn(db)).toEqual(['plant_records', 'species']);
+      expect(
+        await db.getAllAsync('SELECT tag_code, sync_status, upload_problem FROM plant_records'),
+      ).toEqual([{ tag_code: 'NNP-6B1E4D', sync_status: 'pending', upload_problem: null }]);
+      expect(await db.getAllAsync('SELECT * FROM species')).toEqual([]);
+    } finally {
+      await db.closeAsync();
+    }
+  });
+
+  it('only lets a record that is still waiting have an upload problem', async () => {
+    const db = await openDatabase();
+    try {
+      await db.runAsync(
+        `INSERT INTO plant_records (id, tag_code, species_name, condition, recorded_at)
+        VALUES ('6b1e4d2a-7c3f-4e8b-9a5d-1f2e3c4b5a60', 'NNP-6B1E4D', 'Ficus sp.', 'healthy',
+          '2026-10-16T01:13:02.000Z')`,
+      );
+      await db.runAsync("UPDATE plant_records SET upload_problem = 'tag-clash'");
+      // Marking it as synced without clearing the problem would leave a synced record with one.
+      await expect(db.runAsync("UPDATE plant_records SET sync_status = 'synced'")).rejects.toThrow(
+        'CHECK constraint failed',
+      );
+      await expect(db.runAsync("UPDATE plant_records SET upload_problem = 'lost'")).rejects.toThrow(
+        'CHECK constraint failed',
+      );
+      await db.runAsync("UPDATE plant_records SET sync_status = 'synced', upload_problem = NULL");
+      await expect(
+        db.runAsync("UPDATE plant_records SET upload_problem = 'rejected'"),
+      ).rejects.toThrow('CHECK constraint failed');
+    } finally {
+      await db.closeAsync();
     }
   });
 

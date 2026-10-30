@@ -6,13 +6,17 @@ import { ThemedText } from '@/components/themed-text';
 import { Button } from '@/components/ui/button';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { SAMPLE_RECORDS } from '@/data/mock-records';
+import { SPECIES_LIST, type SpeciesOption } from '@/data/species-list';
 import { openRecordsStore, type RecordsStore } from '@/db/records-store';
 import { useTheme } from '@/hooks/use-theme';
 import { matchesTag, newId, tagCodeFor } from '@/lib/id';
+import type { UploadOutcome } from '@/sync/upload-row';
 import type { NewPlantRecord, PlantRecord } from '@/types/plant-record';
 
 // Records are saved in SQLite on the phone (src/db), so they're still there after the app
-// restarts or the phone runs out of battery. Item 10 adds the upload to Supabase.
+// restarts or the phone runs out of battery. The species list downloaded when the phone syncs is
+// saved there too. Item 10 adds the "Sync now" button that uploads and downloads them, using the
+// functions here.
 
 type RecordsContextValue = {
   /** Newest first. */
@@ -26,12 +30,23 @@ type RecordsContextValue = {
   addRecord: (draft: NewPlantRecord) => Promise<PlantRecord>;
   getRecord: (id: string) => PlantRecord | undefined;
   findByTag: (input: string) => PlantRecord | undefined;
+  /** The records to upload, oldest first. Never the sample records, because those aren't saved. */
+  loadWaiting: () => Promise<PlantRecord[]>;
+  /** Saves what happened to an upload on the phone, then updates the record in the list. */
+  saveUploadOutcome: (id: string, outcome: UploadOutcome) => Promise<void>;
+  /**
+   * The species the New Record form suggests: the last list downloaded, or the one that comes
+   * with the app if there hasn't been a download yet.
+   */
+  species: SpeciesOption[];
+  /** Saves a downloaded species list on the phone. If that fails it throws and nothing changes. */
+  replaceSpecies: (list: SpeciesOption[]) => Promise<void>;
 };
 
 type StoreState =
   | { status: 'loading' }
   | { status: 'failed' }
-  | { status: 'ready'; store: RecordsStore; saved: PlantRecord[] };
+  | { status: 'ready'; store: RecordsStore; saved: PlantRecord[]; species: SpeciesOption[] };
 
 const OPEN_FAILED = "Couldn't open the records saved on this phone.";
 
@@ -39,6 +54,18 @@ const RecordsContext = createContext<RecordsContextValue | null>(null);
 
 function newestFirst(a: PlantRecord, b: PlantRecord) {
   return b.recordedAt.localeCompare(a.recordedAt);
+}
+
+/** The record the way the store leaves it after saveUploadOutcome. */
+function withOutcome(record: PlantRecord, outcome: UploadOutcome): PlantRecord {
+  switch (outcome.kind) {
+    case 'synced':
+      return { ...record, syncStatus: 'synced', uploadProblem: undefined };
+    case 'problem':
+      return { ...record, uploadProblem: outcome.problem };
+    case 'retry':
+      return record;
+  }
 }
 
 /** Opens the records saved on the phone and only shows the app once they're loaded. */
@@ -52,11 +79,15 @@ export function RecordsProvider({ children }: { children: ReactNode }) {
     let active = true;
     const opening = openRecordsStore();
     opening
-      .then(async (store) => ({ store, saved: await store.loadRecords() }))
+      .then(async (store) => ({
+        store,
+        saved: await store.loadRecords(),
+        species: await store.loadSpecies(),
+      }))
       .then(
-        ({ store, saved }) => {
+        ({ store, saved, species }) => {
           if (active) {
-            setState({ status: 'ready', store, saved });
+            setState({ status: 'ready', store, saved, species });
           }
         },
         (error: unknown) => {
@@ -123,6 +154,7 @@ export function RecordsProvider({ children }: { children: ReactNode }) {
   // Counted on its own instead of total minus pending, so records that fail to upload in item 10
   // don't show up as synced.
   const syncedCount = records.filter((record) => record.syncStatus === 'synced').length;
+  const species = state.species.length > 0 ? state.species : SPECIES_LIST;
 
   async function addRecord(draft: NewPlantRecord) {
     let id = newId();
@@ -154,9 +186,43 @@ export function RecordsProvider({ children }: { children: ReactNode }) {
     return records.find((record) => matchesTag(record, input));
   }
 
+  function loadWaiting() {
+    return store.loadWaiting();
+  }
+
+  async function saveUploadOutcome(id: string, outcome: UploadOutcome) {
+    await store.saveUploadOutcome(id, outcome);
+    setState((current) =>
+      current.status === 'ready'
+        ? {
+            ...current,
+            saved: current.saved.map((record) =>
+              record.id === id ? withOutcome(record, outcome) : record,
+            ),
+          }
+        : current,
+    );
+  }
+
+  async function replaceSpecies(list: SpeciesOption[]) {
+    await store.replaceSpecies(list);
+    setState((current) => (current.status === 'ready' ? { ...current, species: list } : current));
+  }
+
   return (
     <RecordsContext
-      value={{ records, pendingCount, syncedCount, addRecord, getRecord, findByTag }}>
+      value={{
+        records,
+        pendingCount,
+        syncedCount,
+        addRecord,
+        getRecord,
+        findByTag,
+        loadWaiting,
+        saveUploadOutcome,
+        species,
+        replaceSpecies,
+      }}>
       {children}
     </RecordsContext>
   );

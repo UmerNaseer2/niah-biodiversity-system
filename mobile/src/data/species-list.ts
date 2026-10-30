@@ -2,8 +2,9 @@
 // supabase/002_seed_data.sql plus the two extra ones on the website mock list
 // (web/src/data/species.ts), so every mock record links to a species. Names only, never locations.
 // The common names follow the fixes in supabase/007_species_fixes.sql.
-// Item 10 swaps this for the species table in Supabase, downloaded when the phone syncs, so a new
-// species added on the website shows up here without an app update.
+// The form only uses this list until the phone first syncs. After that it uses the species list
+// downloaded from Supabase and saved on the phone (src/db), so a new species added on the website
+// shows up without an app update. Item 10 adds the download.
 
 export type SpeciesOption = {
   /** Same as species.id and species.slug in Supabase. */

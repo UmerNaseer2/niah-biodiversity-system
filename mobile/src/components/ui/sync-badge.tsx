@@ -6,7 +6,7 @@ import { Pill } from '@/components/ui/pill';
 import { Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { plural } from '@/lib/format';
-import type { SyncStatus } from '@/types/plant-record';
+import type { SyncStatus, UploadProblem } from '@/types/plant-record';
 
 /** Summary for the whole phone, shown at the top of Home. */
 export function SyncBadge({ pending }: { pending: number }) {
@@ -29,7 +29,11 @@ export function SyncBadge({ pending }: { pending: number }) {
 }
 
 /** Tag for a single record in a list or on its page. */
-export function SyncTag({ status }: { status: SyncStatus }) {
+export function SyncTag({ status, problem }: { status: SyncStatus; problem?: UploadProblem }) {
+  if (problem) {
+    // Still waiting, but it won't go up until someone sorts it out. The record's page says how.
+    return <Pill tone="danger" icon="warning" label="Couldn't upload" />;
+  }
   return status === 'pending' ? (
     <Pill tone="warning" icon="pending" label="Pending sync" />
   ) : (

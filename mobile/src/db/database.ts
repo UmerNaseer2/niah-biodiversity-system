@@ -11,7 +11,6 @@ export const DATABASE_NAME = 'niah.db';
 export const MIGRATIONS: readonly string[] = [
   // Version 1: plant records. The CHECK rules match the record types, so a bug in the app can't
   // save a record the upload in item 10 would choke on. A location is all four parts or none.
-  // Photos (item 11) and the species list cache get their own steps in Sprint #2.
   `CREATE TABLE plant_records (
     id TEXT PRIMARY KEY NOT NULL,
     tag_code TEXT NOT NULL UNIQUE,
@@ -35,6 +34,26 @@ export const MIGRATIONS: readonly string[] = [
     )
   ) STRICT;
   CREATE INDEX plant_records_recorded_at ON plant_records (recorded_at);`,
+
+  // Version 2: the species list downloaded from Supabase when the phone syncs (item 10), so the
+  // New Record form can suggest species added on the website without an app update. It stays
+  // empty until the first download, and the form uses the list that comes with the app until
+  // then. Names only, like the list in the app. The common names are a JSON array of text,
+  // with the one the form fills in first.
+  `CREATE TABLE species (
+    slug TEXT PRIMARY KEY NOT NULL CHECK (slug <> ''),
+    scientific_name TEXT NOT NULL CHECK (scientific_name <> ''),
+    common_names TEXT NOT NULL DEFAULT '[]'
+      CHECK (json_valid(common_names) AND json_type(common_names) = 'array')
+  ) STRICT;`,
+
+  // Version 3: why a record couldn't upload (see UPLOAD_PROBLEMS in src/types/plant-record.ts),
+  // so the phone can still say what to do about it after the app restarts. A record that's on
+  // the server can't have one. Records saved before this step get null, which means no problem.
+  `ALTER TABLE plant_records ADD COLUMN upload_problem TEXT CHECK (
+    upload_problem IS NULL
+    OR (sync_status = 'pending' AND upload_problem IN ('tag-clash', 'not-allowed', 'rejected'))
+  );`,
 ];
 
 /**
@@ -68,6 +87,10 @@ export async function migrate(db: SQLiteDatabase, steps: readonly string[] = MIG
 export async function openDatabase() {
   const db = await openDatabaseAsync(DATABASE_NAME);
   try {
+    // Replacing the species list writes on a second connection (see records-store.ts). If a
+    // record is saved while that's happening, this waits up to 5 seconds for it to finish instead
+    // of failing straight away. It only lasts while the connection is open, so it isn't a step.
+    await db.execAsync('PRAGMA busy_timeout = 5000');
     await migrate(db);
     return db;
   } catch (error) {

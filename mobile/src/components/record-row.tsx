@@ -9,6 +9,13 @@ import { useTheme } from '@/hooks/use-theme';
 import { formatRecordedAt } from '@/lib/format';
 import type { PlantRecord } from '@/types/plant-record';
 
+function syncLabel(record: PlantRecord) {
+  if (record.uploadProblem) {
+    return "couldn't upload";
+  }
+  return record.syncStatus === 'pending' ? 'pending sync' : 'synced';
+}
+
 export function RecordRow({ record }: { record: PlantRecord }) {
   const theme = useTheme();
   const recordedAt = formatRecordedAt(record.recordedAt);
@@ -16,7 +23,7 @@ export function RecordRow({ record }: { record: PlantRecord }) {
     record.speciesName,
     record.commonName,
     `tag ${record.tagCode}`,
-    record.syncStatus === 'pending' ? 'pending sync' : 'synced',
+    syncLabel(record),
     recordedAt,
   ]
     .filter(Boolean)
@@ -45,7 +52,7 @@ export function RecordRow({ record }: { record: PlantRecord }) {
                 {record.commonName ? `${record.commonName} · ${record.tagCode}` : record.tagCode}
               </ThemedText>
               <View style={styles.meta}>
-                <SyncTag status={record.syncStatus} />
+                <SyncTag status={record.syncStatus} problem={record.uploadProblem} />
                 <ThemedText type="small" themeColor="textSecondary">
                   {recordedAt}
                 </ThemedText>
