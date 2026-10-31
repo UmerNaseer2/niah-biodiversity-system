@@ -85,7 +85,7 @@ export const staffScreens: Screen[] = [
     title: "Review queue",
     path: "/dashboard/review",
     items: [19],
-    works: "Approve and reject work on the page. Rejecting asks for a reason.",
+    works: "Reads the waiting records from Supabase. Approve and reject save the decision, rejecting asks for a reason, and a decided record can be sent back to the queue.",
   },
   {
     title: "Reports",

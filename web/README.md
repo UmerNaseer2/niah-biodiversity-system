@@ -7,9 +7,9 @@ species and keep an eye on the sensors. It's built with Next.js 16 (App Router) 
 The original item 13 wireframe is still the visual baseline. Staff sign in, the species pages on
 the dashboard (add, edit and delete) and the public pages (home, plant list, plant pages and tag
 pages) now use Supabase (items 14 to 16), and so do the dashboard records pages (item 17), the
-photos (item 18), the maps (item 20), reports (item 21) and the overview's records and counts. The
-review queue, the sensors and the users list still use mock data, and refreshing them puts them
-back how they were.
+photos (item 18), the maps (item 20), reports (item 21), the review queue (item 19) and the
+overview's records and counts. The sensors and the users list still use mock data, and refreshing
+them puts them back how they were.
 
 | Side | Screens |
 | --- | --- |
@@ -102,7 +102,7 @@ src/
       screens/          every screen in demo order
     dashboard/          the staff side, with the sidebar in layout.tsx
       records/          the records table, and [id]/edit and [id]/delete
-      review/           approve or reject records sent from the mobile app
+      review/           the review queue: approve or reject records from the mobile app, and send one back
       species/          the species table, new/ to add one, and [slug]/edit and [slug]/delete
       reports/          counts, charts and the print view, and csv/ for the download
       sensors/          alerts, the sensor nodes and their map
@@ -123,7 +123,6 @@ planned for, so it's clear what's real during the demo. The item numbers match t
 | --- | --- | --- |
 | 2 | Invites and changing someone's role | Users and roles |
 | 12 | QR codes that really scan, printed for each tag | Scan a tag, tag pages |
-| 19 | Saving approve and reject decisions | Review queue |
 | 28, 29 | Live readings from the ESP32 sensor nodes | Sensors |
 | 30 to 32 | The monitoring dashboard, alerts sent to the patrol team and the sensor map | Sensors, overview |
 
@@ -166,6 +165,7 @@ planned for, so it's clear what's real during the demo. The item numbers match t
   `src/lib/auth.ts`, and a new staff page needs it too. The check in `dashboard/layout.tsx` isn't
   enough on its own. Next renders a page and its layout at the same time, so a layout that shows
   "No access" doesn't stop the page's data from reaching the browser.
+- The review queue (`dashboard/review`) saves a decision with the `reviewRecord` server action. A decision only goes through if the record is still in the status the page showed and nobody has saved it since (the same `updated_at` check as the edit forms), so two officers can't decide on the same record. Rejecting needs a reason, which goes in `review_notes` for the phone to show once item 10 downloads it. Approving clears an old reason, and sending a record back to the queue keeps it. The checks are in `src/lib/review.ts`, and the database has the last word on who can review (006).
 - Staff pages do send exact points to the browser (the review queue and the overview map). The
   reports page doesn't. Its CSV is built in `dashboard/reports/csv/route.ts`, which checks the role
   again before it sends anything. The database checks roles too (006, item 4), so the staff views

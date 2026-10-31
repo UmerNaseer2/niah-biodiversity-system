@@ -26,6 +26,12 @@ export type StaffRecord = {
   recordedAt: string;
   status: "published" | "waiting" | "rejected";
   reviewedBy: string | null;
+  /** Why it was rejected, or a note left when it was reviewed (006) */
+  reviewNotes: string | null;
+  /** Park time of the last review, or null when it hasn't been reviewed */
+  reviewedAt: string | null;
+  /** The record's updated_at as sent, for the check that nobody saved it since (007) */
+  version: string;
   /**
    * The account folder its photos are in, named after the account that sent
    * it from the phone (005). It's kept after the account is deleted (014).
@@ -67,6 +73,9 @@ export function recordFromRow(row: Record<string, unknown>): StaffRecord {
     recordedAt: parkTime(String(row.recorded_at)),
     status: row.status as StaffRecord["status"],
     reviewedBy: row.reviewed_by ? String(row.reviewed_by) : null,
+    reviewNotes: row.review_notes ? String(row.review_notes) : null,
+    reviewedAt: row.reviewed_at ? parkTime(String(row.reviewed_at)) : null,
+    version: row.updated_at ? String(row.updated_at) : "",
     photoFolder: photoFolderOf(row),
     updatedAt: wasEdited(row) ? parkTime(String(row.updated_at)) : null,
   };
