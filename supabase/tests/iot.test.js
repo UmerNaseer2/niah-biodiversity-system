@@ -1,9 +1,11 @@
 // Checks 016_iot_readings.sql and 017_iot_alerts.sql: device tokens, adding readings, who can read
 // what, the threat rules, one alert for one problem, acknowledging and resolving, nodes going
-// quiet, and that nothing from a node reaches the public. The last part does the same through the
-// stand-in, the way an edge device and the website do it.
+// quiet, and that nothing from a node reaches the public. The last parts do the same through the
+// stand-in, the way an edge device and the website do it, and then with the node simulator.
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
+import { execFile } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { after, before, describe, test } from 'node:test';
 import { addUser, asUser, insertAs, newDatabase, readSql, selectAs, SQL_FILES } from './harness.js';
 import { ANON_KEY, startStandIn, TEST_PASSWORD, TEST_USERS } from './stand-in.js';
@@ -1443,5 +1445,167 @@ describe('through the stand-in, the way a device and the website do it', () => {
     const after = await api(`/rest/v1/iot_alerts?id=eq.${alert}`, { token: tokens.officer });
     assert.equal(after.body[0].acknowledged_by_name, officerLogin.name);
     assert.equal(after.body[0].resolved_by_name, officerLogin.name);
+  });
+});
+
+describe('the node simulator', () => {
+  const SIMULATOR = fileURLToPath(new URL('../../iot/node-simulator/node-simulator.mjs', import.meta.url));
+  const [officerLogin] = TEST_USERS;
+  let standIn;
+  let officerToken;
+
+  /** Runs the simulator on its own, the way someone would from a terminal. */
+  function simulate(args, env = {}) {
+    return new Promise((resolve) => {
+      execFile(
+        process.execPath,
+        [SIMULATOR, ...args],
+        { env: { PATH: process.env.PATH, IOT_SUPABASE_URL: standIn.url, ...env }, timeout: 20000 },
+        (error, stdout, stderr) => resolve({ code: error ? error.code : 0, stdout, stderr }),
+      );
+    });
+  }
+
+  async function officerGets(path) {
+    const response = await fetch(`${standIn.url}/rest/v1/${path}`, {
+      headers: { apikey: ANON_KEY, Authorization: `Bearer ${officerToken}` },
+    });
+    return response.json();
+  }
+
+  async function openAlerts(kind) {
+    return officerGets(`iot_alerts?node_id=eq.NNP-IOT-01&kind=eq.${kind}&status=eq.open`);
+  }
+
+  before(async () => {
+    standIn = await startStandIn({ port: 0, log: () => {} });
+    const response = await fetch(`${standIn.url}/auth/v1/token?grant_type=password`, {
+      method: 'POST',
+      headers: { apikey: ANON_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: officerLogin.email, password: TEST_PASSWORD }),
+    });
+    officerToken = (await response.json()).access_token;
+  });
+
+  after(() => standIn.close());
+
+  test('a calm round adds a reading from each node and raises nothing', async () => {
+    const { code, stdout } = await simulate(['--scenario', 'normal']);
+    assert.equal(code, 0);
+    assert.match(stdout, /added 3, already there 0, turned down 0/);
+    assert.match(stdout, /made up/);
+
+    const alerts = await officerGets('iot_alerts?select=id');
+    assert.deepEqual(alerts, []);
+    const stored = await officerGets('iot_readings?select=node_id');
+    assert.equal(stored.length, 3);
+  });
+
+  test('a disturbance raises an urgent alert on the first node only', async () => {
+    const { code } = await simulate(['--scenario', 'disturbance']);
+    assert.equal(code, 0);
+
+    const alerts = await openAlerts('disturbance');
+    assert.equal(alerts.length, 1);
+    assert.equal(alerts[0].severity, 'urgent');
+    const others = await officerGets('iot_alerts?node_id=neq.NNP-IOT-01&select=id');
+    assert.deepEqual(others, []);
+  });
+
+  test('sending the same readings again only counts as already there', async () => {
+    const { code, stdout } = await simulate(['--scenario', 'resend']);
+    assert.equal(code, 0);
+    assert.match(stdout, /added 3, already there 0, turned down 0/);
+    assert.match(stdout, /added 0, already there 3, turned down 0/);
+  });
+
+  test('a value no sensor could read is turned down, and says why', async () => {
+    const { code, stdout } = await simulate(['--scenario', 'bad-value']);
+    assert.equal(code, 0);
+    assert.match(stdout, /added 2, already there 0, turned down 1/);
+    assert.match(stdout, /humidity_percent_in_range/);
+  });
+
+  test('a node that stops sending gets a quiet alert from the next check', async () => {
+    // A backdated reading is the only way to the first node having gone quiet without waiting 15
+    // minutes. It has its own stand-in, because the other tests here just heard from that node.
+    const fresh = await startStandIn({ port: 0, log: () => {} });
+    try {
+      const { code } = await simulate(['--scenario', 'quiet'], { IOT_SUPABASE_URL: fresh.url });
+      assert.equal(code, 0);
+
+      const login = await fetch(`${fresh.url}/auth/v1/token?grant_type=password`, {
+        method: 'POST',
+        headers: { apikey: ANON_KEY, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: officerLogin.email, password: TEST_PASSWORD }),
+      });
+      const { access_token: token } = await login.json();
+      const headers = {
+        apikey: ANON_KEY,
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      };
+
+      const check = await fetch(`${fresh.url}/rest/v1/rpc/iot_check_alerts`, {
+        method: 'POST',
+        headers,
+        body: '{}',
+      });
+      assert.equal(check.status, 200);
+
+      const alerts = await fetch(`${fresh.url}/rest/v1/iot_alerts?kind=eq.quiet`, { headers });
+      const quiet = await alerts.json();
+      assert.deepEqual(quiet.map((alert) => alert.node_id), ['NNP-IOT-01']);
+    } finally {
+      await fresh.close();
+    }
+  });
+
+  test('it stops at a wrong token and says so', async () => {
+    const { code, stderr } = await simulate(['--scenario', 'normal'], { IOT_DEVICE_TOKEN: 'not-the-token' });
+    assert.equal(code, 1);
+    assert.match(stderr, /turned this device down/);
+  });
+
+  test('it stops at a database without the IoT SQL and says what to run', async () => {
+    const older = await startStandIn({ port: 0, log: () => {}, sqlThrough: '015' });
+    try {
+      const { code, stderr } = await simulate(['--scenario', 'normal'], { IOT_SUPABASE_URL: older.url });
+      assert.equal(code, 1);
+      assert.match(stderr, /016_iot_readings\.sql/);
+
+      const table = await fetch(`${older.url}/rest/v1/iot_readings`, { headers: { apikey: ANON_KEY } });
+      assert.equal(table.status, 404);
+      assert.equal((await table.json()).code, 'PGRST205');
+    } finally {
+      await older.close();
+    }
+  });
+
+  test('it refuses anything that is not this computer unless told, and always refuses plain http', async () => {
+    // A closed port on a made up test host, so nothing can answer even if the check failed
+    const host = { IOT_SUPABASE_URL: 'https://niah-simulator-test.example.test' };
+    const refused = await simulate(['--scenario', 'normal'], host);
+    assert.equal(refused.code, 1);
+    assert.match(refused.stderr, /isn't this computer/);
+    assert.doesNotMatch(refused.stdout, /Sending to/);
+
+    const noSettings = await simulate(['--scenario', 'normal', '--allow-remote'], host);
+    assert.equal(noSettings.code, 1);
+    assert.match(noSettings.stderr, /The defaults only work on the stand-in/);
+    assert.doesNotMatch(noSettings.stdout, /Sending to/);
+
+    const plainHttp = await simulate(['--scenario', 'normal', '--allow-remote'], {
+      IOT_SUPABASE_URL: 'http://niah-simulator-test.example.test',
+    });
+    assert.equal(plainHttp.code, 1);
+    assert.match(plainHttp.stderr, /has to use https/);
+    assert.doesNotMatch(plainHttp.stdout, /Sending to/);
+  });
+
+  test('it turns down a scenario it does not know', async () => {
+    const { code, stderr } = await simulate(['--scenario', 'made-up']);
+    assert.equal(code, 1);
+    assert.match(stderr, /no scenario called made-up/);
   });
 });
