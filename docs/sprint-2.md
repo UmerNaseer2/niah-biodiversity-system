@@ -53,9 +53,9 @@ Notes:
 - Item 9, keeping the species list on the phone, the queue of records waiting to upload, and a
   FlatList for My Records. Done 29 Oct. Saving photos on the phone with their record moved to
   item 11, since that's the item that takes them.
-- Item 2, signing in on the phone (comes with item 10) and inviting people and changing roles on
-  the website's Users and roles page. Until then an administrator does both in the Supabase
-  dashboard.
+- Item 2, signing in on the phone (comes with item 10). Inviting people, changing roles and
+  deactivating accounts on the website's Users and roles page were merged 31 Oct, see
+  [test results](test-results/item-2-admin-users.md).
 - Item 22, encryption at rest on the phones. Jason's SQLCipher branch needs fixing before it can be
   merged ([where it stands](security/encryption-at-rest.md)).
 - Item 23, checking HTTPS on the real site. It gets checked once the website is deployed.

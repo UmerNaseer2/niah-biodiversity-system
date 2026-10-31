@@ -32,8 +32,10 @@ flowchart LR
   (item 9). [sync-design.md](../sync-design.md) has how they upload.
 - The website reads through views (below), and staff pages only work for conservation officers
   and admins (items 4 and 15).
-- Nothing talks to the database with the service role key. Both apps only use the publishable
-  (anon) key plus the person's sign in, so Row Level Security decides what each person gets.
+- Nothing reads or changes a table with the service role key. Both apps use the publishable (anon)
+  key plus the person's sign in, so Row Level Security decides what each person gets. The website's
+  server only uses the service role key for Supabase Auth: inviting, deactivating and listing
+  accounts for an administrator (item 2).
 
 ## Tables
 

@@ -6,6 +6,7 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { request } from 'node:http';
 import { after, before, describe, test } from 'node:test';
+import { SERVICE_KEY } from './stand-in.js';
 import { ANON_KEY, TEST_PASSWORD, TEST_USERS, startStandIn } from './stand-in.js';
 
 const [officer, admin, botanist, researcher, visitor, noProfile] = TEST_USERS;
@@ -1076,5 +1077,175 @@ describe('a stand-in that sends a few rows at a time', () => {
     }
     assert.equal(new Set(seen).size, 10);
     assert.deepEqual(seen.slice(0, 3), first.body.map((row) => row.id));
+  });
+});
+
+describe('inviting and deactivating through Supabase Auth', () => {
+  const service = { apikey: SERVICE_KEY, token: SERVICE_KEY };
+  const welcome = 'http://127.0.0.1:3210/welcome';
+
+  const invite = (email, name = 'New Person') =>
+    call(`/auth/v1/invite?redirect_to=${encodeURIComponent(welcome)}`, {
+      method: 'POST',
+      ...service,
+      body: { email, data: { name } },
+    });
+
+  /** Follows the link in the last email, like clicking it, and gives what's after the # */
+  async function followLastEmail() {
+    const response = await fetch(standIn.emails.at(-1).link, { redirect: 'manual' });
+    assert.equal(response.status, 303);
+    const back = new URL(response.headers.get('location'));
+    assert.equal(back.origin + back.pathname, welcome);
+    return new URLSearchParams(back.hash.slice(1));
+  }
+
+  async function profileOf(id) {
+    const { rows } = await standIn.db.query('SELECT name, role FROM public.profiles WHERE id = $1', [
+      id,
+    ]);
+    return rows[0];
+  }
+
+  test('only the service key can invite or list accounts', async () => {
+    const asAnon = await call('/auth/v1/invite', { method: 'POST', body: { email: 'a@example.test' } });
+    assert.equal(asAnon.status, 403);
+    assert.equal(asAnon.body.error_code, 'not_admin');
+    // Being an administrator in profiles doesn't count, only the key does
+    const adminToken = (await signIn(admin.email)).body.access_token;
+    const asAdmin = await call('/auth/v1/admin/users', { token: adminToken });
+    assert.equal(asAdmin.status, 403);
+    const list = await call('/auth/v1/admin/users', service);
+    assert.equal(list.status, 200);
+    assert.ok(list.body.users.some((u) => u.email === admin.email));
+  });
+
+  test('the service key doesn’t work for rows or files', async () => {
+    const rows = await call('/rest/v1/profiles?select=id', service);
+    assert.equal(rows.status, 403);
+    const files = await call('/storage/v1/bucket/record-photos', service);
+    assert.equal(files.status, 403);
+  });
+
+  test('an invite makes a visitor, and its link lets them set a password once', async () => {
+    const { status, body: user } = await invite('Invited.One@example.test');
+    assert.equal(status, 200);
+    assert.equal(user.email, 'invited.one@example.test');
+    assert.equal(user.email_confirmed_at, undefined);
+    assert.deepEqual(await profileOf(user.id), { name: 'New Person', role: 'visitor' });
+
+    const firstLink = standIn.emails.at(-1).link;
+    const session = await followLastEmail();
+    assert.equal(session.get('type'), 'invite');
+
+    const newPassword = 'a brand new one';
+    const set = await call('/auth/v1/user', {
+      method: 'PUT',
+      token: session.get('access_token'),
+      body: { password: newPassword },
+    });
+    assert.equal(set.status, 200);
+    assert.ok(set.body.email_confirmed_at);
+
+    const again = await call('/auth/v1/user', {
+      method: 'PUT',
+      token: session.get('access_token'),
+      body: { password: newPassword },
+    });
+    assert.equal(again.body.error_code, 'same_password');
+
+    const signedIn = await call('/auth/v1/token?grant_type=password', {
+      method: 'POST',
+      token: null,
+      body: { email: user.email, password: newPassword },
+    });
+    assert.equal(signedIn.status, 200);
+
+    // The link only works once, and the account can't be invited again now it's finished
+    standIn.emails.push({ link: firstLink });
+    const used = await followLastEmail();
+    assert.equal(used.get('error_code'), 'otp_expired');
+    assert.equal((await invite(user.email)).body.error_code, 'email_exists');
+  });
+
+  test('inviting someone again sends a new link and stops the old one', async () => {
+    await invite('invited.two@example.test');
+    const old = standIn.emails.at(-1).link;
+    const again = await invite('invited.two@example.test');
+    assert.equal(again.status, 200);
+    assert.notEqual(standIn.emails.at(-1).link, old);
+    standIn.emails.push({ link: old });
+    assert.equal((await followLastEmail()).get('error_code'), 'otp_expired');
+  });
+
+  test('a test account can’t be invited, and has no password to set', async () => {
+    assert.equal((await invite(botanist.email)).body.error_code, 'email_exists');
+    const token = (await signIn(botanist.email)).body.access_token;
+    const set = await call('/auth/v1/user', {
+      method: 'PUT',
+      token,
+      body: { password: 'something longer' },
+    });
+    assert.equal(set.status, 422);
+  });
+
+  test('a short new password is refused', async () => {
+    await invite('invited.three@example.test');
+    const session = await followLastEmail();
+    const set = await call('/auth/v1/user', {
+      method: 'PUT',
+      token: session.get('access_token'),
+      body: { password: 'short' },
+    });
+    assert.equal(set.body.error_code, 'weak_password');
+  });
+
+  test('a recovery link works like an invite, and says nothing about unknown emails', async () => {
+    const before = standIn.emails.length;
+    const unknown = await call(`/auth/v1/recover?redirect_to=${encodeURIComponent(welcome)}`, {
+      method: 'POST',
+      body: { email: 'nobody@example.test' },
+    });
+    assert.equal(unknown.status, 200);
+    assert.equal(standIn.emails.length, before);
+
+    await call(`/auth/v1/recover?redirect_to=${encodeURIComponent(welcome)}`, {
+      method: 'POST',
+      body: { email: 'invited.one@example.test' },
+    });
+    assert.equal((await followLastEmail()).get('type'), 'recovery');
+  });
+
+  test('a ban stops signing in and refreshing until it’s taken off', async () => {
+    const { rows } = await standIn.db.query(
+      `SELECT id FROM auth.users WHERE email = '${researcher.email}'`,
+    );
+    const { id } = rows[0];
+    const first = await signIn(researcher.email);
+    assert.equal(first.status, 200);
+
+    const asBan = (duration, options = service) =>
+      call(`/auth/v1/admin/users/${id}`, {
+        method: 'PUT',
+        ...options,
+        body: { ban_duration: duration },
+      });
+    assert.equal((await asBan('876000h', { token: first.body.access_token })).status, 403);
+    const banned = await asBan('876000h');
+    assert.equal(banned.status, 200);
+    assert.ok(banned.body.banned_until);
+
+    assert.equal((await signIn(researcher.email)).body.error_code, 'user_banned');
+    const refreshed = await call('/auth/v1/token?grant_type=refresh_token', {
+      method: 'POST',
+      token: null,
+      body: { refresh_token: first.body.refresh_token },
+    });
+    assert.equal(refreshed.body.error_code, 'user_banned');
+    // A JWT already given out keeps working until it runs out, like on Supabase
+    assert.equal((await call('/auth/v1/user', { token: first.body.access_token })).status, 200);
+
+    assert.equal((await asBan('none')).body.banned_until, undefined);
+    assert.equal((await signIn(researcher.email)).status, 200);
   });
 });

@@ -8,8 +8,8 @@ The original item 13 wireframe is still the visual baseline. Staff sign in, the 
 the dashboard (add, edit and delete) and the public pages (home, plant list, plant pages and tag
 pages) now use Supabase (items 14 to 16), and so do the dashboard records pages (item 17), the
 photos (item 18), the maps (item 20), reports (item 21), the review queue (item 19) and the
-overview's records and counts. The sensors and the users list still use mock data, and refreshing
-them puts them back how they were.
+overview's records and counts. The users page is real too (item 2). The sensors still use mock data, and
+refreshing them puts them back how they were.
 
 | Side | Screens |
 | --- | --- |
@@ -59,7 +59,8 @@ Then start the website in a second terminal. On macOS or Linux:
 ```bash
 cd web
 NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321 \
-  NEXT_PUBLIC_SUPABASE_ANON_KEY=stand-in-anon-key npm run dev
+  NEXT_PUBLIC_SUPABASE_ANON_KEY=stand-in-anon-key \
+  SUPABASE_SERVICE_ROLE_KEY=stand-in-service-key npm run dev
 ```
 
 In PowerShell on Windows:
@@ -68,6 +69,7 @@ In PowerShell on Windows:
 cd web
 $env:NEXT_PUBLIC_SUPABASE_URL = "http://127.0.0.1:54321"
 $env:NEXT_PUBLIC_SUPABASE_ANON_KEY = "stand-in-anon-key"
+$env:SUPABASE_SERVICE_ROLE_KEY = "stand-in-service-key"
 npm run dev
 ```
 
@@ -121,7 +123,6 @@ planned for, so it's clear what's real during the demo. The item numbers match t
 
 | Item | What goes in | Where |
 | --- | --- | --- |
-| 2 | Invites and changing someone's role | Users and roles |
 | 12 | QR codes that really scan, printed for each tag | Scan a tag, tag pages |
 | 28, 29 | Live readings from the ESP32 sensor nodes | Sensors |
 | 30 to 32 | The monitoring dashboard, alerts sent to the patrol team and the sensor map | Sensors, overview |
