@@ -103,6 +103,6 @@ export const staffScreens: Screen[] = [
     title: "Users and roles",
     path: "/dashboard/users",
     items: [2, 4],
-    works: "Who can do what, the same rules the database checks. The people list is made up. Invites and role changes happen in the Supabase dashboard for now, and moving them here is planned for Sprint 2.",
+    works: "Who can do what, the same rules the database checks. Administrators can also invite people, change roles and deactivate accounts.",
   },
 ];

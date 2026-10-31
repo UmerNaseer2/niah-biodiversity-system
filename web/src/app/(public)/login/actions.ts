@@ -25,9 +25,17 @@ export async function signIn(
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) {
-    // One message for a wrong email and a wrong password, so it can't be
-    // used to find out which emails have accounts.
-    return { error: "That email and password don’t match an account.", email };
+    if (error.status === 429) {
+      return { error: "Too many tries. Wait a few minutes, then try again.", email };
+    }
+    // Supabase couldn't answer, so it isn't their email or password
+    if (!error.status || error.status >= 500) {
+      console.error("Signing in failed:", error.code, error.status);
+      return { error: "Sign in isn’t working right now. Try again in a minute.", email };
+    }
+    // One message for a wrong email, a wrong password and a deactivated
+    // account, so it can't be used to find out which emails have accounts.
+    return { error: "That email and password don’t match an active account.", email };
   }
 
   redirect("/dashboard");

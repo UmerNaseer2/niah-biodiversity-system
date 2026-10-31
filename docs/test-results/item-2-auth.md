@@ -30,6 +30,9 @@ tested. The rules are in our SQL files in `supabase/`, and the hosted project on
 
 ## Managing accounts in Sprint 1
 
+**Changed in Sprint 2:** this is now done on the website's Users and roles page, see the
+[test results](item-2-admin-users.md). The steps below still work in the Supabase dashboard.
+
 Inviting someone needs the service role key, which must never be in the website or the phone app.
 So for now an administrator does it in the Supabase dashboard:
 

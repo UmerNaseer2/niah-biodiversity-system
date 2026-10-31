@@ -81,12 +81,18 @@ key now). Ask Umer for them, then:
 Git ignores both files. Never commit them, and never paste a key into an issue or a pull request.
 The anon key is fine in an app, because Row Level Security decides what it can do. The service
 role key skips Row Level Security, so it never goes in the app, the website's browser code or git.
+The website's server only uses it for inviting, deactivating and listing accounts (item 2), so set
+`SUPABASE_SERVICE_ROLE_KEY` as a server environment variable where the website is hosted. Add
+`<website address>/welcome` to the Auth redirect URLs too, or invite links open the Site URL
+instead.
 
 ## When someone leaves the team
 
-Set their `role` in the `profiles` table back to `visitor` in the Table Editor, instead of
-deleting their account. A visitor can still sign in, but the database won't show them anything a
-member of the public can't see, and the website won't open the staff pages for them.
+An administrator can press Deactivate on the website's Users and roles page. That sets their role
+back to `visitor` and stops them signing in, instead of deleting their account. Until the website
+has the service role key, set their `role` in the `profiles` table back to `visitor` in the Table
+Editor. A visitor can still sign in, but the database won't show them anything a member of the
+public can't see, and the website won't open the staff pages for them.
 
 Deleting the account works too. Their records stay, with `submitted_by` cleared, and the history
 from 013 still has their name. Their record photos stay in a folder named after the account, and

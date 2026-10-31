@@ -1,126 +1,145 @@
 import type { Metadata } from "next";
 import { Icon } from "@/components/icon";
 import { PageHeader } from "@/components/page-header";
-import { Tape } from "@/components/tape";
-import { people, ROLE_LABEL, type Role } from "@/data/people";
 import { requireStaff } from "@/lib/auth";
 import { formatDateTime } from "@/lib/format";
+import { DB_ROLE_LABEL, type DbRole } from "@/lib/roles";
+import { adminConfigured, authWithServiceKey } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
+import { accountState } from "@/lib/users";
+import { People, type Person } from "./people";
 
 export const metadata: Metadata = { title: "Users and roles" };
 
-const ROLES: Role[] = ["researcher", "botanist", "officer", "admin"];
+const ROLES: DbRole[] = ["researcher", "botanist", "conservation_officer", "admin"];
 
 // What each role can do. These match the Row Level Security rules in
 // supabase/006_role_based_access.sql (item 4), so the database checks them
 // itself and not only the website.
-const PERMISSIONS: { label: string; roles: Role[] }[] = [
+
+const PERMISSIONS: { label: string; roles: DbRole[] }[] = [
   {
     label: "Record plants in the mobile app",
-    roles: ["botanist", "officer", "admin"],
+    roles: ["botanist", "conservation_officer", "admin"],
   },
   {
     label: "Fix their own records while they wait for review",
-    roles: ["botanist", "officer", "admin"],
+    roles: ["botanist", "conservation_officer", "admin"],
   },
   {
     label: "See exact spots in the records they uploaded",
-    roles: ["botanist", "officer", "admin"],
+    roles: ["botanist", "conservation_officer", "admin"],
   },
-  { label: "Add, edit and delete species", roles: ["officer", "admin"] },
-  { label: "Approve, reject or delete records", roles: ["officer", "admin"] },
+  { label: "Add, edit and delete species", roles: ["conservation_officer", "admin"] },
+  { label: "Approve, reject or delete records", roles: ["conservation_officer", "admin"] },
   {
     label: "See exact spots of every record, threatened plants too",
-    roles: ["officer", "admin"],
+    roles: ["conservation_officer", "admin"],
   },
-  { label: "Download reports", roles: ["officer", "admin"] },
-  { label: "See sensor readings and alerts", roles: ["officer", "admin"] },
+  { label: "Download reports", roles: ["conservation_officer", "admin"] },
+  { label: "See sensor readings and alerts", roles: ["conservation_officer", "admin"] },
   { label: "Manage users and roles", roles: ["admin"] },
   { label: "See who downloaded exact spots", roles: ["admin"] },
 ];
 
-export default async function UsersPage() {
-  if (!(await requireStaff())) return null;
+/**
+ * Everyone with an account. Names, emails and roles come through Row Level
+ * Security as the administrator signed in. Whether they can sign in comes from
+ * Supabase Auth, which needs the service role key, so the page still works
+ * without it and just says what's missing.
+ */
+async function loadPeople(you: string) {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("id, name, email, role")
+    .order("name");
+  if (error) {
+    console.error("Loading the people list failed:", error.code, error.message);
+    return { people: null, accountsKnown: false };
+  }
 
-  const sorted = [...people].sort((a, b) => a.name.localeCompare(b.name));
-  const activeCount = people.filter((p) => p.active).length;
+  const auth = authWithServiceKey();
+  const listed = auth
+    ? await auth.admin.listUsers({ page: 1, perPage: 1000 })
+    : null;
+  if (listed?.error) {
+    console.error("Listing accounts failed:", listed.error.code, listed.error.status);
+  }
+  const accounts = listed?.error ? null : (listed?.data.users ?? null);
+  const byId = new Map(accounts?.map((account) => [account.id, account]));
+
+  const people: Person[] = data.map((profile) => {
+    const account = byId.get(profile.id);
+    return {
+      id: profile.id,
+      name: profile.name || profile.email || "No name",
+      email: profile.email ?? account?.email ?? "",
+      role: profile.role as DbRole,
+      state: account ? accountState(account) : null,
+      lastSignIn: account?.last_sign_in_at
+        ? formatDateTime(account.last_sign_in_at)
+        : null,
+      you: profile.id === you,
+    };
+  });
+
+  // An account with no profile can sign in but has no role, so it's worth seeing
+  const withProfile = new Set(data.map((profile) => profile.id));
+  for (const account of accounts ?? []) {
+    if (withProfile.has(account.id)) continue;
+    people.push({
+      id: account.id,
+      name: account.email ?? "No name",
+      email: account.email ?? "",
+      role: null,
+      state: accountState(account),
+      lastSignIn: account.last_sign_in_at
+        ? formatDateTime(account.last_sign_in_at)
+        : null,
+      you: false,
+    });
+  }
+  return { people, accountsKnown: accounts !== null };
+}
+
+export default async function UsersPage() {
+  const session = await requireStaff();
+  if (!session) return null;
+
+  const isAdmin = session.role === "admin";
+  const { people, accountsKnown } = isAdmin
+    ? await loadPeople(session.id)
+    : { people: null, accountsKnown: false };
 
   return (
     <div className="space-y-12">
       <PageHeader
         eyebrow="Admin"
         title="Users and roles"
-        description="Everyone who can sign in to the staff side. Field teams use the same accounts in the mobile app, and their role decides what they can see and change."
-        aside={
-          <>
-            {/* Item 2 is a Sprint 1 item, but this screen moved to Sprint 2 */}
-            <Tape parts={["Planned", "Item 2", "Sprint 2"]} />
-            <button type="button" disabled className="btn btn-primary">
-              <Icon name="plus" className="size-4" />
-              Invite someone
-            </button>
-          </>
+        description={
+          isAdmin
+            ? "Everyone with an account. Field teams use the same accounts in the mobile app, and their role decides what they can see and change."
+            : "What each role can do. Only administrators can see who has an account and change their role."
         }
       />
 
-      <section aria-labelledby="people-heading">
-        <h2 id="people-heading" className="text-xl font-bold tracking-tight">
-          People{" "}
-          <span className="font-normal text-moss">
-            ({activeCount} active)
-          </span>
-        </h2>
-        <p className="max-w-2xl text-moss">
-          These accounts are made up. For now an administrator invites people
-          and changes roles in the Supabase dashboard, and doing it here is
-          planned for Sprint 2.
-        </p>
-        <div
-          role="region"
-          aria-labelledby="people-heading"
-          tabIndex={0}
-          className="relative mt-4 overflow-x-auto rounded-xl border border-line bg-sheet"
-        >
-          <table className="w-full min-w-[40rem] text-left text-sm">
-            <thead className="border-b border-line bg-paper/60 text-moss">
-              <tr>
-                <th scope="col" className="px-4 py-2.5 font-bold">Name</th>
-                <th scope="col" className="px-4 py-2.5 font-bold">Role</th>
-                <th scope="col" className="px-4 py-2.5 font-bold">Account</th>
-                <th scope="col" className="px-4 py-2.5 font-bold">Last active</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-line">
-              {sorted.map((person) => (
-                <tr key={person.id}>
-                  <th scope="row" className="px-4 py-3 text-left font-normal">
-                    <span className="font-bold">{person.name}</span>
-                    <span className="block font-mono text-xs text-moss">
-                      {person.email}
-                    </span>
-                  </th>
-                  <td className="px-4 py-3">{ROLE_LABEL[person.role]}</td>
-                  <td className="px-4 py-3">
-                    {person.active ? (
-                      <span className="inline-flex items-center gap-1.5 font-bold text-ok">
-                        <span className="size-2 rounded-full bg-ok" aria-hidden="true" />
-                        Active
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1.5 text-moss">
-                        <span className="size-2 rounded-full border border-pencil" aria-hidden="true" />
-                        Deactivated
-                      </span>
-                    )}
-                  </td>
-                  <td className="whitespace-nowrap px-4 py-3">
-                    {formatDateTime(person.lastActive)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
+      {isAdmin &&
+        (people ? (
+          <People
+            people={people}
+            canManageAccounts={adminConfigured && accountsKnown}
+          />
+        ) : (
+          <p
+            role="alert"
+            className="flex max-w-2xl items-start gap-2.5 rounded-xl border-2 border-bad bg-sheet p-4 font-bold text-bad"
+          >
+            <Icon name="alert" className="mt-0.5 size-4 shrink-0" />
+            The list of people didn’t load. Refresh the page, and if it keeps
+            happening, check the database is up to date (supabase/README.md).
+          </p>
+        ))}
 
       <section aria-labelledby="roles-heading">
         <h2 id="roles-heading" className="text-xl font-bold tracking-tight">
@@ -150,7 +169,7 @@ export default async function UsersPage() {
                     scope="col"
                     className="w-28 px-3 py-2.5 text-center font-bold"
                   >
-                    {ROLE_LABEL[role]}
+                    {DB_ROLE_LABEL[role]}
                   </th>
                 ))}
               </tr>

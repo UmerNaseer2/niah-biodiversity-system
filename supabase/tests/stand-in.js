@@ -16,6 +16,8 @@ import { asUser, newDatabase } from './harness.js';
 
 /** The anon key the website uses with the stand-in. It only works here. */
 export const ANON_KEY = 'stand-in-anon-key';
+// Only the website's server has this one, for inviting and deactivating people through Supabase Auth
+export const SERVICE_KEY = 'stand-in-service-key';
 
 /** Every test account uses this password. It only works on the stand-in. */
 export const TEST_PASSWORD = 'niah-stand-in';
@@ -160,11 +162,6 @@ export async function startStandIn({
     functions.set(row.name, new Map((row.args ?? []).map((arg, i) => [arg, row.types[i]])));
   }
 
-  const auth = new Auth(tokenSeconds);
-  // Uploaded files, by bucket and path. storage.objects keeps who uploaded them, like on Supabase
-  const files = new Map();
-  // Signs links to private files. A new one each run, so old links stop working
-  const linkSecret = randomBytes(32);
   // PGlite has one connection, so requests take turns
   let queue = Promise.resolve();
   const oneAtATime = (fn) => {
@@ -172,6 +169,12 @@ export async function startStandIn({
     queue = run.catch(() => {});
     return run;
   };
+
+  const auth = new Auth(tokenSeconds, db, oneAtATime, log);
+  // Uploaded files, by bucket and path. storage.objects keeps who uploaded them, like on Supabase
+  const files = new Map();
+  // Signs links to private files. A new one each run, so old links stop working
+  const linkSecret = randomBytes(32);
 
   const server = createServer((req, res) => {
     handle(req, res, { auth, columns, db, files, functions, linkSecret, maxRows, oneAtATime })
@@ -189,6 +192,8 @@ export async function startStandIn({
   return {
     url: `http://${host}:${server.address().port}`,
     db,
+    // Every email Auth would have sent, oldest first, so tests can follow the links
+    emails: auth.emails,
     async close() {
       await new Promise((resolve) => {
         server.close(resolve);
@@ -247,8 +252,20 @@ async function handle(req, res, ctx) {
     return openFile(req, res, url, link[1], ctx);
   }
 
+  // The link in an email opens in a browser, so it has no API key
+  if (req.method === 'GET' && url.pathname === '/auth/v1/verify') {
+    return ctx.auth.verify(res, url);
+  }
+
   if (!req.headers.apikey) return send(res, 401, { message: 'No API key found in request' });
-  if (req.headers.apikey !== ANON_KEY) return send(res, 401, { message: 'Invalid API key' });
+  if (req.headers.apikey !== ANON_KEY && req.headers.apikey !== SERVICE_KEY) {
+    return send(res, 401, { message: 'Invalid API key' });
+  }
+  // On Supabase this key skips Row Level Security. The website must not use it for rows or files,
+  // so here it fails loudly instead of hiding a mistake.
+  if (req.headers.apikey === SERVICE_KEY && !url.pathname.startsWith('/auth/v1/')) {
+    return send(res, 403, { message: 'The stand-in only takes the service key for Supabase Auth' });
+  }
 
   // Storage takes files, so it reads its own bodies
   if (url.pathname.startsWith('/storage/v1/')) {
@@ -316,8 +333,11 @@ function bearerOf(req) {
 // ----- Auth -----
 
 class Auth {
-  constructor(tokenSeconds) {
+  constructor(tokenSeconds, db, oneAtATime, log) {
     this.tokenSeconds = tokenSeconds;
+    this.db = db;
+    this.oneAtATime = oneAtATime;
+    this.log = log;
     // A new secret each run, so a cookie from an earlier run is a bad JWT, like after a restart
     // with a new JWT secret on Supabase
     this.secret = randomBytes(32);
@@ -325,13 +345,23 @@ class Auth {
     this.sessions = new Map();
     // Every refresh token given out, with its session, when it was used and the one after it
     this.refreshTokens = new Map();
+    // Accounts made by an invite, by ID. The test accounts are in TEST_USERS
+    this.invited = new Map();
+    // What's changed about an account since it was made, by ID: when it's banned until, when it
+    // last signed in
+    this.changes = new Map();
+    // Links in emails that haven't been used, by token, and every email Auth would have sent
+    this.links = new Map();
+    this.emails = [];
   }
 
   handle(req, res, path, url, body) {
     const grant = url.searchParams.get('grant_type');
     if (req.method === 'POST' && path === '/token' && grant === 'password') {
-      const user = findUser(body?.email, body?.password);
+      const user = this.signingIn(body?.email, body?.password);
       if (!user) return authError(res, 400, 'invalid_credentials', 'Invalid login credentials');
+      if (this.isBanned(user.id)) return authError(res, 400, 'user_banned', 'User is banned');
+      this.change(user.id, { lastSignIn: new Date().toISOString() });
       return send(res, 200, this.newSession(user));
     }
     if (req.method === 'POST' && path === '/token' && grant === 'refresh_token') {
@@ -340,7 +370,27 @@ class Auth {
     if (req.method === 'GET' && path === '/user') {
       const checked = this.check(bearerOf(req));
       if (!checked.user) return authError(res, checked.status, checked.code, checked.error);
-      return send(res, 200, userJson(checked.user));
+      return send(res, 200, this.json(checked.user));
+    }
+    if (req.method === 'PUT' && path === '/user') {
+      return this.setPassword(req, res, body);
+    }
+    if (req.method === 'POST' && path === '/recover') {
+      return this.recover(req, res, url, body);
+    }
+    if (req.method === 'POST' && path === '/invite') {
+      if (bearerOf(req) !== SERVICE_KEY) return notAdmin(res);
+      return this.invite(req, res, url, body);
+    }
+    if (req.method === 'GET' && path === '/admin/users') {
+      if (bearerOf(req) !== SERVICE_KEY) return notAdmin(res);
+      const users = [...TEST_USERS, ...this.invited.values()].map((u) => this.json(u));
+      return send(res, 200, { users, aud: 'authenticated' });
+    }
+    const adminUser = /^\/admin\/users\/([^/]+)$/.exec(path);
+    if (req.method === 'PUT' && adminUser) {
+      if (bearerOf(req) !== SERVICE_KEY) return notAdmin(res);
+      return this.updateByAdmin(res, adminUser[1], body);
     }
     if (req.method === 'POST' && path === '/logout') {
       const checked = this.check(bearerOf(req));
@@ -353,6 +403,165 @@ class Auth {
       return authError(res, 422, 'signup_disabled', 'Signups not allowed for this instance');
     }
     return authError(res, 404, 'not_found', 'The stand-in doesn’t have this part of Supabase Auth');
+  }
+
+  userById(id) {
+    return TEST_USERS.find((u) => u.id === id) ?? this.invited.get(id);
+  }
+
+  userByEmail(email) {
+    const wantedEmail = String(email ?? '').toLowerCase();
+    return (
+      TEST_USERS.find((u) => u.email === wantedEmail) ??
+      [...this.invited.values()].find((u) => u.email === wantedEmail)
+    );
+  }
+
+  /** The test accounts share one password. Invited accounts have the one they set. */
+  signingIn(email, password) {
+    const user = this.userByEmail(email);
+    if (!user?.invited) return findUser(email, password);
+    return user.password && user.password === String(password ?? '') ? user : null;
+  }
+
+  change(id, changes) {
+    this.changes.set(id, { ...this.changes.get(id), ...changes });
+  }
+
+  isBanned(id) {
+    const until = this.changes.get(id)?.bannedUntil;
+    return Boolean(until) && Date.parse(until) > Date.now();
+  }
+
+  json(user) {
+    return userJson(user, this.changes.get(user.id));
+  }
+
+  /** Writes the email Supabase would send. Prints it, because nothing here really sends email. */
+  sendLink(req, url, user, type) {
+    for (const [token, link] of this.links) {
+      if (link.userId === user.id) this.links.delete(token);
+    }
+    const token = randomBytes(16).toString('hex');
+    this.links.set(token, { userId: user.id, type, expires: Date.now() + 24 * 3600 * 1000 });
+    const redirectTo = url.searchParams.get('redirect_to') ?? `http://${req.headers.host}/`;
+    const query = new URLSearchParams({ token, type, redirect_to: redirectTo });
+    const link = `http://${req.headers.host}/auth/v1/verify?${query}`;
+    this.emails.push({ to: user.email, type, link });
+    this.log(`Email to ${user.email} (${type}): ${link}`);
+  }
+
+  // Makes the account the way Supabase Auth does, so the trigger from 004 makes a visitor profile.
+  // Inviting an email that's already in use only works again if they never finished signing up.
+  async invite(req, res, url, body) {
+    const email = String(body?.email ?? '').toLowerCase();
+    if (!email.includes('@')) {
+      return authError(res, 400, 'validation_failed', 'Unable to validate email address');
+    }
+    let user = this.userByEmail(email);
+    if (user && (!user.invited || this.changes.get(user.id)?.confirmedAt)) {
+      return authError(res, 422, 'email_exists',
+        'A user with this email address has already been registered');
+    }
+    if (!user) {
+      const name = body?.data?.name ?? null;
+      user = {
+        id: randomUUID(),
+        email,
+        name,
+        invited: true,
+        password: null,
+        createdAt: new Date().toISOString(),
+      };
+      await this.oneAtATime(() =>
+        this.db.query('INSERT INTO auth.users (id, email, raw_user_meta_data) VALUES ($1, $2, $3)', [
+          user.id,
+          email,
+          JSON.stringify(body?.data ?? {}),
+        ]),
+      );
+      this.invited.set(user.id, user);
+    }
+    this.sendLink(req, url, user, 'invite');
+    return send(res, 200, this.json(user));
+  }
+
+  // Says yes for an email with no account too, like on Supabase, so it can't be used to find them
+  recover(req, res, url, body) {
+    const user = this.userByEmail(body?.email);
+    if (user) this.sendLink(req, url, user, 'recovery');
+    return send(res, 200, {});
+  }
+
+  /** A link from an email. Goes back to the site with a session after the #, or what went wrong. */
+  verify(res, url) {
+    const link = this.links.get(url.searchParams.get('token'));
+    const type = url.searchParams.get('type');
+    const back = new URL(url.searchParams.get('redirect_to') ?? 'http://127.0.0.1:3210/');
+    const goBack = (values) => {
+      back.hash = new URLSearchParams(values).toString();
+      return send(res, 303, undefined, { Location: back.href });
+    };
+    if (!link || link.type !== type || link.expires <= Date.now()) {
+      return goBack({
+        error: 'access_denied',
+        error_code: 'otp_expired',
+        error_description: 'Email link is invalid or has expired',
+      });
+    }
+    if (this.isBanned(link.userId)) {
+      return goBack({
+        error: 'access_denied',
+        error_code: 'user_banned',
+        error_description: 'User is banned',
+      });
+    }
+    this.links.delete(url.searchParams.get('token'));
+    const now = new Date().toISOString();
+    this.change(link.userId, { confirmedAt: now, lastSignIn: now });
+    const session = this.newSession(this.userById(link.userId));
+    return goBack({
+      access_token: session.access_token,
+      expires_at: session.expires_at,
+      expires_in: session.expires_in,
+      refresh_token: session.refresh_token,
+      token_type: 'bearer',
+      type,
+    });
+  }
+
+  setPassword(req, res, body) {
+    const checked = this.check(bearerOf(req));
+    if (!checked.user) return authError(res, checked.status, checked.code, checked.error);
+    const password = String(body?.password ?? '');
+    if (password.length < 6) {
+      return authError(res, 422, 'weak_password', 'Password should be at least 6 characters');
+    }
+    // The test accounts share one password, so that doesn't change
+    if (!checked.user.invited) {
+      return authError(res, 422, 'validation_failed', 'The stand-in can’t change a test account');
+    }
+    if (checked.user.password === password) {
+      return authError(res, 422, 'same_password',
+        'New password should be different from the old password');
+    }
+    checked.user.password = password;
+    return send(res, 200, this.json(checked.user));
+  }
+
+  updateByAdmin(res, id, body) {
+    const user = this.userById(id);
+    if (!user) return authError(res, 404, 'user_not_found', 'User not found');
+    const duration = body?.ban_duration;
+    if (duration === 'none') {
+      this.change(id, { bannedUntil: null });
+    } else if (/^\d+h$/.test(duration ?? '')) {
+      const until = Date.now() + Number.parseInt(duration, 10) * 3600 * 1000;
+      this.change(id, { bannedUntil: new Date(until).toISOString() });
+    } else {
+      return authError(res, 400, 'validation_failed', 'The stand-in only changes ban_duration');
+    }
+    return send(res, 200, this.json(user));
   }
 
   newSession(user, sessionId = randomUUID(), refreshToken = null) {
@@ -384,7 +593,7 @@ class Auth {
       expires_in: this.tokenSeconds,
       expires_at: claims.exp,
       refresh_token: refreshToken,
-      user: userJson(user),
+      user: this.json(user),
     };
   }
 
@@ -398,7 +607,8 @@ class Auth {
       return authError(res, 400, 'refresh_token_not_found',
         'Invalid Refresh Token: Refresh Token Not Found');
     }
-    const user = TEST_USERS.find((u) => u.id === userId);
+    const user = this.userById(userId);
+    if (this.isBanned(userId)) return authError(res, 400, 'user_banned', 'User is banned');
     if (found.usedAt === null) {
       const session = this.newSession(user, found.sessionId);
       found.usedAt = Date.now();
@@ -463,7 +673,7 @@ class Auth {
         claims,
       };
     }
-    const user = TEST_USERS.find((u) => u.id === claims.sub);
+    const user = this.userById(claims.sub);
     return user ? { claims, user } : bad;
   }
 }
@@ -477,17 +687,20 @@ function findUser(email, password) {
   return user && right ? user : null;
 }
 
-function userJson(user) {
-  const at = '2026-10-01T00:00:00Z';
+function userJson(user, changes = {}) {
+  const at = user.createdAt ?? '2026-10-01T00:00:00Z';
+  const confirmed = user.invited ? changes.confirmedAt : at;
+  const lastSignIn = changes.lastSignIn ?? (user.invited ? undefined : at);
   return {
     id: user.id,
     aud: 'authenticated',
     role: 'authenticated',
     email: user.email,
-    email_confirmed_at: at,
+    ...(confirmed ? { email_confirmed_at: confirmed, confirmed_at: confirmed } : {}),
+    ...(user.invited ? { invited_at: at } : {}),
+    ...(changes.bannedUntil ? { banned_until: changes.bannedUntil } : {}),
     phone: '',
-    confirmed_at: at,
-    last_sign_in_at: at,
+    ...(lastSignIn ? { last_sign_in_at: lastSignIn } : {}),
     app_metadata: { provider: 'email', providers: ['email'] },
     user_metadata: { name: user.name },
     identities: [],
@@ -499,6 +712,10 @@ function userJson(user) {
 
 function authError(res, status, code, msg) {
   return send(res, status, { code: status, error_code: code, msg });
+}
+
+function notAdmin(res) {
+  return authError(res, 403, 'not_admin', 'User not allowed');
 }
 
 // ----- REST API -----
