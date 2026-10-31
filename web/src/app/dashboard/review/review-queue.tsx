@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import Link from "next/link";
+import { useEffect, useState, useTransition, type FormEvent } from "react";
 import { Icon } from "@/components/icon";
 import {
   ConditionBadge,
@@ -11,15 +12,21 @@ import {
 import type { Condition } from "@/lib/condition";
 import { plural } from "@/lib/format";
 import type { IucnCode } from "@/lib/iucn";
+import { MAX_REASON, REASON_MISSING, tidyReason, type Decision } from "@/lib/review";
+import { reviewRecord } from "./actions";
 
-export type QueueItem = {
+export type ReviewItem = {
   id: string;
+  /** The record's updated_at as sent, so a decision only applies to what was shown */
+  version: string;
   code: string;
+  /** The common name when the species is on our list, otherwise what the field team typed */
   speciesName: string;
   scientificName: string;
-  iucn: IucnCode;
+  /** Null while the plant isn't matched to a species yet */
+  iucn: IucnCode | null;
   hidesLocation: boolean;
-  heightM: number;
+  heightM: number | null;
   condition: Condition;
   photoCount: number;
   coords: string | null;
@@ -27,15 +34,17 @@ export type QueueItem = {
   notes: string | null;
   recordedBy: string;
   recordedAt: string;
+  status: "waiting" | "published" | "rejected";
+  reviewNotes: string | null;
+  reviewedBy: string | null;
+  reviewedAt: string | null;
 };
-
-type Decision = { kind: "approved" } | { kind: "rejected"; reason: string };
 
 // Phone GPS under the canopy is often off by 10 m or more. Past this we
 // flag it so the officer looks at the point before approving.
 const GOOD_GPS_M = 15;
 
-function checksFor(item: QueueItem) {
+function checksFor(item: ReviewItem) {
   const checks: { ok: boolean; text: string }[] = [];
   if (item.accuracyM === null) {
     checks.push({ ok: false, text: "No GPS point, so it won’t show on any map" });
@@ -52,14 +61,30 @@ function checksFor(item: QueueItem) {
       ? { ok: true, text: `${plural(item.photoCount, "photo")} attached` }
       : { ok: false, text: "No photos attached" },
   );
+  checks.push(
+    item.iucn
+      ? { ok: true, text: "Matched to a species on our list" }
+      : {
+          ok: false,
+          text: "Not matched to a species yet, so the public site only shows a rough area",
+        },
+  );
   return checks;
 }
 
-export function ReviewQueue({ items }: { items: QueueItem[] }) {
-  const [decisions, setDecisions] = useState<Record<string, Decision>>({});
+export function ReviewQueue({
+  waiting,
+  decided,
+}: {
+  waiting: ReviewItem[];
+  decided: ReviewItem[];
+}) {
+  const [isPending, startTransition] = useTransition();
+  const [busy, setBusy] = useState<string | null>(null);
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [rejecting, setRejecting] = useState<string | null>(null);
   const [reason, setReason] = useState("");
-  const [reasonMissing, setReasonMissing] = useState(false);
+  const [reasonError, setReasonError] = useState<string | null>(null);
   const [announcement, setAnnouncement] = useState("");
   const [focusRequest, setFocusRequest] = useState<{ elementId: string } | null>(
     null,
@@ -69,80 +94,101 @@ export function ReviewQueue({ items }: { items: QueueItem[] }) {
     if (focusRequest) document.getElementById(focusRequest.elementId)?.focus();
   }, [focusRequest]);
 
-  const pending = items.filter((item) => !decisions[item.id]);
-  const decided = items.filter((item) => decisions[item.id]);
-
-  function decide(item: QueueItem, decision: Decision) {
-    const index = pending.findIndex((p) => p.id === item.id);
-    const rest = pending.filter((p) => p.id !== item.id);
-    // Move on to the next record, or the "all done" message
-    const next = rest[index] ?? rest[index - 1];
-
-    setDecisions((current) => ({ ...current, [item.id]: decision }));
-    setRejecting(null);
-    setReason("");
-    setReasonMissing(false);
-    setAnnouncement(
-      `${decision.kind === "approved" ? "Approved" : "Rejected"} ${item.speciesName}, ${item.code}.`,
-    );
-    setFocusRequest({ elementId: next ? `item-${next.id}` : "queue-clear" });
+  function clearError(id: string) {
+    setErrors((current) => {
+      const next = { ...current };
+      delete next[id];
+      return next;
+    });
   }
 
-  function startRejecting(item: QueueItem) {
+  function decide(item: ReviewItem, decision: Decision, why = "") {
+    if (isPending) return;
+    clearError(item.id);
+    setBusy(item.id);
+    startTransition(async () => {
+      const result = await reviewRecord({
+        id: item.id,
+        version: item.version,
+        decision,
+        reason: why,
+      });
+      setBusy(null);
+      if (!result.ok) {
+        setErrors((current) => ({ ...current, [item.id]: result.message }));
+        setFocusRequest({ elementId: `error-${item.id}` });
+        return;
+      }
+      setRejecting(null);
+      setReason("");
+      setReasonError(null);
+      setAnnouncement(
+        decision === "approve"
+          ? `Approved ${item.speciesName}, ${item.code}.`
+          : decision === "reject"
+            ? `Rejected ${item.speciesName}, ${item.code}.`
+            : `${item.speciesName}, ${item.code}, is back in the queue.`,
+      );
+      // The page refreshes with the record in its new place, so land on the
+      // heading of the queue rather than on a card that has just moved
+      setFocusRequest({ elementId: "pending-heading" });
+    });
+  }
+
+  function startRejecting(item: ReviewItem) {
     setRejecting(item.id);
     setReason("");
-    setReasonMissing(false);
+    setReasonError(null);
+    clearError(item.id);
     setFocusRequest({ elementId: `reason-${item.id}` });
   }
 
-  function cancelRejecting(item: QueueItem) {
+  function cancelRejecting(item: ReviewItem) {
     setRejecting(null);
-    setReasonMissing(false);
+    setReasonError(null);
     setFocusRequest({ elementId: `reject-${item.id}` });
   }
 
-  function submitReject(event: FormEvent<HTMLFormElement>, item: QueueItem) {
+  function submitReject(event: FormEvent<HTMLFormElement>, item: ReviewItem) {
     event.preventDefault();
-    const text = reason.trim();
+    const text = tidyReason(reason);
     if (!text) {
-      setReasonMissing(true);
+      setReasonError(REASON_MISSING);
       document.getElementById(`reason-${item.id}`)?.focus();
       return;
     }
-    decide(item, { kind: "rejected", reason: text });
-  }
-
-  function undo(item: QueueItem) {
-    setDecisions((current) => {
-      const next = { ...current };
-      delete next[item.id];
-      return next;
-    });
-    setAnnouncement(`${item.speciesName}, ${item.code}, is back in the queue.`);
-    setFocusRequest({ elementId: `item-${item.id}` });
+    if (text.length > MAX_REASON) {
+      setReasonError(`The reason can be up to ${MAX_REASON} characters.`);
+      document.getElementById(`reason-${item.id}`)?.focus();
+      return;
+    }
+    setReasonError(null);
+    decide(item, "reject", text);
   }
 
   return (
     <>
       <p role="status" className="sr-only">
-        {announcement}
+        {isPending ? "Saving your decision." : announcement}
       </p>
 
       <section aria-labelledby="pending-heading" className="mt-10">
-        <h2 id="pending-heading" className="text-xl font-bold tracking-tight">
+        <h2
+          id="pending-heading"
+          tabIndex={-1}
+          className="text-xl font-bold tracking-tight"
+        >
           Waiting{" "}
-          <span className="font-normal text-moss">({pending.length})</span>
+          <span className="font-normal text-moss">({waiting.length})</span>
         </h2>
 
-        {pending.length === 0 ? (
+        {waiting.length === 0 ? (
           <div className="card mt-4 flex items-center gap-4 p-5 sm:p-6">
             <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-ok-soft text-ok">
               <Icon name="check" />
             </span>
             <div>
-              <h3 id="queue-clear" tabIndex={-1} className="font-bold">
-                Nothing left to review
-              </h3>
+              <h3 className="font-bold">Nothing left to review</h3>
               <p className="text-sm text-moss">
                 New records from the mobile app will show up here.
               </p>
@@ -150,7 +196,7 @@ export function ReviewQueue({ items }: { items: QueueItem[] }) {
           </div>
         ) : (
           <ul className="mt-4 space-y-5">
-            {pending.map((item) => (
+            {waiting.map((item) => (
               <li key={item.id}>
                 <article
                   aria-labelledby={`item-${item.id}`}
@@ -171,14 +217,16 @@ export function ReviewQueue({ items }: { items: QueueItem[] }) {
                       <LatinName name={item.scientificName} />
                     </p>
                     <div className="mt-3 flex flex-wrap gap-2">
-                      <IucnChip code={item.iucn} />
+                      {item.iucn && <IucnChip code={item.iucn} />}
                       {item.hidesLocation && <HiddenLocationBadge />}
                     </div>
 
                     <dl className="mt-5 grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2 lg:grid-cols-3">
                       <div>
                         <dt className="text-moss">Height</dt>
-                        <dd className="font-bold">{item.heightM} m</dd>
+                        <dd className="font-bold">
+                          {item.heightM === null ? "Not measured" : `${item.heightM} m`}
+                        </dd>
                       </div>
                       <div>
                         <dt className="text-moss">Condition</dt>
@@ -223,7 +271,17 @@ export function ReviewQueue({ items }: { items: QueueItem[] }) {
                         <figcaption className="text-sm text-moss">
                           Ranger’s note
                         </figcaption>
-                        <blockquote>{item.notes}</blockquote>
+                        <blockquote className="whitespace-pre-line">{item.notes}</blockquote>
+                      </figure>
+                    )}
+
+                    {item.reviewNotes && (
+                      <figure className="mt-5 border-l-4 border-warn pl-4">
+                        <figcaption className="text-sm text-moss">
+                          Earlier review note
+                          {item.reviewedBy && <>, from {item.reviewedBy}</>}
+                        </figcaption>
+                        <blockquote className="whitespace-pre-line">{item.reviewNotes}</blockquote>
                       </figure>
                     )}
 
@@ -249,9 +307,33 @@ export function ReviewQueue({ items }: { items: QueueItem[] }) {
                         </li>
                       ))}
                     </ul>
+
+                    <p className="mt-4 text-sm">
+                      <Link
+                        href={`/dashboard/records/${item.id}/edit`}
+                        className="font-bold underline decoration-line underline-offset-4 hover:decoration-ink"
+                      >
+                        Open the record
+                        <span className="sr-only"> {item.code}</span>
+                      </Link>{" "}
+                      <span className="text-moss">
+                        to see its photos or fix a mistake before you decide.
+                      </span>
+                    </p>
                   </div>
 
                   <div className="border-t border-line bg-paper/60 p-4 sm:px-6">
+                    {errors[item.id] && (
+                      <p
+                        id={`error-${item.id}`}
+                        tabIndex={-1}
+                        role="alert"
+                        className="mb-4 flex items-start gap-2.5 rounded-xl border-2 border-bad bg-sheet p-4 font-bold text-bad"
+                      >
+                        <Icon name="alert" className="mt-0.5 size-4 shrink-0" />
+                        {errors[item.id]}
+                      </p>
+                    )}
                     {rejecting === item.id ? (
                       <form
                         onSubmit={(event) => submitReject(event, item)}
@@ -263,31 +345,38 @@ export function ReviewQueue({ items }: { items: QueueItem[] }) {
                         <p id={`reason-${item.id}-hint`} className="text-sm text-moss">
                           {item.recordedBy} will see this, so say what to fix.
                         </p>
-                        {reasonMissing && (
+                        {reasonError && (
                           <p
                             id={`reason-${item.id}-error`}
                             className="mt-1 flex items-start gap-2 text-sm font-bold text-bad"
                           >
                             <Icon name="alert" className="mt-px size-4" />
-                            Write a reason so the ranger knows what to fix.
+                            {reasonError}
                           </p>
                         )}
                         <textarea
                           id={`reason-${item.id}`}
                           rows={3}
                           value={reason}
-                          onChange={(event) => setReason(event.target.value)}
-                          aria-invalid={reasonMissing}
+                          onChange={(event) => {
+                            setReason(event.target.value);
+                            setReasonError(null);
+                          }}
+                          aria-invalid={Boolean(reasonError)}
                           aria-describedby={
-                            reasonMissing
+                            reasonError
                               ? `reason-${item.id}-hint reason-${item.id}-error`
                               : `reason-${item.id}-hint`
                           }
                           className="field mt-2"
                         />
                         <div className="mt-3 flex flex-wrap gap-2">
-                          <button type="submit" className="btn btn-danger">
-                            Reject record
+                          <button
+                            type="submit"
+                            aria-disabled={isPending}
+                            className="btn btn-danger"
+                          >
+                            {busy === item.id ? "Rejecting…" : "Reject record"}
                           </button>
                           <button
                             type="button"
@@ -302,11 +391,12 @@ export function ReviewQueue({ items }: { items: QueueItem[] }) {
                       <div className="flex flex-wrap gap-2">
                         <button
                           type="button"
-                          onClick={() => decide(item, { kind: "approved" })}
+                          aria-disabled={isPending}
+                          onClick={() => decide(item, "approve")}
                           className="btn btn-primary"
                         >
                           <Icon name="check" className="size-4" />
-                          Approve
+                          {busy === item.id ? "Approving…" : "Approve"}
                           <span className="sr-only">
                             {" "}
                             {item.speciesName} {item.code}
@@ -315,6 +405,7 @@ export function ReviewQueue({ items }: { items: QueueItem[] }) {
                         <button
                           id={`reject-${item.id}`}
                           type="button"
+                          aria-disabled={isPending}
                           onClick={() => startRejecting(item)}
                           className="btn btn-danger"
                         >
@@ -338,49 +429,74 @@ export function ReviewQueue({ items }: { items: QueueItem[] }) {
       {decided.length > 0 && (
         <section aria-labelledby="decided-heading" className="mt-12">
           <h2 id="decided-heading" className="text-xl font-bold tracking-tight">
-            Done in this session
+            Recently reviewed
           </h2>
+          <p className="mt-1 text-sm text-moss">
+            The last {plural(decided.length, "decision")}. If one was a mistake,
+            send the record back to the queue and decide again.
+          </p>
           <ul className="mt-4 divide-y divide-line rounded-xl border border-line bg-sheet">
             {decided.map((item) => {
-              const decision = decisions[item.id];
-              const approved = decision.kind === "approved";
+              const approved = item.status === "published";
               return (
-                <li
-                  key={item.id}
-                  className="flex flex-wrap items-center gap-x-4 gap-y-3 p-4"
-                >
-                  <span
-                    className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${
-                      approved ? "bg-ok-soft text-ok" : "bg-bad-soft text-bad"
-                    }`}
-                  >
-                    {approved ? "Approved" : "Rejected"}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="font-bold">
-                      {item.speciesName}{" "}
-                      <span className="font-mono text-sm text-moss">
-                        {item.code}
-                      </span>
-                    </p>
-                    <p className="text-sm text-moss">
-                      {decision.kind === "rejected"
-                        ? `Reason: ${decision.reason}`
-                        : "Once this is saved for real, it goes on the public site."}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => undo(item)}
-                    className="btn btn-secondary"
-                  >
-                    <Icon name="undo" className="size-4" />
-                    Undo
-                    <span className="sr-only">
-                      {" "}
-                      {approved ? "approving" : "rejecting"} {item.speciesName}
+                <li key={item.id} className="p-4">
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
+                    <span
+                      className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${
+                        approved ? "bg-ok-soft text-ok" : "bg-bad-soft text-bad"
+                      }`}
+                    >
+                      {approved ? "Approved" : "Rejected"}
                     </span>
-                  </button>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-bold">
+                        {item.speciesName}{" "}
+                        <span className="font-mono text-sm text-moss">
+                          {item.code}
+                        </span>
+                      </p>
+                      <p className="text-sm text-moss">
+                        {item.reviewedBy ?? "Someone"}
+                        {item.reviewedAt && <>, {item.reviewedAt}</>}
+                        {!approved && item.reviewNotes && (
+                          <> · Reason: {item.reviewNotes}</>
+                        )}
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <Link
+                        href={`/dashboard/records/${item.id}/edit`}
+                        className="btn btn-secondary"
+                      >
+                        Open
+                        <span className="sr-only"> {item.code}</span>
+                      </Link>
+                      <button
+                        type="button"
+                        aria-disabled={isPending}
+                        onClick={() => decide(item, "reopen")}
+                        className="btn btn-secondary"
+                      >
+                        <Icon name="undo" className="size-4" />
+                        {busy === item.id ? "Sending back…" : "Back to the queue"}
+                        <span className="sr-only">
+                          {" "}
+                          {item.speciesName} {item.code}
+                        </span>
+                      </button>
+                    </div>
+                  </div>
+                  {errors[item.id] && (
+                    <p
+                      id={`error-${item.id}`}
+                      tabIndex={-1}
+                      role="alert"
+                      className="mt-3 flex items-start gap-2.5 rounded-xl border-2 border-bad bg-sheet p-4 font-bold text-bad"
+                    >
+                      <Icon name="alert" className="mt-0.5 size-4 shrink-0" />
+                      {errors[item.id]}
+                    </p>
+                  )}
                 </li>
               );
             })}

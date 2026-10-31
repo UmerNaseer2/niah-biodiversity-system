@@ -429,6 +429,68 @@ describe('records', () => {
     assert.equal(saved.reviewed_at.getTime(), reviewedAt);
   });
 
+  test('officers and admins can reopen a decided record and decide again (item 19)', async () => {
+    const decide = 'UPDATE public.records SET status = $2, review_notes = $3 WHERE id = $1';
+    const reopen = "UPDATE public.records SET status = 'waiting' WHERE id = $1";
+
+    // Rejected with a reason, sent back to the queue, then approved with the reason cleared
+    const id = await upload(botanist);
+    assert.equal(await changed(officer, decide, [id, 'rejected', 'The photo is blurry.']), 1);
+    let saved = await storedRecord(id);
+    assert.equal(saved.status, 'rejected');
+    assert.equal(saved.review_notes, 'The photo is blurry.');
+    assert.equal(saved.reviewed_by, officer.name);
+
+    assert.equal(await changed(admin, reopen, [id]), 1);
+    saved = await storedRecord(id);
+    assert.equal(saved.status, 'waiting');
+    // Reopening keeps the reason, and says the admin was the last to review it
+    assert.equal(saved.review_notes, 'The photo is blurry.');
+    assert.equal(saved.reviewed_by, admin.name);
+
+    assert.equal(await changed(officer, decide, [id, 'published', null]), 1);
+    saved = await storedRecord(id);
+    assert.equal(saved.status, 'published');
+    assert.equal(saved.review_notes, null);
+    assert.equal(saved.reviewed_by, officer.name);
+
+    // Published, sent back, so it leaves the public view until it's approved again
+    const publicSql = 'SELECT id FROM public.records_public WHERE id = $1';
+    assert.equal((await selectAs(db, null, publicSql, [id])).length, 1);
+    assert.equal(await changed(officer, reopen, [id]), 1);
+    assert.equal((await selectAs(db, null, publicSql, [id])).length, 0);
+
+    // A botanist can't review a record, even their own. (Setting it to the status it already
+    // has isn't a change, so that isn't tried.)
+    for (const status of ['published', 'rejected']) {
+      await assert.rejects(
+        run(botanist, 'UPDATE public.records SET status = $2 WHERE id = $1', [id, status]),
+        { code: '42501' },
+        status,
+      );
+    }
+  });
+
+  test('a decision only applies to the record as it was when the page loaded (item 19)', async () => {
+    // The website adds the status and the updated_at it saw to the WHERE, so a record that
+    // someone else reviewed or edited in the meantime isn't changed
+    const id = await upload(botanist);
+    const loaded = (await storedRecord(id)).updated_at.toISOString();
+    const decide = `UPDATE public.records SET status = 'published'
+      WHERE id = $1 AND status = 'waiting' AND updated_at = $2`;
+
+    // Someone edits it first, which moves updated_at
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    assert.equal(await changed(officer, editNotes, [id]), 1);
+    assert.equal(await changed(admin, decide, [id, loaded]), 0);
+    assert.equal((await storedRecord(id)).status, 'waiting');
+
+    // With the new updated_at it goes through, and a second decision on the same version doesn't
+    const current = (await storedRecord(id)).updated_at.toISOString();
+    assert.equal(await changed(admin, decide, [id, current]), 1);
+    assert.equal(await changed(officer, decide, [id, current]), 0);
+  });
+
   test('the SQL editor can still change a status, without a reviewer', async () => {
     const id = await upload(botanist);
     await setStatus(id, 'published');
