@@ -45,8 +45,8 @@ Notes:
 
 ## Innovation, first half (items 38 and 39)
 
-- [ ] 38. Analysis of Current Ground-Truthing Limitations
-- [ ] 39. Proposed Innovative Workflow Design
+- [x] 38. Analysis of Current Ground-Truthing Limitations. Merged 31 Oct, see [the analysis](innovation/ground-truthing-limitations.md)
+- [x] 39. Proposed Innovative Workflow Design. Merged 31 Oct, see [the design](innovation/improved-workflow.md)
 
 ## Carried over from Sprint #1
 
