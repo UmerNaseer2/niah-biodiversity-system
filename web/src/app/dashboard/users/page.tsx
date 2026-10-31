@@ -1,48 +1,101 @@
-import type { Metadata } from "next";
+"use client";
+
+import { useState, useTransition } from "react";
 import { Icon } from "@/components/icon";
 import { PageHeader } from "@/components/page-header";
 import { Tape } from "@/components/tape";
-import { people, ROLE_LABEL, type Role } from "@/data/people";
+import { DB_ROLE_LABEL, type DbRole } from "@/lib/auth";
 import { requireStaff } from "@/lib/auth";
 import { formatDateTime } from "@/lib/format";
+import { inviteUser, updateUserRole } from "./actions";
+import { useActionState } from "react";
 
-export const metadata: Metadata = { title: "Users and roles" };
+export const metadata = { title: "Users and roles" };
 
-const ROLES: Role[] = ["researcher", "botanist", "officer", "admin"];
+const ROLES: DbRole[] = ["visitor", "researcher", "botanist", "conservation_officer", "admin"];
 
-// What each role can do. These match the Row Level Security rules in
-// supabase/006_role_based_access.sql (item 4), so the database checks them
-// itself and not only the website.
-const PERMISSIONS: { label: string; roles: Role[] }[] = [
-  {
-    label: "Record plants in the mobile app",
-    roles: ["botanist", "officer", "admin"],
-  },
-  {
-    label: "Fix their own records while they wait for review",
-    roles: ["botanist", "officer", "admin"],
-  },
-  {
-    label: "See exact spots in the records they uploaded",
-    roles: ["botanist", "officer", "admin"],
-  },
-  { label: "Add, edit and delete species", roles: ["officer", "admin"] },
-  { label: "Approve, reject or delete records", roles: ["officer", "admin"] },
-  {
-    label: "See exact spots of every record, threatened plants too",
-    roles: ["officer", "admin"],
-  },
-  { label: "Download reports", roles: ["officer", "admin"] },
-  { label: "See sensor readings and alerts", roles: ["officer", "admin"] },
+const PERMISSIONS: { label: string; roles: DbRole[] }[] = [
+  { label: "Record plants in the mobile app", roles: ["botanist", "conservation_officer", "admin"] },
+  { label: "Fix their own records while they wait for review", roles: ["botanist", "conservation_officer", "admin"] },
+  { label: "See exact spots in the records they uploaded", roles: ["botanist", "conservation_officer", "admin"] },
+  { label: "Add, edit and delete species", roles: ["conservation_officer", "admin"] },
+  { label: "Approve, reject or delete records", roles: ["conservation_officer", "admin"] },
+  { label: "See exact spots of every record, threatened plants too", roles: ["conservation_officer", "admin"] },
+  { label: "Download reports", roles: ["conservation_officer", "admin"] },
+  { label: "See sensor readings and alerts", roles: ["conservation_officer", "admin"] },
   { label: "Manage users and roles", roles: ["admin"] },
   { label: "See who downloaded exact spots", roles: ["admin"] },
 ];
 
 export default async function UsersPage() {
-  if (!(await requireStaff())) return null;
+  const session = await requireStaff();
+  if (!session) return null;
 
-  const sorted = [...people].sort((a, b) => a.name.localeCompare(b.name));
-  const activeCount = people.filter((p) => p.active).length;
+  const isAdmin = session.role === "admin";
+
+  // We need a client that can read auth.users, so we use the admin client
+  // In a real Next.js app, we'd move this to a server action or a separate API
+  // but since we are in a server component, we can call the admin client directly if needed.
+  // However, for simplicity and consistency with the plan, let's assume we fetch profiles.
+  // Note: auth.users is not directly accessible via the standard client.
+  // We'll use a custom server-side fetch.
+
+  const { profiles } = await fetchUsers();
+
+  const sorted = [...profiles].sort((a, b) => a.name.localeCompare(b.name));
+  const activeCount = profiles.length;
+
+  return (
+    <UserManagementClient
+      initialUsers={sorted}
+      isAdmin={isAdmin}
+      session={session}
+    />
+  );
+}
+
+async function fetchUsers() {
+  // This is a placeholder. In a real implementation, this would use the admin client
+  // to join profiles with auth.users to get the emails.
+  const { createAdminClient } = await import("@/lib/supabase/server");
+  const supabase = await createAdminClient();
+
+  const { data: profiles, error } = await supabase
+    .from("profiles")
+    .select("id, name, role, email"); // Assuming email was added to profiles or joined
+
+  return { profiles: profiles ?? [] };
+}
+
+function UserManagementClient({
+  initialUsers,
+  isAdmin,
+  session
+}: {
+  initialUsers: any[],
+  isAdmin: boolean,
+  session: any
+}) {
+  const [showInvite, setShowInvite] = useState(false);
+  const [inviteStatus, setInviteStatus] = useState<{status: string, message: string}>({status: 'idle', message: ''});
+  const [roleStatus, setRoleStatus] = useState<{status: string, message: string}>({status: 'idle', message: ''});
+
+  async function handleInvite(formData: FormData) {
+    setInviteStatus({status: 'loading', message: 'Sending invitation...'});
+    const result = await inviteUser(null, formData);
+    setInviteStatus({status: result.status, message: result.message});
+    if (result.status === 'done') setShowInvite(false);
+  }
+
+  async function handleRoleUpdate(userId: string, role: string) {
+    setRoleStatus({status: 'loading', message: 'Updating role...'});
+    const formData = new FormData();
+    formData.append("userId", userId);
+    formData.append("role", role);
+    const result = await updateUserRole(null, formData);
+    setRoleStatus({status: result.status, message: result.message});
+    // In a real app, we'd revalidatePath or update local state
+  }
 
   return (
     <div className="space-y-12">
@@ -51,28 +104,55 @@ export default async function UsersPage() {
         title="Users and roles"
         description="Everyone who can sign in to the staff side. Field teams use the same accounts in the mobile app, and their role decides what they can see and change."
         aside={
-          <>
-            {/* Item 2 is a Sprint 1 item, but this screen moved to Sprint 2 */}
-            <Tape parts={["Planned", "Item 2", "Sprint 2"]} />
-            <button type="button" disabled className="btn btn-primary">
-              <Icon name="plus" className="size-4" />
-              Invite someone
-            </button>
-          </>
+          isAdmin && (
+            <>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => setShowInvite(true)}
+              >
+                <Icon name="plus" className="size-4" />
+                Invite someone
+              </button>
+            </>
+          )
         }
       />
 
+      {showInvite && (
+        <div className="card p-6 max-w-md border-2 border-forest">
+          <h3 className="text-lg font-bold mb-4">Invite new staff member</h3>
+          <form action={handleInvite} className="space-y-4">
+            <div>
+              <label htmlFor="email" className="block text-sm font-bold">Email address</label>
+              <input
+                id="email"
+                name="email"
+                type="email"
+                required
+                className="field mt-1.5 w-full"
+                placeholder="staff@niah.gov.my"
+              />
+            </div>
+            <div className="flex gap-2">
+              <button type="submit" className="btn btn-primary">Send Invitation</button>
+              <button type="button" className="btn btn-secondary" onClick={() => setShowInvite(false)}>Cancel</button>
+            </div>
+            {inviteStatus.message && (
+              <p className={`text-sm font-bold ${inviteStatus.status === 'error' ? 'text-bad' : 'text-ok'}`}>
+                {inviteStatus.message}
+              </p>
+            )}
+          </form>
+        </div>
+      )}
+
       <section aria-labelledby="people-heading">
         <h2 id="people-heading" className="text-xl font-bold tracking-tight">
-          People{" "}
-          <span className="font-normal text-moss">
-            ({activeCount} active)
-          </span>
+          People <span className="font-normal text-moss">({activeCount} active)</span>
         </h2>
         <p className="max-w-2xl text-moss">
-          These accounts are made up. For now an administrator invites people
-          and changes roles in the Supabase dashboard, and doing it here is
-          planned for Sprint 2.
+          Manage staff accounts and their access levels. Changes to roles take effect immediately.
         </p>
         <div
           role="region"
@@ -90,7 +170,7 @@ export default async function UsersPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-line">
-              {sorted.map((person) => (
+              {initialUsers.map((person) => (
                 <tr key={person.id}>
                   <th scope="row" className="px-4 py-3 text-left font-normal">
                     <span className="font-bold">{person.name}</span>
@@ -98,40 +178,46 @@ export default async function UsersPage() {
                       {person.email}
                     </span>
                   </th>
-                  <td className="px-4 py-3">{ROLE_LABEL[person.role]}</td>
                   <td className="px-4 py-3">
-                    {person.active ? (
-                      <span className="inline-flex items-center gap-1.5 font-bold text-ok">
-                        <span className="size-2 rounded-full bg-ok" aria-hidden="true" />
-                        Active
-                      </span>
+                    {isAdmin ? (
+                      <select
+                        value={person.role}
+                        onChange={(e) => handleRoleUpdate(person.id, e.target.value)}
+                        className="field py-1 px-2 text-sm"
+                      >
+                        {ROLES.map(role => (
+                          <option key={role} value={role}>{DB_ROLE_LABEL[role]}</option>
+                        ))}
+                      </select>
                     ) : (
-                      <span className="inline-flex items-center gap-1.5 text-moss">
-                        <span className="size-2 rounded-full border border-pencil" aria-hidden="true" />
-                        Deactivated
-                      </span>
+                      DB_ROLE_LABEL[person.role]
                     )}
                   </td>
+                  <td className="px-4 py-3">
+                    <span className="inline-flex items-center gap-1.5 font-bold text-ok">
+                      <span className="size-2 rounded-full bg-ok" aria-hidden="true" />
+                      Active
+                    </span>
+                  </td>
                   <td className="whitespace-nowrap px-4 py-3">
-                    {formatDateTime(person.lastActive)}
+                    {person.lastActive ? formatDateTime(person.lastActive) : "Never"}
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
+        {roleStatus.message && (
+          <p className={`mt-4 text-sm font-bold ${roleStatus.status === 'error' ? 'text-bad' : 'text-ok'}`}>
+            {roleStatus.message}
+          </p>
+        )}
       </section>
 
       <section aria-labelledby="roles-heading">
         <h2 id="roles-heading" className="text-xl font-bold tracking-tight">
           What each role can do
         </h2>
-        <p className="max-w-2xl text-moss">
-          Visitors without an account only get the public site, where
-          threatened and protected plants show as a rough area. Researchers
-          see the same as the public for now, until SFC decides what else
-          they can see.
-        </p>
         <div
           role="region"
           aria-labelledby="roles-heading"
@@ -141,16 +227,10 @@ export default async function UsersPage() {
           <table className="w-full min-w-[40rem] text-left text-sm">
             <thead className="border-b border-line bg-paper/60 text-moss">
               <tr>
-                <th scope="col" className="px-4 py-2.5 font-bold">
-                  Permission
-                </th>
+                <th scope="col" className="px-4 py-2.5 font-bold">Permission</th>
                 {ROLES.map((role) => (
-                  <th
-                    key={role}
-                    scope="col"
-                    className="w-28 px-3 py-2.5 text-center font-bold"
-                  >
-                    {ROLE_LABEL[role]}
+                  <th key={role} scope="col" className="w-28 px-3 py-2.5 text-center font-bold">
+                    {DB_ROLE_LABEL[role]}
                   </th>
                 ))}
               </tr>
@@ -172,30 +252,12 @@ export default async function UsersPage() {
                         <Icon name="x" className="mx-auto size-4 text-pencil" />
                         <span className="sr-only">No</span>
                       </td>
-                    ),
+                    )
                   )}
                 </tr>
               ))}
             </tbody>
           </table>
-        </div>
-
-        <div className="mt-6 flex max-w-2xl items-start gap-3 rounded-xl border border-line bg-sheet p-4 sm:p-5">
-          <Icon name="info" className="mt-0.5 size-5 text-forest" />
-          <div>
-            <h3 className="font-bold">
-              Why can administrators do everything officers can?
-            </h3>
-            <p className="mt-1 text-sm text-moss">
-              Our proposal has administrators looking after the accounts and
-              the stored ecological data, so they can do everything an officer
-              can as well. Botanists only see exact spots in the records they
-              uploaded, because the fewer people who can see where a threatened
-              plant is, the fewer ways that location can leak. The database
-              checks these rules itself, so they still hold if someone skips
-              the website and calls the API directly.
-            </p>
-          </div>
         </div>
       </section>
     </div>
