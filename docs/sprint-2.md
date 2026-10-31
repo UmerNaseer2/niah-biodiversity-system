@@ -11,7 +11,7 @@ Owners are only filled in where the proposal schedule names one, or where someon
 | --- | --- | --- | --- | --- | --- |
 | 17 | Plant Record Editing & Deletion (Web) | Plant database, RBAC | 8 | Angel | [x] Merged 29 Oct, see [test results](test-results/item-17-plant-edit-delete.md) |
 | 18 | Botanical Photograph Upload & Gallery (Web) | Web platform, storage service | 8 | Umer | [x] Merged 29 Oct, see [test results](test-results/item-18-photo-gallery.md) |
-| 19 | Observation Approval Workflow | Plant database, web platform | 8 | Angel | [ ] |
+| 19 | Observation Approval Workflow | Plant database, web platform | 8 | Angel | [ ] In progress, see [test results](test-results/item-19-observation-approval.md) |
 | 20 | Plant Species Distribution Maps (Basic) | Plant database, mapping library | 7 | Umer | [x] Merged 29 Oct, see [test results](test-results/item-20-maps.md) |
 | 21 | Biodiversity Reports Generation & Export | Plant database, query engine | 7 | Umer | [x] Merged 29 Oct, see [test results](test-results/item-21-reports.md) |
 
