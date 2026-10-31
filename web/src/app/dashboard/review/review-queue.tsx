@@ -23,6 +23,10 @@ export type ReviewItem = {
   /** The common name when the species is on our list, otherwise what the field team typed */
   speciesName: string;
   scientificName: string;
+  /** The name on the record, only if it's a different plant from the linked species */
+  nameDisagreesWith: string | null;
+  /** A common name the ranger typed, only if we don't have it for this species */
+  newCommonName: string | null;
   /** Null while the plant isn't matched to a species yet */
   iucn: IucnCode | null;
   hidesLocation: boolean;
@@ -46,6 +50,23 @@ const GOOD_GPS_M = 15;
 
 function checksFor(item: ReviewItem) {
   const checks: { ok: boolean; text: string }[] = [];
+  if (item.nameDisagreesWith) {
+    checks.push({
+      ok: false,
+      text:
+        `The record says “${item.nameDisagreesWith}” but it’s linked to ` +
+        `${item.scientificName}. Fix the name before you approve it, since the ` +
+        "link decides how much of its spot the public sees",
+    });
+  }
+  if (item.newCommonName) {
+    checks.push({
+      ok: false,
+      text:
+        `The ranger typed the common name “${item.newCommonName}”, which we don’t ` +
+        "have for this species. It shows on the public page",
+    });
+  }
   if (item.accuracyM === null) {
     checks.push({ ok: false, text: "No GPS point, so it won’t show on any map" });
   } else if (item.accuracyM <= GOOD_GPS_M) {
@@ -107,12 +128,20 @@ export function ReviewQueue({
     clearError(item.id);
     setBusy(item.id);
     startTransition(async () => {
+      // A request that never comes back throws, and a transition would hand
+      // that to the error page, wiping any reason typed in. Trying again is
+      // safe: if the first one did save, the version check says so.
       const result = await reviewRecord({
         id: item.id,
         version: item.version,
         decision,
         reason: why,
-      });
+      }).catch(() => ({
+        ok: false as const,
+        message:
+          "The server didn’t answer, so your decision may not have saved. " +
+          "Check your connection and try again.",
+      }));
       setBusy(null);
       if (!result.ok) {
         setErrors((current) => ({ ...current, [item.id]: result.message }));
@@ -343,7 +372,7 @@ export function ReviewQueue({
                           Why are you rejecting it?
                         </label>
                         <p id={`reason-${item.id}-hint`} className="text-sm text-moss">
-                          {item.recordedBy} will see this, so say what to fix.
+                          It’s saved with the record, so say what to fix.
                         </p>
                         {reasonError && (
                           <p

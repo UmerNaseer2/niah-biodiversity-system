@@ -3,7 +3,13 @@
 import { revalidatePath } from "next/cache";
 import { getSession } from "@/lib/auth";
 import { versionRange } from "@/lib/edit-version";
-import { checkReview, DECISIONS, type Decision } from "@/lib/review";
+import {
+  checkReview,
+  DECISIONS,
+  NAME_DISAGREES,
+  nameDisagrees,
+  type Decision,
+} from "@/lib/review";
 import { STATUS_LABEL, type StaffStatus } from "@/lib/records-staff";
 import { authConfigured } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
@@ -36,6 +42,46 @@ function refreshAfterReview() {
   revalidatePath("/(public)", "layout");
 }
 
+/**
+ * Whether the record's name and its species link are about the same plant.
+ * The update below only goes through for the version the page loaded, so an
+ * edit after this check can't slip through. Gives a message to show, or null.
+ */
+async function whyNotApproved(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  id: string,
+) {
+  const record = await supabase
+    .from("records_staff")
+    .select("species_slug, species_name")
+    .eq("id", id)
+    .maybeSingle();
+  const slug = record.data?.species_slug;
+  if (!record.error && !slug) return null;
+
+  const plant = slug
+    ? await supabase
+        .from("species_staff")
+        .select("scientific_name")
+        .eq("id", String(slug))
+        .maybeSingle()
+    : null;
+  const error = record.error ?? plant?.error;
+  if (error) {
+    // Can't tell if it's safe, so it doesn't go public
+    console.error("Checking a record before approving it failed:", error.code, error.message);
+    return "Nothing was saved. Try again, and if it keeps happening, ask an administrator.";
+  }
+  // A link to a species that isn't on the list only shows a rough area
+  if (!plant?.data) return null;
+  return nameDisagrees(
+    String(record.data?.species_name ?? ""),
+    String(plant.data.scientific_name),
+  )
+    ? NAME_DISAGREES
+    : null;
+}
+
 const DONE: Record<Decision, string> = {
   approve: "approve",
   reject: "reject",
@@ -58,6 +104,11 @@ export async function reviewRecord(input: unknown): Promise<ReviewResult> {
   const { to, from } = DECISIONS[decision];
 
   const supabase = await createClient();
+  if (decision === "approve") {
+    const refused = await whyNotApproved(supabase, id);
+    if (refused) return { ok: false, message: refused };
+  }
+
   const range = versionRange(version);
   // Approving clears an old rejection reason, so a record that was sent back
   // and then approved doesn't keep saying why it was rejected. Reopening keeps

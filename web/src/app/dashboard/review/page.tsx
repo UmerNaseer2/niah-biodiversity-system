@@ -6,6 +6,7 @@ import { requireStaff } from "@/lib/auth";
 import { formatCoords, formatDateTime } from "@/lib/format";
 import type { IucnCode } from "@/lib/iucn";
 import { recordFromRow, type StaffRecord } from "@/lib/records-staff";
+import { commonNameIsNew, nameDisagrees } from "@/lib/review";
 import { speciesFromRow } from "@/lib/species-db";
 import { createClient } from "@/lib/supabase/server";
 import { ReviewQueue, type ReviewItem } from "./review-queue";
@@ -41,7 +42,7 @@ export default async function ReviewPage() {
     <PageHeader
       eyebrow="Records"
       title="Review queue"
-      description="New records from the mobile app wait here until an officer checks them. Approved ones go on the public site. Rejected ones go back to the ranger with your reason."
+      description="New records from the mobile app wait here until an officer checks them. Approved ones go on the public site. Rejected ones stay off it, and your reason is saved with the record."
     />
   );
 
@@ -79,6 +80,15 @@ export default async function ReviewPage() {
       code: record.tagCode,
       speciesName: plant?.commonNames[0] ?? record.commonName ?? record.speciesName,
       scientificName: plant?.scientificName ?? record.speciesName,
+      // Shown as well when they disagree, so the officer sees what was sent
+      nameDisagreesWith:
+        plant && nameDisagrees(record.speciesName, plant.scientificName)
+          ? record.speciesName
+          : null,
+      newCommonName:
+        plant && commonNameIsNew(record.commonName, plant.commonNames)
+          ? record.commonName
+          : null,
       iucn: plant ? (plant.iucn as IucnCode) : null,
       // A plant with no species yet only shows a rough area to the public
       hidesLocation: plant ? hidesLocation(plant) : true,
