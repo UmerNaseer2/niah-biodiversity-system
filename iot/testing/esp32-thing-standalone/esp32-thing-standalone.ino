@@ -5,6 +5,9 @@
   Library: <DHT.h> by Adafruit
   Serial : 115200 baud
 
+  This one only uses the DHT library and Serial. It prints to the Serial Monitor and sends
+  nothing over a network. iot/sensor-node is the sketch that sends readings.
+
   Applications
     DHT11      -> air temperature and humidity
     Soil probe -> flash flooding (saturated soil) / soil drying (erosion risk)
@@ -25,7 +28,7 @@
                   GND        VN/39 (G)
     HC-SR04       VCC        5V pin
                   Trig       D5 (S)
-                  Echo       D16 (S)       (recommended: via 1k/2k divider)
+                  Echo       D16 (S)       (required: via 1k/2k divider)
                   GND        D16 (G)
     Buzzer        +          D23 (S)       buzzer
                   -          D23 (G)

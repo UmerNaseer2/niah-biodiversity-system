@@ -96,7 +96,7 @@ DO		none
 
 
 
-note: if you dont have soil or water, you either use a sweaty/wet finger to cross the two prongs or use a wire to short circuit between the two prongs. pin 17 ensures the sensor only receives power during sampling to avoid electrochemical reaction /faster decay due to constant current
+note: if you dont have soil or water, you either use a sweaty/wet finger to cross the two prongs or use a wire to short circuit between the two prongs. pin 17 makes sure the sensor only receives power during sampling to avoid electrochemical reaction /faster decay due to constant current
 
 
 
@@ -120,7 +120,7 @@ GND 		VN/39 (G)
 
 
 
-note: pin 19 ensures the sensor only receives power during sampling to avoid electrochemical reaction /faster decay due to constant current. The rain can be emulated by spreading something conductive on the plate, for example your thumb or a wet cloth, note to clean the copper of your hand. need to adjust the screw potentiometer to make it more sensitive for DO. for application, between using DO and AO,
+note: pin 19 makes sure the sensor only receives power during sampling to avoid electrochemical reaction /faster decay due to constant current. The rain can be emulated by spreading something conductive on the plate, for example your thumb or a wet cloth, note to clean the copper of your hand. need to adjust the screw potentiometer to make it more sensitive for DO. for application, between using DO and AO,
 
 
 
@@ -140,7 +140,7 @@ GND 		D16 (G)
 
 
 
-note: echo should have a 1/2 komega voltage divider to have v3.33
+note: echo needs a 1k/2k ohm voltage divider, so the pin sees about 3.3 V. The divider is required, not optional: the HC-SR04 echo pin puts out 5 V and the ESP32 pins are only rated for 3.3 V.
 
 
 
