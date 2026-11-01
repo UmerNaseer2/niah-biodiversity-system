@@ -88,10 +88,13 @@ address already cleared, so the page said the link was missing. It now only read
 
 ## Known limits
 
-- Role changes aren't logged yet. The history table only covers records.
+- **Fixed on 31 Oct:** role changes are logged now, with who made them and when (SQL 021).
 - There's no deleting an account on the page. Deactivate keeps their records' names, and deleting
   is still done in the Supabase dashboard.
-- Two administrators demoting each other at the same moment could leave nobody as an administrator.
-  Fixing that needs a check in the database.
+- **Fixed on 31 Oct:** the database now refuses to remove the last administrator (SQL 021). Two
+  administrators doing it at the same moment on real connections hasn't been tried, because the
+  tests run on one connection.
+- **Fixed on 1 Nov:** "Last signed in" was showing UTC, 8 hours behind every other time on the
+  website. It uses park time now.
 - Deactivating takes the role away straight away, but someone already signed in keeps their login
   until it runs out. They only get what a visitor can see in that time.

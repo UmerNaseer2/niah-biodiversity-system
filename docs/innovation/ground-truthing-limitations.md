@@ -96,8 +96,7 @@ fixed afterwards.
   a browser only.
 - **Still open:** we swap losing a sheet for losing a phone. A phone that breaks before upload loses
   what's on it. Item 22 encrypts the records file, tested on a simulator only. We haven't tested
-  rain, heat
-  or battery life.
+  rain, heat or battery life.
 
 ### L3. Double handling and inconsistent records (Medium, rank 9)
 
