@@ -16,23 +16,25 @@ kept, and you can fix the problem and run it again.
 | `003_profiles_read_own.sql` | Lets a signed in user read their own profile, so the website can see their role, and takes out an old view from 001 that nothing uses | 15 | Yes |
 | `004_security_hardening.sql` | Role checks on writes, the public views and the staff views | 4, 14, 15, 16 | No, it stops on the policies that are already there |
 | `005_phone_sync.sql` | Lets the phone upload records, and adds the private `record-photos` bucket | 3 | No, it stops on its first line and changes nothing |
-| `006_role_based_access.sql` | What each role can read and change, checked by the database: Row Level Security, column grants and a review trigger | 4 | Yes, then run 007 and 008 again. The public still can't see the exact spot of a plant set to rough area only in between |
-| `007_species_fixes.sql` | The rough area only switch for a species, the public views that use it, checked facts for the sample species, and a trigger that sets `updated_at` when a species is edited | 14 | Yes |
+| `006_role_based_access.sql` | What each role can read and change, checked by the database: Row Level Security, column grants and a review trigger | 4 | Yes, then run 007, 008 and 019 again. The public still can't see the exact spot of a plant set to rough area only in between |
+| `007_species_fixes.sql` | The rough area only switch for a species, the public views that use it, checked facts for the sample species, and a trigger that sets `updated_at` when a species is edited | 14 | Yes, then run 019 again, because this puts the older public view back |
 | `008_record_edits.sql` | `updated_at` on records, set by a trigger when a record is edited, and the staff view that shows it | 17 | Yes |
 | `009_species_photos.sql` | Checks what goes in `species.photos`, the `species_photos_public` view for the plant pages, and lets officers and admins delete record photos | 18 | Yes |
 | `010_deleted_records.sql` | Keeps the ID of every deleted record, with who deleted it and when, so a phone can't upload it again | 3, 17 | Yes |
 | `011_exact_location_downloads.sql` | Keeps a list of every report downloaded with the exact spots of threatened and protected plants, with who downloaded it and when. Only admins can read the list, and nobody can change it | 21 | Yes |
-| `012_report_counts.sql` | Counts the records for the Reports page in the database, as whoever is asking, so the page doesn't load every record to count them | 21 | Yes |
+| `012_report_counts.sql` | Counts the records for the Reports page in the database, as whoever is asking, so the page doesn't load every record to count them | 21 | Yes, then run 019 again, because this puts the older counts back |
 | `013_edit_history.sql` | Keeps a history of every change to a record or species, with who saved it and when, for the edit pages. Only officers and admins can read it, and nobody can change it. It never keeps a plant's map location, but text like notes is kept word for word | 17, 18 | Yes |
 | `014_photo_folder.sql` | Keeps the name of each record's photo folder, so the website can still show and delete a record's photos after the account that sent it is deleted | 18 | Yes |
 | `015_species_rough_area.sql` | Keeps rough area only on for every threatened or protected species, so the first save on the edit page doesn't write a false history line. The public sees the same as before | 17 | Yes |
 | `016_iot_readings.sql` | The edge devices and a hash of each one's token, which node sends through which device, the readings, and `iot_add_readings`, the one call a device can make | 28, 29 | Yes. The readings and tokens are kept |
 | `017_iot_alerts.sql` | The threat rules, which run when a reading arrives, the alerts, the limits the rules use, the check for nodes going quiet, and the `iot_node_status` view for the Sensors page | 31 | Yes. Any limits you've tuned are kept |
+| `019_public_record_details.sql` | Gives the public less about a plant whose spot is hidden: the day a record was made, not the time, and the spot stays hidden when a record's name disagrees with its species. The Reports counts follow the same rule | 26 | Yes |
 
 As of 16 Oct 2026 the hosted project has 001 and 002. Run 003, 004, 005, 006, 007, 008, 009, 010,
-011, 012, 013, 014, 015, 016 and 017 next, one file at a time, in that order, and don't stop part way. The
-website's species pages (add, edit and delete) and its public pages need 007, and 007 stops on its
-first line if 006 isn't there. Until then the public pages say "This page didn't load". Without
+011, 012, 013, 014, 015, 016, 017 and 019 next, one file at a time, in that order, and don't stop
+part way. 018 is saved for the phone work, so there's no 018 yet. When it lands, run it in its
+place. The website's species pages (add, edit and delete) and its public pages need 007, and 007
+stops on its first line if 006 isn't there. Until then the public pages say "This page didn't load". Without
 009 the plant pages show no photos. Without 010 a phone that hadn't synced a record can upload it
 again after an officer deletes it. Without 011 the website turns down every report download with
 exact spots, because it can't put the download on the list. Without 012 the Reports page says the
@@ -45,7 +47,8 @@ its place on the public map changed when it didn't. 015 stops on its first line 
 Without 016 the Sensors page and the overview say the database hasn't been set up for sensors, and
 the staff menu has no badge, but the other pages aren't affected. 016 stops on its first line if
 015 isn't there. Without 017 the Devices page works and the Sensors page says the same. 017 stops
-on its first line if 016 isn't there.
+on its first line if 016 isn't there. Without 019 the public views still give more about a hidden
+plant than they should. 019 stops on its first line if 017 isn't there.
 003 is fine to run even if it turns out to be there already. The history only starts once 013 is
 in, so changes made before that aren't in it.
 
@@ -57,7 +60,7 @@ the field.
 Before running 004, open the `profiles` table in the Table Editor and check every role there is
 one an admin gave on purpose. Set any you don't recognise back to `visitor`. If nobody needs to
 sign up on the website or the app yet, turn sign ups off in the Supabase dashboard
-(Authentication, Sign In / Providers) until 003 to 017 are in. Staff accounts can still be added
+(Authentication, Sign In / Providers) until 003 to 019 are in. Staff accounts can still be added
 by hand there.
 
 If 005 stops with a check error (like `records_gps_check`), a record already on the hosted project
@@ -157,7 +160,8 @@ npm test
   `tests/history.test.js` checks 013 (items 17 and 18), `tests/photo-folder.test.js` checks
   014 (item 18), `tests/downloads.test.js` checks 011, `tests/species-rough.test.js` checks 015
   (item 19), `tests/phone-reads.test.js` checks what the phone reads back when it syncs (item 10),
-  and `tests/iot.test.js` checks 016, 017 and the node simulator (items 28, 29 and 31).
+  `tests/iot.test.js` checks 016, 017 and the node simulator (items 28, 29 and 31), and
+  `tests/public-details.test.js` checks 019 (item 26).
 - `tests/stand-in.js` is a stand-in for our Supabase project that runs on your computer, for
   trying the website without a real project. The
   [web README](../web/README.md#trying-sign-in-without-a-supabase-project) says how, and

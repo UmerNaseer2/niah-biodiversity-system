@@ -27,6 +27,7 @@ export const SQL_FILES = [
   '015_species_rough_area.sql',
   '016_iot_readings.sql',
   '017_iot_alerts.sql',
+  '019_public_record_details.sql',
 ];
 
 export function readSql(file) {
