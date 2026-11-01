@@ -34,9 +34,15 @@ Notes:
 
 ## Security (items 25 to 27)
 
-- [ ] 25. Initial Security Penetration Testing
-- [ ] 26. Vulnerability Remediation & Fixes
-- [ ] 27. Security Reassessment & Verification
+- [x] 25. Initial Security Penetration Testing. Done 31 Oct on Umer's Mac against a local production
+  build and the stand-in, see [test results](test-results/item-25-27-security.md). OWASP ZAP,
+  Security Advisor and SSL Labs didn't run.
+- [x] 26. Vulnerability Remediation & Fixes. Both highs, 5 of 7 mediums and 5 of 14 lows are fixed in
+  our code, with SQL 019 to 021. The hosted project doesn't have them until Umer runs 003 to 021 and
+  the site is deployed.
+- [ ] 27. Security Reassessment & Verification. Partly done. Everything from item 25 that ran was run
+  again on the fixed code and compared, and nothing widened. ZAP and a reassessment on the hosted
+  project are still to do.
 
 ## IoT and monitoring (items 28 to 31)
 
@@ -66,7 +72,7 @@ Notes:
   merged ([where it stands](security/encryption-at-rest.md)).
 - Item 23, checking HTTPS on the real site. It gets checked once the website is deployed.
 - Item 24, Jason still reviews the vulnerability assessment plan.
-- The hosted Supabase project still needs 003 to 017 run, in order (`supabase/README.md`). Only
+- The hosted Supabase project still needs 003 to 021 run, in order (`supabase/README.md`). Only
   Umer can do this.
 
 # After Sprint #2 (Weeks 10 to 11)
