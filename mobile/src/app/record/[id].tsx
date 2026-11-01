@@ -3,6 +3,7 @@ import { useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { LocationSummary } from '@/components/location-summary';
+import { RecordPhotos } from '@/components/record-photos';
 import { Screen } from '@/components/screen';
 import { ThemedText } from '@/components/themed-text';
 import { Button } from '@/components/ui/button';
@@ -237,6 +238,8 @@ export default function RecordScreen() {
           <ThemedText>{record.notes}</ThemedText>
         </Card>
       ) : null}
+
+      <RecordPhotos record={record} />
 
       <Card title="QR tag" icon="qr">
         <PlaceholderNote item={12}>

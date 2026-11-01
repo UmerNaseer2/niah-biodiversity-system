@@ -134,9 +134,10 @@ describe('My records', () => {
 
   it("says so when the record can't be removed, and Keep it clears that", async () => {
     await openWith('deleted');
+    // Not a busy error, because the store would quietly try one of those again.
     const failure = jest
       .spyOn(SQLiteDatabase.prototype, 'runAsync')
-      .mockRejectedValueOnce(new Error('database is locked'));
+      .mockRejectedValueOnce(new Error('disk I/O error'));
     const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
     try {
       fireEvent.press(screen.getByRole('button', { name: 'Remove from this phone' }));
@@ -147,7 +148,7 @@ describe('My records', () => {
       expect(warn).toHaveBeenCalledWith("Couldn't remove the record.", expect.any(Error));
       expect(screen.getByRole('button', { name: 'Remove it' })).toBeEnabled();
 
-      // Asking again starts clean, and it works now the database is free.
+      // Asking again starts clean, and it works this time.
       fireEvent.press(screen.getByRole('button', { name: 'Keep it' }));
       fireEvent.press(screen.getByRole('button', { name: 'Remove from this phone' }));
       expect(screen.queryByText(removeFailed)).toBeNull();

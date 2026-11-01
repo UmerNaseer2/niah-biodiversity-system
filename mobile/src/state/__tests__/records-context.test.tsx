@@ -1,5 +1,6 @@
 import { act, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react-native';
 import { randomUUID } from 'expo-crypto';
+import { Directory, File, Paths } from 'expo-file-system';
 import * as splash from 'expo-router/build/utils/splash';
 import * as SQLite from 'expo-sqlite';
 import type { ReactNode } from 'react';
@@ -363,6 +364,137 @@ describe('removing a record an officer deleted', () => {
     });
     expect(result.current.records).toEqual(before);
     expect(await savedOnPhone()).toEqual([waiting]);
+  });
+});
+
+describe('photos', () => {
+  const ACCOUNT = 'aaaaaaaa-0000-4000-8000-000000000000';
+
+  /** Saves a record with photos and sends the record up, as the account given. */
+  async function savedAndUploaded(
+    result: { current: ReturnType<typeof useRecords> },
+    paths: string[],
+  ) {
+    let saved!: PlantRecord;
+    await act(async () => {
+      saved = await result.current.addRecord(draft, paths);
+      await result.current.saveUploadOutcome(saved.id, { kind: 'synced' }, ACCOUNT);
+    });
+    return saved;
+  }
+
+  function saveFile(name: string) {
+    new Directory(Paths.document, 'record-photos').create({ idempotent: true });
+    new File(Paths.document, 'record-photos', name).write(new Uint8Array([1]));
+    return `record-photos/${name}`;
+  }
+
+  afterEach(() => {
+    new Directory(Paths.document, 'record-photos').delete();
+  });
+
+  it('saves the photos with the record, and counts them', async () => {
+    const { result } = await renderRecords();
+    const path = saveFile('a.jpg');
+    let saved!: PlantRecord;
+    await act(async () => {
+      saved = await result.current.addRecord(draft, [path]);
+    });
+    expect(saved.photoCount).toBe(1);
+    expect(result.current.photosFor(saved.id)).toEqual([{ recordId: saved.id, position: 1, path }]);
+  });
+
+  it('only counts photos as waiting once their record is on the server', async () => {
+    const { result } = await renderRecords();
+    const path = saveFile('a.jpg');
+    let saved!: PlantRecord;
+    await act(async () => {
+      saved = await result.current.addRecord(draft, [path]);
+    });
+    expect(result.current.waitingPhotoCount).toBe(0);
+    await act(async () => {
+      await result.current.saveUploadOutcome(saved.id, { kind: 'synced' }, ACCOUNT);
+    });
+    expect(result.current.waitingPhotoCount).toBe(1);
+  });
+
+  it('keeps photos waiting for the account that sent the record, not anyone else', async () => {
+    const { result } = await renderRecords();
+    await savedAndUploaded(result, [saveFile('a.jpg')]);
+    expect(result.current.photosWaitingFor(ACCOUNT)).toBe(1);
+    expect(result.current.photosWaitingFor('someone-else')).toBe(0);
+    expect(result.current.photosWaitingFor(undefined)).toBe(0);
+  });
+
+  it('stops counting a photo once it is up, and shows a problem now and after a restart', async () => {
+    const before = await renderRecords();
+    const saved = await savedAndUploaded(before.result, [saveFile('a.jpg'), saveFile('b.jpg')]);
+    await act(async () => {
+      await before.result.current.savePhotoOutcome(saved.id, 1, {
+        kind: 'uploaded',
+        uploadedAt: '2026-11-01T01:00:00.000Z',
+      });
+      await before.result.current.savePhotoOutcome(saved.id, 2, {
+        kind: 'problem',
+        problem: 'missing',
+      });
+    });
+    expect(before.result.current.waitingPhotoCount).toBe(0);
+    expect(before.result.current.photoProblemCount).toBe(1);
+    before.unmount();
+
+    const { result } = await renderRecords();
+    expect(result.current.photoProblemCount).toBe(1);
+    expect(result.current.photosFor(saved.id).map((photo) => photo.problem)).toEqual([
+      undefined,
+      'missing',
+    ]);
+  });
+
+  it('deletes the files of a record an officer deleted', async () => {
+    const { result } = await renderRecords();
+    const path = saveFile('a.jpg');
+    let saved!: PlantRecord;
+    await act(async () => {
+      saved = await result.current.addRecord(draft, [path]);
+      await result.current.saveUploadOutcome(saved.id, { kind: 'problem', problem: 'deleted' });
+    });
+    await act(async () => {
+      await result.current.removeDeleted(saved.id);
+    });
+    expect(result.current.photosFor(saved.id)).toEqual([]);
+    expect(new File(Paths.document, path).exists).toBe(false);
+  });
+
+  it('moves the photos with a record that gets a new tag', async () => {
+    const { result } = await renderRecords();
+    const path = saveFile('a.jpg');
+    let saved!: PlantRecord;
+    await act(async () => {
+      saved = await result.current.addRecord(draft, [path]);
+      await result.current.saveUploadOutcome(saved.id, { kind: 'problem', problem: 'tag-clash' });
+    });
+    let newId!: string;
+    await act(async () => {
+      newId = await result.current.renewTag(saved.id);
+    });
+    expect(result.current.photosFor(saved.id)).toEqual([]);
+    expect(result.current.photosFor(newId)).toEqual([{ recordId: newId, position: 1, path }]);
+  });
+
+  it('clears out files no record owns when the app opens, and keeps the rest', async () => {
+    const before = await renderRecords();
+    const kept = saveFile('kept.jpg');
+    await act(async () => {
+      await before.result.current.addRecord(draft, [kept]);
+    });
+    before.unmount();
+
+    const stray = saveFile('from-a-form-never-saved.jpg');
+    await renderRecords();
+
+    expect(new File(Paths.document, kept).exists).toBe(true);
+    expect(new File(Paths.document, stray).exists).toBe(false);
   });
 });
 

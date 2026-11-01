@@ -30,7 +30,6 @@ const NOT_REAL_YET = [
   "No sensor is in the park yet, so readings come from the simulator in iot/ until real nodes are flashed.",
   "Alerts only show on the dashboard. Nothing sends an email or a push message yet.",
   "The squares on the tags don’t scan yet (item 12).",
-  "The phone doesn’t send photos yet (item 11), so the only plant photos are the ones officers upload on the website.",
 ];
 
 function ScreenList({ screens, start }: { screens: Screen[]; start: number }) {

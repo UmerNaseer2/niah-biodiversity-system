@@ -12,6 +12,7 @@ import {
   isNoSignal,
   isSessionRefused,
   toUploadRow,
+  type PhotoUploadAnswer,
   type UploadError,
   type UploadRow,
 } from './upload-row';
@@ -25,7 +26,11 @@ export type SessionCheck = 'ok' | 'offline' | 'signed-out';
 
 export type SyncApi = {
   session: () => Promise<SessionCheck>;
+  /** The account signed in right now, or null if nobody is. */
+  accountId: () => Promise<string | null>;
   insertRecord: (row: UploadRow) => Promise<{ error: UploadError | null; status: number }>;
+  /** Sends one saved photo. localPath is relative to the app's document folder. */
+  uploadPhoto: (storagePath: string, localPath: string) => Promise<PhotoUploadAnswer>;
   /** What officers decided about these records, or null if the server couldn't be read. */
   fetchReviews: (ids: string[]) => Promise<RecordReview[] | null>;
   /** The whole species list, or null if the server couldn't be read. */
@@ -36,6 +41,8 @@ export type SyncStore = Pick<
   RecordsStore,
   | 'loadWaiting'
   | 'saveUploadOutcome'
+  | 'loadPhotosToUpload'
+  | 'savePhotoOutcome'
   | 'loadSyncedIds'
   | 'saveReviews'
   | 'replaceSpecies'
@@ -51,6 +58,11 @@ export type SyncResult = {
   problems: number;
   /** Records that had a passing failure and go again next time. */
   retryLater: number;
+  photosUploaded: number;
+  /** Photos that won't go up until someone sorts them out. */
+  photoProblems: number;
+  /** Photos that had a passing failure and go again next time. */
+  photosRetryLater: number;
   /** All the records went up, but the decisions or the species list couldn't be downloaded. */
   refreshFailed: boolean;
   finishedAt: string;
@@ -76,6 +88,9 @@ export async function runSync(
   let uploaded = 0;
   let problems = 0;
   let retryLater = 0;
+  let photosUploaded = 0;
+  let photoProblems = 0;
+  let photosRetryLater = 0;
   let refreshFailed = false;
 
   function finish(outcome: SyncOutcome): SyncResult {
@@ -84,6 +99,9 @@ export async function runSync(
       uploaded,
       problems,
       retryLater,
+      photosUploaded,
+      photoProblems,
+      photosRetryLater,
       refreshFailed,
       finishedAt: new Date().toISOString(),
     };
@@ -104,6 +122,11 @@ export async function runSync(
       if (session !== 'ok') {
         return finish(session);
       }
+      // Kept with the record, because the website looks for its photos under whoever sent it.
+      const account = await api.accountId();
+      if (!account) {
+        return finish('signed-out');
+      }
       const { error, status } = await api.insertRecord(toUploadRow(record));
       if (isNoSignal(error, status)) {
         return finish('offline');
@@ -112,7 +135,7 @@ export async function runSync(
         return finish('signed-out');
       }
       const outcome = classifyUpload(error);
-      await store.saveUploadOutcome(record.id, outcome);
+      await store.saveUploadOutcome(record.id, outcome, account);
       if (outcome.kind === 'synced') {
         uploaded++;
       } else if (outcome.kind === 'retry') {
@@ -123,6 +146,46 @@ export async function runSync(
           // Every other record would get the same answer, so there's no use asking.
           return finish('not-allowed');
         }
+      }
+    }
+
+    // Photos go after every record, as the proposal says, because a photo with no record on the
+    // server is no use to anyone. Only the account that sent a record can send its photos, because
+    // nobody else can write to the folder the website looks in. The rest wait for that account.
+    const account = await api.accountId();
+    if (!account) {
+      return finish('signed-out');
+    }
+    for (const photo of await store.loadPhotosToUpload(account)) {
+      if (!retryProblems && photo.problem) {
+        photoProblems++;
+        continue;
+      }
+      const session = await api.session();
+      if (session !== 'ok') {
+        return finish(session);
+      }
+      const answer = await api.uploadPhoto(
+        `${account}/${photo.recordId}/${photo.position}.jpg`,
+        photo.path,
+      );
+      if (answer === 'uploaded') {
+        const uploadedAt = new Date().toISOString();
+        await store.savePhotoOutcome(photo.recordId, photo.position, {
+          kind: 'uploaded',
+          uploadedAt,
+        });
+        photosUploaded++;
+      } else if (answer === 'retry') {
+        photosRetryLater++;
+      } else if (answer === 'missing' || answer === 'rejected') {
+        await store.savePhotoOutcome(photo.recordId, photo.position, {
+          kind: 'problem',
+          problem: answer,
+        });
+        photoProblems++;
+      } else {
+        return finish(answer);
       }
     }
 
@@ -228,7 +291,11 @@ export async function fetchAllPages<T>(
 
 /** What to tell someone when a sync finishes. */
 export function syncResultMessage(result: SyncResult) {
-  const uploaded = result.uploaded > 0 ? `${plural(result.uploaded, 'record')} uploaded. ` : '';
+  const sent = [
+    ...(result.uploaded > 0 ? [`${plural(result.uploaded, 'record')} uploaded.`] : []),
+    ...(result.photosUploaded > 0 ? [`${plural(result.photosUploaded, 'photo')} uploaded.`] : []),
+  ].join(' ');
+  const uploaded = sent && `${sent} `;
   switch (result.outcome) {
     case 'offline':
       return `${uploaded}Can't reach the server right now. Your records are safe on this phone and will go up once it can.`;
@@ -247,6 +314,14 @@ export function syncResultMessage(result: SyncResult) {
       }
       if (result.retryLater > 0) {
         parts.push(`${plural(result.retryLater, 'record')} will try again next time.`);
+      }
+      if (result.photoProblems > 0) {
+        parts.push(
+          `${plural(result.photoProblems, 'photo')} couldn't upload. Open ${result.photoProblems === 1 ? 'its record' : 'their records'} to see why.`,
+        );
+      }
+      if (result.photosRetryLater > 0) {
+        parts.push(`${plural(result.photosRetryLater, 'photo')} will try again next time.`);
       }
       if (result.refreshFailed) {
         parts.push("Couldn't download officers' decisions or the species list this time.");

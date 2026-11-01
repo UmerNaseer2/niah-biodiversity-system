@@ -3,7 +3,7 @@
 One round so far, on 31 Oct 2026 on the iOS simulator, against the stand-in. Until now the phone
 kept everything to itself. This item adds signing in, uploading waiting records, reading back what
 officers decided and downloading the species list. It also finishes the phone half of item 2, since
-signing in lives on the Profile tab. Photos come with item 11.
+signing in lives on the Profile tab. Photos came later, see [item 11](item-11-photos.md).
 
 [docs/sync-design.md](../sync-design.md) has the rules. This file is what we built and what happened
 when we tried it.

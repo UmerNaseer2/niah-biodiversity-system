@@ -56,7 +56,34 @@ export type PlantRecord = {
   reviewStatus?: ReviewStatus;
   /** The officer's reason, when the record was rejected. */
   reviewNotes?: string;
+  /** The account that sent the record to the server. The website looks for its photos there. */
+  uploadedBy?: string;
 };
+
+/**
+ * Why a photo couldn't go up, when trying again won't fix it by itself.
+ * - missing: the file isn't on the phone any more.
+ * - rejected: the server turned the file down, because of its size or type.
+ */
+export const PHOTO_PROBLEMS = ['missing', 'rejected'] as const;
+
+export type PhotoProblem = (typeof PHOTO_PROBLEMS)[number];
+
+/** One photo taken with a record. */
+export type RecordPhoto = {
+  recordId: string;
+  /** 1 for the first photo of the record. Also its file name on the server. */
+  position: number;
+  /** Where the file is, relative to the app's document folder. */
+  path: string;
+  /** ISO 8601 timestamp. Left out until the photo is on the server. */
+  uploadedAt?: string;
+  problem?: PhotoProblem;
+};
+
+/** What happened when a photo was sent, once the phone has an answer worth keeping. */
+export type PhotoOutcome =
+  { kind: 'uploaded'; uploadedAt: string } | { kind: 'problem'; problem: PhotoProblem };
 
 /** What the New Record form fills in. The rest is set when the record is saved. */
 export type NewPlantRecord = Pick<

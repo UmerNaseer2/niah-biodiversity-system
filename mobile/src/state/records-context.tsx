@@ -11,8 +11,9 @@ import { DatabaseTooNewError } from '@/db/database';
 import { openRecordsStore, type RecordReview, type RecordsStore } from '@/db/records-store';
 import { useTheme } from '@/hooks/use-theme';
 import { matchesTag, newId, tagCodeFor } from '@/lib/id';
+import { deletePhotoFile, removeStrayPhotos } from '@/lib/photo-files';
 import type { UploadOutcome } from '@/sync/upload-row';
-import type { NewPlantRecord, PlantRecord } from '@/types/plant-record';
+import type { NewPlantRecord, PhotoOutcome, PlantRecord, RecordPhoto } from '@/types/plant-record';
 
 // Records are saved in SQLite on the phone (src/db), so they're still there after the app
 // restarts or the phone runs out of battery. The species list downloaded when the phone syncs is
@@ -30,20 +31,35 @@ type RecordsContextValue = {
    * tries those again, so this is what would go up under whoever signs in next.
    */
   notUploadedCount: number;
+  /** Photos of records already on the server that can still go up, whichever account sent them. */
+  waitingPhotoCount: number;
+  /** Photos that won't go up until someone looks at them. */
+  photoProblemCount: number;
   /**
-   * Saves the record on the phone, then puts it at the top of the list. If saving fails it
-   * throws and the list stays as it was.
+   * Saves the record and its photos on the phone, then puts it at the top of the list. If saving
+   * fails it throws and the list stays as it was. photoPaths come from src/lib/photo-files.ts.
    */
-  addRecord: (draft: NewPlantRecord) => Promise<PlantRecord>;
+  addRecord: (draft: NewPlantRecord, photoPaths?: string[]) => Promise<PlantRecord>;
   getRecord: (id: string) => PlantRecord | undefined;
   findByTag: (input: string) => PlantRecord | undefined;
   /** The records to upload, oldest first. Never the sample records, because those aren't saved. */
   loadWaiting: () => Promise<PlantRecord[]>;
-  /** Saves what happened to an upload on the phone, then updates the record in the list. */
-  saveUploadOutcome: (id: string, outcome: UploadOutcome) => Promise<void>;
   /**
-   * Takes a record an officer deleted on the website off the phone, then off the list. Throws
-   * for any other record and the list stays as it was.
+   * Saves what happened to an upload on the phone, then updates the record in the list. uploadedBy
+   * is the account that sent it, which its photos have to wait for.
+   */
+  saveUploadOutcome: (id: string, outcome: UploadOutcome, uploadedBy?: string) => Promise<void>;
+  /** A record's photos, first one first. Sample records don't have any. */
+  photosFor: (recordId: string) => RecordPhoto[];
+  /** How many photos this account can send right now. Nobody signed in means 0. */
+  photosWaitingFor: (accountId: string | undefined) => number;
+  /** The photos to upload for this account, in the order their records were made. */
+  loadPhotosToUpload: (accountId: string) => Promise<RecordPhoto[]>;
+  /** Saves what happened to a photo on the phone, then updates it in the list. */
+  savePhotoOutcome: (recordId: string, position: number, outcome: PhotoOutcome) => Promise<void>;
+  /**
+   * Takes a record an officer deleted on the website and its photos off the phone, then off the
+   * list. Throws for any other record and the list stays as it was.
    */
   removeDeleted: (id: string) => Promise<void>;
   /** The IDs of the records on the server, so the phone can ask what became of them. */
@@ -52,7 +68,8 @@ type RecordsContextValue = {
   saveReviews: (reviews: RecordReview[]) => Promise<void>;
   /**
    * Gives a record whose tag code was taken on the server a new ID and tag code, then updates the
-   * list and gives back the new ID. Throws for any other record and the list stays as it was.
+   * list and gives back the new ID. Its photos stay with it. Throws for any other record and the
+   * list stays as it was.
    */
   renewTag: (id: string) => Promise<string>;
   loadLastSynced: () => Promise<string | null>;
@@ -70,7 +87,13 @@ type StoreState =
   | { status: 'loading' }
   /** tooNew means a newer copy of the app saved the records, so trying again won't help. */
   | { status: 'failed'; tooNew: boolean }
-  | { status: 'ready'; store: RecordsStore; saved: PlantRecord[]; species: SpeciesOption[] };
+  | {
+      status: 'ready';
+      store: RecordsStore;
+      saved: PlantRecord[];
+      photos: RecordPhoto[];
+      species: SpeciesOption[];
+    };
 
 const OPEN_FAILED = "Couldn't open the records saved on this phone.";
 const APP_TOO_OLD = 'Update the app to open the records saved on this phone.';
@@ -82,15 +105,26 @@ function newestFirst(a: PlantRecord, b: PlantRecord) {
 }
 
 /** The record the way the store leaves it after saveUploadOutcome. */
-function withOutcome(record: PlantRecord, outcome: UploadOutcome): PlantRecord {
+function withOutcome(
+  record: PlantRecord,
+  outcome: UploadOutcome,
+  uploadedBy: string | undefined,
+): PlantRecord {
   switch (outcome.kind) {
     case 'synced':
-      return { ...record, syncStatus: 'synced', uploadProblem: undefined };
+      return { ...record, syncStatus: 'synced', uploadProblem: undefined, uploadedBy };
     case 'problem':
       return { ...record, uploadProblem: outcome.problem };
     case 'retry':
       return record;
   }
+}
+
+/** The photo the way the store leaves it after savePhotoOutcome. */
+function withPhotoOutcome(photo: RecordPhoto, outcome: PhotoOutcome): RecordPhoto {
+  return outcome.kind === 'uploaded'
+    ? { ...photo, uploadedAt: outcome.uploadedAt, problem: undefined }
+    : { ...photo, problem: outcome.problem };
 }
 
 /** Opens the records saved on the phone and only shows the app once they're loaded. */
@@ -107,12 +141,15 @@ export function RecordsProvider({ children }: { children: ReactNode }) {
       .then(async (store) => ({
         store,
         saved: await store.loadRecords(),
+        photos: await store.loadPhotos(),
         species: await store.loadSpecies(),
       }))
       .then(
-        ({ store, saved, species }) => {
+        ({ store, saved, photos, species }) => {
+          // Before the form can show, so this can't take a photo that's on the form.
+          removeStrayPhotos(photos.map((photo) => photo.path));
           if (active) {
-            setState({ status: 'ready', store, saved, species });
+            setState({ status: 'ready', store, saved, photos, species });
           }
         },
         (error: unknown) => {
@@ -182,7 +219,7 @@ export function RecordsProvider({ children }: { children: ReactNode }) {
     );
   }
 
-  const { store } = state;
+  const { store, photos: savedPhotos } = state;
   // The sample records only show in development builds. They're never saved, so the upload (which
   // only reads the database) can't send them anywhere.
   const records = [...state.saved, ...SAMPLE_RECORDS].sort(newestFirst);
@@ -196,6 +233,17 @@ export function RecordsProvider({ children }: { children: ReactNode }) {
   ).length;
   const notUploadedCount = state.saved.filter((record) => record.syncStatus === 'pending').length;
   const species = state.species.length > 0 ? state.species : SPECIES_LIST;
+  // The photos of a record that's still waiting go up with it, so they're counted with it.
+  const uploaderOf = new Map(
+    state.saved
+      .filter((record) => record.syncStatus === 'synced')
+      .map((record) => [record.id, record.uploadedBy]),
+  );
+  const canStillGoUp = state.photos.filter(
+    (photo) => uploaderOf.has(photo.recordId) && !photo.uploadedAt && !photo.problem,
+  );
+  const waitingPhotoCount = canStillGoUp.length;
+  const photoProblemCount = state.photos.filter((photo) => photo.problem).length;
 
   /** The tag code is only the start of the ID, so two records could end up with the same one. */
   function unusedId() {
@@ -207,19 +255,30 @@ export function RecordsProvider({ children }: { children: ReactNode }) {
     return id;
   }
 
-  async function addRecord(draft: NewPlantRecord) {
+  async function addRecord(draft: NewPlantRecord, photoPaths: string[] = []) {
     const id = unusedId();
     const record: PlantRecord = {
       ...draft,
       id,
       tagCode: tagCodeFor(id),
-      photoCount: 0,
+      photoCount: photoPaths.length,
       recordedAt: new Date().toISOString(),
       syncStatus: 'pending',
     };
-    await store.saveRecord(record);
+    await store.saveRecord(record, photoPaths);
+    const photos = photoPaths.map((path, index) => ({
+      recordId: id,
+      position: index + 1,
+      path,
+    }));
     setState((current) =>
-      current.status === 'ready' ? { ...current, saved: [record, ...current.saved] } : current,
+      current.status === 'ready'
+        ? {
+            ...current,
+            saved: [record, ...current.saved],
+            photos: [...current.photos, ...photos],
+          }
+        : current,
     );
     return record;
   }
@@ -236,14 +295,44 @@ export function RecordsProvider({ children }: { children: ReactNode }) {
     return store.loadWaiting();
   }
 
-  async function saveUploadOutcome(id: string, outcome: UploadOutcome) {
-    await store.saveUploadOutcome(id, outcome);
+  async function saveUploadOutcome(id: string, outcome: UploadOutcome, uploadedBy?: string) {
+    await store.saveUploadOutcome(id, outcome, uploadedBy);
     setState((current) =>
       current.status === 'ready'
         ? {
             ...current,
             saved: current.saved.map((record) =>
-              record.id === id ? withOutcome(record, outcome) : record,
+              record.id === id ? withOutcome(record, outcome, uploadedBy) : record,
+            ),
+          }
+        : current,
+    );
+  }
+
+  function photosFor(recordId: string) {
+    return savedPhotos.filter((photo) => photo.recordId === recordId);
+  }
+
+  function photosWaitingFor(accountId: string | undefined) {
+    return accountId
+      ? canStillGoUp.filter((photo) => uploaderOf.get(photo.recordId) === accountId).length
+      : 0;
+  }
+
+  function loadPhotosToUpload(accountId: string) {
+    return store.loadPhotosToUpload(accountId);
+  }
+
+  async function savePhotoOutcome(recordId: string, position: number, outcome: PhotoOutcome) {
+    await store.savePhotoOutcome(recordId, position, outcome);
+    setState((current) =>
+      current.status === 'ready'
+        ? {
+            ...current,
+            photos: current.photos.map((photo) =>
+              photo.recordId === recordId && photo.position === position
+                ? withPhotoOutcome(photo, outcome)
+                : photo,
             ),
           }
         : current,
@@ -251,10 +340,16 @@ export function RecordsProvider({ children }: { children: ReactNode }) {
   }
 
   async function removeDeleted(id: string) {
+    const paths = photosFor(id).map((photo) => photo.path);
     await store.removeDeleted(id);
+    paths.forEach(deletePhotoFile);
     setState((current) =>
       current.status === 'ready'
-        ? { ...current, saved: current.saved.filter((record) => record.id !== id) }
+        ? {
+            ...current,
+            saved: current.saved.filter((record) => record.id !== id),
+            photos: current.photos.filter((photo) => photo.recordId !== id),
+          }
         : current,
     );
   }
@@ -298,6 +393,9 @@ export function RecordsProvider({ children }: { children: ReactNode }) {
                 ? { ...record, id: newRecordId, tagCode, uploadProblem: undefined }
                 : record,
             ),
+            photos: current.photos.map((photo) =>
+              photo.recordId === id ? { ...photo, recordId: newRecordId } : photo,
+            ),
           }
         : current,
     );
@@ -325,11 +423,17 @@ export function RecordsProvider({ children }: { children: ReactNode }) {
         syncedCount,
         waitingCount,
         notUploadedCount,
+        waitingPhotoCount,
+        photoProblemCount,
         addRecord,
         getRecord,
         findByTag,
         loadWaiting,
         saveUploadOutcome,
+        photosFor,
+        photosWaitingFor,
+        loadPhotosToUpload,
+        savePhotoOutcome,
         removeDeleted,
         loadSyncedIds,
         saveReviews,

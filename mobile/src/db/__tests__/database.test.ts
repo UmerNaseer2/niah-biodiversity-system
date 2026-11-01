@@ -32,7 +32,12 @@ describe('openDatabase', () => {
     const db = await openDatabase();
     try {
       expect(await versionOf(db)).toBe(MIGRATIONS.length);
-      expect(await tablesIn(db)).toEqual(['plant_records', 'species', 'sync_meta']);
+      expect(await tablesIn(db)).toEqual([
+        'plant_records',
+        'record_photos',
+        'species',
+        'sync_meta',
+      ]);
       const journal = await db.getFirstAsync<{ journal_mode: string }>('PRAGMA journal_mode');
       expect(journal?.journal_mode).toBe('wal');
     } finally {
@@ -75,7 +80,12 @@ describe('openDatabase', () => {
     const db = await openDatabase();
     try {
       expect(await versionOf(db)).toBe(MIGRATIONS.length);
-      expect(await tablesIn(db)).toEqual(['plant_records', 'species', 'sync_meta']);
+      expect(await tablesIn(db)).toEqual([
+        'plant_records',
+        'record_photos',
+        'species',
+        'sync_meta',
+      ]);
       expect(
         await db.getAllAsync('SELECT tag_code, sync_status, upload_problem FROM plant_records'),
       ).toEqual([
@@ -115,10 +125,17 @@ describe('openDatabase', () => {
     const db = await openDatabase();
     try {
       expect(await versionOf(db)).toBe(MIGRATIONS.length);
-      expect(await tablesIn(db)).toEqual(['plant_records', 'species', 'sync_meta']);
+      expect(await tablesIn(db)).toEqual([
+        'plant_records',
+        'record_photos',
+        'species',
+        'sync_meta',
+      ]);
       // Version 5 adds two columns, and nobody has heard from an officer yet.
       expect(await db.getAllAsync('SELECT * FROM plant_records ORDER BY id')).toEqual(
-        before.map((row) => Object.assign({}, row, { review_status: null, review_notes: null })),
+        before.map((row) =>
+          Object.assign({}, row, { review_status: null, review_notes: null, uploaded_by: null }),
+        ),
       );
       const indexes = await db.getAllAsync<{ name: string }>(
         "SELECT name FROM sqlite_master WHERE type = 'index' AND name NOT LIKE 'sqlite_%'",
@@ -172,6 +189,42 @@ describe('openDatabase', () => {
       await db.runAsync("INSERT INTO sync_meta (key, value) VALUES ('last_synced', 'then')");
       expect(await db.getAllAsync('SELECT * FROM sync_meta')).toEqual([
         { key: 'last_synced', value: 'then' },
+      ]);
+    } finally {
+      await db.closeAsync();
+    }
+  });
+
+  it('adds the photos table in version 6 and leaves the records as they were', async () => {
+    const old = await openDatabaseAsync(DATABASE_NAME);
+    await migrate(old, MIGRATIONS.slice(0, 5));
+    await old.runAsync(
+      `INSERT INTO plant_records (id, tag_code, species_name, condition, recorded_at, sync_status)
+      VALUES ('5e4d3c2b-1a09-4f8e-b7d6-c5b4a3928170', 'NNP-5E4D3C', 'Ficus sp.', 'healthy',
+        '2026-10-18T03:00:00.000Z', 'synced')`,
+    );
+    await old.closeAsync();
+
+    const db = await openDatabase();
+    try {
+      // Nobody knows who sent a record from before this version, so its photos would have to wait.
+      expect(await db.getAllAsync('SELECT tag_code, uploaded_by FROM plant_records')).toEqual([
+        { tag_code: 'NNP-5E4D3C', uploaded_by: null },
+      ]);
+      const addPhoto = (position: number, problem: string | null = null) =>
+        db.runAsync(
+          `INSERT INTO record_photos (record_id, position, path, upload_problem)
+          VALUES ('5e4d3c2b-1a09-4f8e-b7d6-c5b4a3928170', $position, 'record-photos/a.jpg', $problem)`,
+          { $position: position, $problem: problem },
+        );
+      await addPhoto(1);
+      await expect(addPhoto(1)).rejects.toThrow('UNIQUE constraint failed');
+      await expect(addPhoto(0)).rejects.toThrow('CHECK constraint failed');
+      await expect(addPhoto(2, 'lost')).rejects.toThrow('CHECK constraint failed');
+      await addPhoto(2, 'missing');
+      expect(await db.getAllAsync('SELECT position, upload_problem FROM record_photos')).toEqual([
+        { position: 1, upload_problem: null },
+        { position: 2, upload_problem: 'missing' },
       ]);
     } finally {
       await db.closeAsync();

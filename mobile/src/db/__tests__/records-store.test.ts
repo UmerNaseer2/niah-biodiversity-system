@@ -7,10 +7,10 @@ import {
   NOT_DELETED,
   NOT_TAG_CLASH,
   openRecordsStore,
-  SPECIES_TRIES,
+  BUSY_TRIES,
   type RecordsStore,
 } from '@/db/records-store';
-import type { GpsReading, PlantRecord, UploadProblem } from '@/types/plant-record';
+import type { GpsReading, PlantRecord, RecordPhoto, UploadProblem } from '@/types/plant-record';
 
 // A record with every field filled in. The location is a made up point near the park HQ.
 const full: PlantRecord = {
@@ -337,6 +337,131 @@ describe('getting a new tag', () => {
   });
 });
 
+describe('photos', () => {
+  const ACCOUNT = 'aaaaaaaa-0000-4000-8000-000000000000';
+  const OTHER_ACCOUNT = 'bbbbbbbb-0000-4000-8000-000000000000';
+  const pathsOf = (photos: RecordPhoto[]) => photos.map((photo) => photo.path);
+
+  it('saves the photos with the record, numbered from 1', async () => {
+    await store.saveRecord({ ...full, photoCount: 2 }, [
+      'record-photos/a.jpg',
+      'record-photos/b.jpg',
+    ]);
+    expect(await store.loadPhotos()).toEqual([
+      { recordId: full.id, position: 1, path: 'record-photos/a.jpg' },
+      { recordId: full.id, position: 2, path: 'record-photos/b.jpg' },
+    ]);
+    expect((await store.loadRecords())[0].photoCount).toBe(2);
+  });
+
+  it('saves neither the record nor its photos if either one fails', async () => {
+    await store.saveRecord(full);
+    await expect(store.saveRecord(full, ['record-photos/a.jpg'])).rejects.toThrow('UNIQUE');
+    expect(await store.loadPhotos()).toEqual([]);
+    expect(await store.loadRecords()).toHaveLength(1);
+  });
+
+  it('remembers who sent the record, only once it has gone up', async () => {
+    await store.saveRecord(full);
+    await store.saveUploadOutcome(full.id, { kind: 'problem', problem: 'rejected' }, ACCOUNT);
+    expect((await store.loadRecords())[0].uploadedBy).toBeUndefined();
+    await store.saveUploadOutcome(full.id, { kind: 'synced' }, ACCOUNT);
+    expect((await store.loadRecords())[0].uploadedBy).toBe(ACCOUNT);
+  });
+
+  it('only hands over photos of records on the server, for the account that sent them', async () => {
+    await store.saveRecord(full, ['record-photos/a.jpg']);
+    expect(await store.loadPhotosToUpload(ACCOUNT)).toEqual([]);
+
+    await store.saveUploadOutcome(full.id, { kind: 'synced' }, ACCOUNT);
+    expect(pathsOf(await store.loadPhotosToUpload(ACCOUNT))).toEqual(['record-photos/a.jpg']);
+    expect(await store.loadPhotosToUpload(OTHER_ACCOUNT)).toEqual([]);
+  });
+
+  it('goes oldest record first, then in the order they were taken', async () => {
+    const later = withId(
+      { ...full, recordedAt: '2026-10-17T00:00:00.000Z' },
+      '11111111-0000-4000-8000-000000000001',
+    );
+    await store.saveRecord(later, ['record-photos/later.jpg']);
+    await store.saveRecord(full, ['record-photos/first.jpg', 'record-photos/second.jpg']);
+    for (const record of [later, full]) {
+      await store.saveUploadOutcome(record.id, { kind: 'synced' }, ACCOUNT);
+    }
+    expect(pathsOf(await store.loadPhotosToUpload(ACCOUNT))).toEqual([
+      'record-photos/first.jpg',
+      'record-photos/second.jpg',
+      'record-photos/later.jpg',
+    ]);
+  });
+
+  it('stops handing over a photo once it is up, and keeps a problem to try again', async () => {
+    await store.saveRecord(full, ['record-photos/a.jpg', 'record-photos/b.jpg']);
+    await store.saveUploadOutcome(full.id, { kind: 'synced' }, ACCOUNT);
+
+    const uploadedAt = '2026-11-01T01:00:00.000Z';
+    await store.savePhotoOutcome(full.id, 1, { kind: 'uploaded', uploadedAt });
+    await store.savePhotoOutcome(full.id, 2, { kind: 'problem', problem: 'rejected' });
+
+    expect(await store.loadPhotosToUpload(ACCOUNT)).toEqual([
+      { recordId: full.id, position: 2, path: 'record-photos/b.jpg', problem: 'rejected' },
+    ]);
+    expect((await store.loadPhotos())[0].uploadedAt).toBe(uploadedAt);
+  });
+
+  it('clears the problem when the photo goes up after all', async () => {
+    await store.saveRecord(full, ['record-photos/a.jpg']);
+    await store.savePhotoOutcome(full.id, 1, { kind: 'problem', problem: 'rejected' });
+    const uploadedAt = '2026-11-01T01:00:00.000Z';
+    await store.savePhotoOutcome(full.id, 1, { kind: 'uploaded', uploadedAt });
+    expect(await store.loadPhotos()).toEqual([
+      { recordId: full.id, position: 1, path: 'record-photos/a.jpg', uploadedAt },
+    ]);
+  });
+
+  it('does nothing for a photo that is not there', async () => {
+    await store.savePhotoOutcome(full.id, 1, { kind: 'problem', problem: 'missing' });
+    expect(await store.loadPhotos()).toEqual([]);
+  });
+
+  it('removes the photos with a record an officer deleted, and leaves other records alone', async () => {
+    const other = withId(full, '22222222-0000-4000-8000-000000000002');
+    await store.saveRecord(full, ['record-photos/a.jpg']);
+    await store.saveRecord(other, ['record-photos/b.jpg']);
+    await store.saveUploadOutcome(full.id, { kind: 'problem', problem: 'deleted' });
+
+    await store.removeDeleted(full.id);
+
+    expect(pathsOf(await store.loadPhotos())).toEqual(['record-photos/b.jpg']);
+  });
+
+  it("keeps the photos when a record can't be removed", async () => {
+    await store.saveRecord(full, ['record-photos/a.jpg']);
+    await expect(store.removeDeleted(full.id)).rejects.toThrow(NOT_DELETED);
+    expect(pathsOf(await store.loadPhotos())).toEqual(['record-photos/a.jpg']);
+  });
+
+  it('moves the photos with a record that gets a new tag', async () => {
+    const NEW_ID = 'f0e1d2c3-b4a5-4968-8776-655443322110';
+    await store.saveRecord(full, ['record-photos/a.jpg']);
+    await store.saveUploadOutcome(full.id, { kind: 'problem', problem: 'tag-clash' });
+
+    await store.renewTag(full.id, NEW_ID, 'NNP-F0E1D2');
+
+    expect(await store.loadPhotos()).toEqual([
+      { recordId: NEW_ID, position: 1, path: 'record-photos/a.jpg' },
+    ]);
+  });
+
+  it('still has the photos after it is closed and opened again', async () => {
+    await store.saveRecord(full, ['record-photos/a.jpg']);
+    await store.close();
+
+    store = await openRecordsStore();
+    expect(pathsOf(await store.loadPhotos())).toEqual(['record-photos/a.jpg']);
+  });
+});
+
 describe('when the phone last synced', () => {
   it('has no date until the first sync, then remembers the latest', async () => {
     expect(await store.loadLastSynced()).toBeNull();
@@ -413,13 +538,13 @@ describe('species list', () => {
     await store.replaceSpecies([belian]);
     const busy = new Error('Error code 5: database is locked');
     const run = jest.spyOn(SQLiteDatabase.prototype, 'runAsync');
-    for (let i = 0; i < SPECIES_TRIES; i++) {
+    for (let i = 0; i < BUSY_TRIES; i++) {
       run.mockRejectedValueOnce(busy);
     }
     try {
       await expect(store.replaceSpecies([fig])).rejects.toThrow(busy);
       // Only the DELETE at the start of each try, since each one failed straight away.
-      expect(run).toHaveBeenCalledTimes(SPECIES_TRIES);
+      expect(run).toHaveBeenCalledTimes(BUSY_TRIES);
     } finally {
       run.mockRestore();
     }

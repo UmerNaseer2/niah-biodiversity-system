@@ -111,6 +111,21 @@ export const MIGRATIONS: readonly string[] = [
     key TEXT PRIMARY KEY NOT NULL,
     value TEXT NOT NULL
   ) STRICT;`,
+
+  // Version 6: the photos taken with each record. The files themselves are in the app's document
+  // folder, and path is relative to it, because the folder's full path can change when iOS updates
+  // the app. uploaded_by is the account that sent the record, because the website looks for its
+  // photos in that account's folder. No foreign key, because the app doesn't turn them on, so the
+  // store changes both tables in one transaction instead.
+  `ALTER TABLE plant_records ADD COLUMN uploaded_by TEXT;
+  CREATE TABLE record_photos (
+    record_id TEXT NOT NULL,
+    position INTEGER NOT NULL CHECK (position >= 1),
+    path TEXT NOT NULL,
+    uploaded_at TEXT,
+    upload_problem TEXT CHECK (upload_problem IS NULL OR upload_problem IN ('missing', 'rejected')),
+    PRIMARY KEY (record_id, position)
+  ) STRICT;`,
 ];
 
 /**

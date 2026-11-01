@@ -27,7 +27,8 @@ function noPhotosText(photoCount: number, photoFolder: string | null) {
   }
   return (
     `The phone took ${plural(photoCount, "photo")}, but none have uploaded ` +
-    "yet. The app starts uploading photos with item 11."
+    "yet. They go up after the record, the next time the account that sent " +
+    "it is signed in on the phone with signal."
   );
 }
 

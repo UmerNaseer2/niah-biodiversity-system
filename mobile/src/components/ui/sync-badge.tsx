@@ -10,9 +10,18 @@ import { plural } from '@/lib/format';
 import type { ReviewStatus, SyncStatus, UploadProblem } from '@/types/plant-record';
 
 /** Summary for the whole phone, shown at the top of Home. */
-export function SyncBadge({ pending, total }: { pending: number; total: number }) {
+export function SyncBadge({
+  pending,
+  total,
+  photos = 0,
+}: {
+  pending: number;
+  total: number;
+  /** Photos of records already on the server that aren't up yet. */
+  photos?: number;
+}) {
   const theme = useTheme();
-  const waiting = pending > 0;
+  const waiting = pending > 0 || photos > 0;
 
   if (total === 0) {
     // Nothing has been saved yet, so "Everything is synced" would be true but misleading.
@@ -35,7 +44,11 @@ export function SyncBadge({ pending, total }: { pending: number; total: number }
         color={waiting ? theme.warning : theme.success}
       />
       <ThemedText type="smallBold" themeColor={waiting ? 'warning' : 'success'}>
-        {waiting ? `${plural(pending, 'record')} waiting to sync` : 'Everything is synced'}
+        {pending > 0
+          ? `${plural(pending, 'record')} waiting to sync`
+          : photos > 0
+            ? `${plural(photos, 'photo')} not uploaded`
+            : 'Everything is synced'}
       </ThemedText>
     </View>
   );
@@ -44,6 +57,12 @@ export function SyncBadge({ pending, total }: { pending: number; total: number }
 type SyncBannerProps = {
   waiting: number;
   problems: number;
+  /** Photos that go up on their own, because the account that sent their records is signed in. */
+  photosWaiting?: number;
+  /** Photos waiting for the account that sent their records to sign in. */
+  photosHeld?: number;
+  /** Photos that can't go up until someone does something about them. */
+  photoProblems?: number;
   signedIn?: boolean;
   syncing?: boolean;
   /** What the last sync came to, if there's anything to say about it. */
@@ -55,11 +74,14 @@ type SyncBannerProps = {
 /**
  * Banner at the top of My records while anything is still on the phone only. Records with an
  * upload problem are counted apart from the rest, because waiting for signal won't send them.
- * Shows nothing when both counts are 0 and the last sync has nothing to say.
+ * Shows nothing when every count is 0 and the last sync has nothing to say.
  */
 export function SyncBanner({
   waiting,
   problems,
+  photosWaiting = 0,
+  photosHeld = 0,
+  photoProblems = 0,
   signedIn = false,
   syncing = false,
   message,
@@ -67,7 +89,8 @@ export function SyncBanner({
   onSignIn,
 }: SyncBannerProps) {
   const theme = useTheme();
-  if (waiting === 0 && problems === 0) {
+  const photos = photosWaiting + photosHeld;
+  if (waiting === 0 && problems === 0 && photos === 0 && photoProblems === 0) {
     // The last record just went up, so this is the only place left to say so.
     return message ? (
       <View style={[styles.banner, { backgroundColor: theme.successSoft }]}>
@@ -80,11 +103,21 @@ export function SyncBanner({
 
   const one = problems === 1;
   // Only problem records are left, so the banner is about them.
-  const onlyProblems = waiting === 0;
+  const onlyProblems = waiting === 0 && problems > 0;
+  // Right after a sync the message can already say these. Saying it twice reads like a second
+  // problem, and "also" would be wrong because it's the same record.
+  const recordsInMessage = message?.includes(`${plural(problems, 'record')} couldn't upload`);
+  const photoProblemText = `${plural(photoProblems, 'photo')} couldn't upload. Open ${photoProblems === 1 ? 'its record' : 'their records'} to see why.`;
   const tone = onlyProblems ? 'danger' : 'warning';
-  const title = onlyProblems
-    ? `${plural(problems, 'record')} couldn't upload`
-    : `${plural(waiting, 'record')} waiting to sync`;
+  let title = `${plural(waiting, 'record')} waiting to sync`;
+  if (onlyProblems) {
+    title = `${plural(problems, 'record')} couldn't upload`;
+  } else if (waiting === 0) {
+    title =
+      photos > 0
+        ? `${plural(photos, 'photo')} waiting to upload`
+        : `${plural(photoProblems, 'photo')} couldn't upload`;
+  }
 
   return (
     <View
@@ -98,7 +131,7 @@ export function SyncBanner({
           {title}
         </ThemedText>
       </View>
-      {onlyProblems ? null : (
+      {waiting === 0 ? null : (
         <ThemedText type="small" themeColor="warning">
           {waiting === 1 ? 'It is' : 'They are'} saved on this phone and safe to leave.{' '}
           {signedIn
@@ -106,13 +139,30 @@ export function SyncBanner({
             : `Sign in and ${waiting === 1 ? 'it goes' : 'they go'} up when you have signal.`}
         </ThemedText>
       )}
-      {problems > 0 ? (
+      {problems > 0 && (onlyProblems || !recordsInMessage) ? (
         <ThemedText type="small" themeColor={tone}>
           {onlyProblems
             ? `${one ? 'It is' : 'They are'} still saved on this phone. `
             : `${plural(problems, 'record')} also couldn't upload last time. `}
           Open {one ? 'it' : 'them'} to see why, and press Sync now once {one ? "it's" : "they're"}{' '}
           sorted out.
+        </ThemedText>
+      ) : null}
+      {photosWaiting > 0 ? (
+        <ThemedText type="small" themeColor={tone}>
+          {plural(photosWaiting, 'photo')} {photosWaiting === 1 ? 'goes' : 'go'} up on{' '}
+          {photosWaiting === 1 ? 'its' : 'their'} own when you have signal.
+        </ThemedText>
+      ) : null}
+      {photosHeld > 0 ? (
+        <ThemedText type="small" themeColor={tone}>
+          {plural(photosHeld, 'photo')} {photosHeld === 1 ? 'waits' : 'wait'} for the account that
+          sent {photosHeld === 1 ? 'its record' : 'their records'} to sign in.
+        </ThemedText>
+      ) : null}
+      {photoProblems > 0 && !message?.includes(photoProblemText) ? (
+        <ThemedText type="small" themeColor={tone}>
+          {photoProblemText}
         </ThemedText>
       ) : null}
       {message ? (

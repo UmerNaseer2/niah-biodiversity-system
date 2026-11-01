@@ -3,7 +3,7 @@
 Botanists record plants in the park with no signal, so every record is saved on the phone first
 (item 9) and goes up to Supabase later. Item 3 set up the server side of that and the rules the
 phone follows when it uploads. Item 10 (Sprint #2) added sign in, the "Sync now" button and the
-part that decides when to sync, and item 11 adds the photos. This page says how it all works.
+part that decides when to sync, and item 11 added the photos. This page says how it all works.
 
 | Part | Where |
 | --- | --- |
@@ -181,6 +181,25 @@ empty instead, for the old records too, and turns down 0 or less.
   `upsert`, because that needs the right to replace files.
 - Since 009, officers and admins can delete record photos, and the website deletes a record's
   photos when it deletes the record (item 18). Field staff still can't delete their own.
+
+How the phone sends them (see the [test results](test-results/item-11-photos.md)):
+
+- **Photos go after every record in a sync**, as the proposal says, so a photo never gets there
+  before its record. A record that hasn't gone up keeps its photos back with it.
+- **Only the account that sent the record sends its photos.** `records.photo_folder` stays set to
+  whoever sent the record (014), and that's where the website looks. So the phone keeps that account
+  in `plant_records.uploaded_by` and leaves the photos waiting while anyone else is signed in.
+- **Each answer has one meaning.** Uploaded or already there counts as done. A session the server
+  refuses, or no signal, stops the sync and nothing changes. An account that isn't
+  allowed stops it too. A file that's gone from the phone, or a photo the server turned down, gets
+  marked on the photo and shows on the record. An automatic sync skips those, and Sync now tries
+  them again. Anything else goes again next time.
+- **The phone sends raw bytes, not a form**, and never asks to replace a file.
+- **Before any of this, the phone saves its own smaller JPEG** with the longest side at 2048 pixels
+  and quality 0.7. Writing it again from the pixels takes the GPS block out, even on a small photo.
+  Only the sizes and the orientation stay in the file. Some of these plants are protected, so the
+  picker's own copy gets deleted as well.
+- **Photos stay on the phone after they've gone up**, so thumbnails work with no signal.
 
 ## Known limits
 

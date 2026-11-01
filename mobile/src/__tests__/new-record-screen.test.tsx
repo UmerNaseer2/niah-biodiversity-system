@@ -1,3 +1,5 @@
+import { Directory, Paths } from 'expo-file-system';
+import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import { Stack } from 'expo-router';
 import {
@@ -16,11 +18,15 @@ import RecordScreen from '@/app/record/[id]';
 import { MOCK_RECORDS } from '@/data/mock-records';
 import { DATABASE_NAME } from '@/db/database';
 import { openRecordsStore } from '@/db/records-store';
+import { AccountProvider } from '@/state/account-context';
 import { RecordsProvider, useRecords } from '@/state/records-context';
 import type { PlantRecord } from '@/types/plant-record';
 
+jest.mock('expo-image-picker');
 jest.mock('expo-location');
 
+const chooseFromLibrary = jest.mocked(ImagePicker.launchImageLibraryAsync);
+const openCamera = jest.mocked(ImagePicker.launchCameraAsync);
 const getPermission = jest.mocked(Location.getForegroundPermissionsAsync);
 const watchPosition = jest.mocked(Location.watchPositionAsync);
 
@@ -41,10 +47,12 @@ function RecordsSpy() {
 
 function TestLayout() {
   return (
-    <RecordsProvider>
-      <RecordsSpy />
-      <Stack />
-    </RecordsProvider>
+    <AccountProvider>
+      <RecordsProvider>
+        <RecordsSpy />
+        <Stack />
+      </RecordsProvider>
+    </AccountProvider>
   );
 }
 
@@ -104,8 +112,33 @@ async function saveAndOpen() {
   expect(await screen.findByText(/^Tag NNP-[0-9A-F]{6}$/)).toBeVisible();
 }
 
+/** What the picker gives back for this many photos. */
+function pickedPhotos(count: number): ImagePicker.ImagePickerSuccessResult {
+  return {
+    canceled: false,
+    assets: Array.from({ length: count }, (_, index) => ({
+      uri: `file:///picked/${index}.jpg`,
+      width: 1000,
+      height: 800,
+    })),
+  };
+}
+
+function savedPhotoFiles() {
+  const folder = new Directory(Paths.document, 'record-photos');
+  return folder.exists ? folder.list() : [];
+}
+
+/** Presses Choose from library, with the picker handing back this many photos. */
+async function addFromLibrary(count: number) {
+  chooseFromLibrary.mockResolvedValueOnce(pickedPhotos(count));
+  fireEvent.press(screen.getByRole('button', { name: 'Choose from library' }));
+  await screen.findByLabelText(`Remove photo ${count}`);
+}
+
 beforeEach(async () => {
   jest.clearAllMocks();
+  new Directory(Paths.document, 'record-photos').delete();
   getPermission.mockResolvedValue(granted);
   jest.mocked(Location.hasServicesEnabledAsync).mockResolvedValue(true);
   watchPosition.mockResolvedValue({ remove: jest.fn() });
@@ -480,5 +513,173 @@ describe('New record screen', () => {
     fireEvent.press(screen.getByRole('button', { name: 'Open Settings' }));
     expect(openSettings).toHaveBeenCalledTimes(1);
     expect(screen.getByRole('button', { name: 'Try again' })).toBeVisible();
+  });
+});
+
+describe('Photos on the new record form', () => {
+  it('saves the photos with the record, and the record says they are waiting for it', async () => {
+    await renderForm();
+    fireEvent.changeText(speciesBox(), 'Shorea macrophylla');
+    await captureLocation();
+    await addFromLibrary(2);
+    expect(screen.getByLabelText('Photo 1')).toBeVisible();
+    expect(screen.getByLabelText('Photo 2')).toBeVisible();
+    await saveAndOpen();
+
+    const saved = newestRecord();
+    expect(saved?.photoCount).toBe(2);
+    expect(screen.getByText('They go up after the record does.')).toBeVisible();
+
+    const files = savedPhotoFiles();
+    expect(files).toHaveLength(2);
+    const store = await openRecordsStore();
+    try {
+      const rows = await store.loadPhotos();
+      expect(rows.map((row) => row.position)).toEqual([1, 2]);
+      expect(rows.every((row) => row.recordId === saved?.id && !row.uploadedAt)).toBe(true);
+      expect(rows.map((row) => row.path.replace('record-photos/', '')).sort()).toEqual(
+        files.map((file) => file.name).sort(),
+      );
+    } finally {
+      await store.close();
+    }
+  });
+
+  it('saves a record with no photos as it always did', async () => {
+    await renderForm();
+    fireEvent.changeText(speciesBox(), 'Shorea macrophylla');
+    await captureLocation();
+    await saveAndOpen();
+
+    expect(newestRecord()?.photoCount).toBe(0);
+    expect(screen.queryByText('They go up after the record does.')).toBeNull();
+    expect(screen.queryByText('It goes up after the record does.')).toBeNull();
+  });
+
+  it('starts the next record with no photos, and leaves the last one with its record', async () => {
+    await renderForm();
+    fireEvent.changeText(speciesBox(), 'Shorea macrophylla');
+    await captureLocation();
+    await addFromLibrary(1);
+    await saveAndOpen();
+
+    testRouter.back('/new-record');
+    expect(screen.queryByLabelText('Remove photo 1')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Choose from library' })).toBeVisible();
+    expect(savedPhotoFiles()).toHaveLength(1);
+  });
+
+  it('deletes a photo removed from the form, so it never goes up', async () => {
+    await renderForm();
+    fireEvent.changeText(speciesBox(), 'Shorea macrophylla');
+    await captureLocation();
+    await addFromLibrary(2);
+    expect(savedPhotoFiles()).toHaveLength(2);
+
+    fireEvent.press(screen.getByRole('button', { name: 'Remove photo 1' }));
+    await waitFor(() => expect(savedPhotoFiles()).toHaveLength(1));
+    expect(screen.queryByLabelText('Remove photo 2')).toBeNull();
+    expect(AccessibilityInfo.announceForAccessibility).toHaveBeenCalledWith('Photo removed.');
+    await saveAndOpen();
+    expect(newestRecord()?.photoCount).toBe(1);
+  });
+
+  it('keeps the photos on the form when the record can not be saved', async () => {
+    const insert = jest
+      .spyOn(SQLiteDatabase.prototype, 'runAsync')
+      .mockRejectedValueOnce(new Error('database or disk is full'));
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      await renderForm();
+      fireEvent.changeText(speciesBox(), 'Shorea macrophylla');
+      await captureLocation();
+      await addFromLibrary(1);
+      fireEvent.press(saveButton());
+      expect(await screen.findByRole('alert')).toHaveTextContent(
+        "Couldn't save the record on this phone. Try again.",
+      );
+      expect(screen.getByLabelText('Remove photo 1')).toBeVisible();
+      expect(savedPhotoFiles()).toHaveLength(1);
+
+      await saveAndOpen();
+      expect(newestRecord()?.photoCount).toBe(1);
+    } finally {
+      insert.mockRestore();
+      warn.mockRestore();
+    }
+  });
+
+  it('keeps Save turned off while a photo is still on its way', async () => {
+    await renderForm();
+    fireEvent.changeText(speciesBox(), 'Shorea macrophylla');
+    await captureLocation();
+    expect(saveButton()).toBeEnabled();
+
+    let finishPicking!: (result: ImagePicker.ImagePickerResult) => void;
+    chooseFromLibrary.mockReturnValueOnce(
+      new Promise((resolve) => {
+        finishPicking = resolve;
+      }),
+    );
+    fireEvent.press(screen.getByRole('button', { name: 'Choose from library' }));
+    await waitFor(() => expect(saveButton()).toBeDisabled());
+    expect(screen.getByRole('button', { name: 'Take photo' })).toBeDisabled();
+
+    await act(async () => finishPicking(pickedPhotos(1)));
+    await screen.findByLabelText('Remove photo 1');
+    expect(saveButton()).toBeEnabled();
+  });
+
+  it('asks for the camera, and adds what it takes', async () => {
+    jest.mocked(ImagePicker.requestCameraPermissionsAsync).mockResolvedValue({
+      status: ImagePicker.PermissionStatus.GRANTED,
+      granted: true,
+      canAskAgain: true,
+      expires: 'never',
+    });
+    openCamera.mockResolvedValueOnce(pickedPhotos(1));
+    await renderForm();
+    fireEvent.press(screen.getByRole('button', { name: 'Take photo' }));
+    expect(await screen.findByLabelText('Remove photo 1')).toBeVisible();
+  });
+
+  it('sends someone to Settings once the camera has been turned off for good', async () => {
+    jest.mocked(ImagePicker.requestCameraPermissionsAsync).mockResolvedValue({
+      status: ImagePicker.PermissionStatus.DENIED,
+      granted: false,
+      canAskAgain: false,
+      expires: 'never',
+    });
+    const openSettings = jest.spyOn(Linking, 'openSettings').mockResolvedValue();
+    try {
+      await renderForm();
+      fireEvent.press(screen.getByRole('button', { name: 'Take photo' }));
+      expect(await screen.findByRole('alert')).toHaveTextContent(
+        'Camera access is off for this app. Turn it on in Settings, then try again.',
+      );
+      expect(openCamera).not.toHaveBeenCalled();
+      fireEvent.press(screen.getByRole('button', { name: 'Open Settings' }));
+      expect(openSettings).toHaveBeenCalled();
+    } finally {
+      openSettings.mockRestore();
+    }
+  });
+
+  it('stops offering more once there are five', async () => {
+    await renderForm();
+    await addFromLibrary(4);
+    expect(chooseFromLibrary).toHaveBeenLastCalledWith(
+      expect.objectContaining({ allowsMultipleSelection: true, selectionLimit: 5 }),
+    );
+
+    await addFromLibrary(5);
+    expect(chooseFromLibrary).toHaveBeenLastCalledWith(
+      expect.objectContaining({ selectionLimit: 1 }),
+    );
+    expect(
+      screen.getByText("That's the most a record can have. Remove one to add another."),
+    ).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Choose from library' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Take photo' })).toBeNull();
   });
 });

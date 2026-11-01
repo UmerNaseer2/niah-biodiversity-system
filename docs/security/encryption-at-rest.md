@@ -16,10 +16,11 @@ now, and the phone's records file gets its own encryption once the SQLCipher bra
 | Supabase Storage | `record-photos` from the phone (005) and `botanical-photos` for the plant pages (001 and 006) | The same AES-256 at rest. `record-photos` is private, because a photo can show where a plant is, so only the uploader, officers and admins can open one | Done (our SQL, tested below) |
 | Database backups | A full copy, exact GPS points included | Supabase makes daily backups on the Pro plan and up (Pro keeps 7 days). On the free plan it asks you to export the data yourself with `supabase db dump`. A dump has every exact point, so it goes on an encrypted drive, never in the repo or a shared folder | Not decided yet |
 | The phone's database (`niah.db`) | Records saved offline, with exact GPS points | It's in the app's own folder, which other apps can't read. iOS Data Protection and Android's file based encryption encrypt it, as long as the phone has a passcode. The file isn't encrypted on top of that yet | Partly done |
-| The phone's sign in (item 10) | The Supabase session | `expo-secure-store`, which uses the iOS Keychain and the Android Keystore. Never SQLite or a plain file | Planned (item 10) |
+| The phone's photos (item 11) | Record photos waiting to upload, and the ones already sent, with the GPS block taken out | Plain JPEG files in the app's own folder, so the same iOS and Android protection as `niah.db` and nothing on top. SQLCipher wouldn't cover these, because they aren't in the database | Partly done |
+| The phone's sign in (item 10) | The Supabase session | `expo-secure-store`, which uses the iOS Keychain and the Android Keystore. Never SQLite or a plain file | Done on the simulator (item 10) |
 | The website | Nothing. Pages read Supabase on every visit, and a signed in officer's browser only holds the Supabase sign in cookie | Nothing stored on our side to encrypt | Nothing to do |
 | The repo | Code and made up data. The repo is public | No keys or passwords in it. `.env` files are gitignored, and only the `.env.example` files are committed | Done (tested below) |
-| ESP32 sensor nodes (item 28) | The WiFi password and the node's own credentials | Kept in `secrets.h`, which is gitignored, with a `secrets.example.h` committed instead | Planned (item 28) |
+| ESP32 sensor nodes (item 28) | The WiFi password and the device's own credentials | Kept in `secrets.h`, which is gitignored, with a `secrets.example.h` committed instead | Done in the code, not on real hardware (item 28) |
 
 ## The phone in more detail
 

@@ -3,7 +3,7 @@
 -- a plant whose name doesn't match the species it's linked to counts as hidden. Rows also stop
 -- coming back in the order they were saved. Staff still see everything through records_staff.
 -- The phone doesn't read this view, so nothing changes for it.
--- Run it after 001 to 017, and after 018 once the phone work has added it.
+-- Run it after 001 to 017. There's no 018 file.
 -- The SQL editor runs a whole file as one transaction, so if anything in here fails, nothing from
 -- it is kept. It's safe to run again.
 -- supabase/tests/public-details.test.js checks it.
