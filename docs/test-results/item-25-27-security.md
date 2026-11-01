@@ -57,6 +57,14 @@ same 53 and the same 5 highs, so item 10 didn't bring them in.
 | `query-string` | Yes | Only flagged through the one below |
 | `decode-uri-component` | Yes, 1 source | Logged for the phone work to fix. No data at risk |
 
+**Fixed on 1 Nov 2026:** the phone now ships `decode-uri-component` 0.5.1 through an npm override,
+with a one line patch in `patches/` because `query-string` 7 needs to load its default export.
+Decoding a long run of bad codes went from over 40 seconds on the Mac to under 10 ms. A link like
+that on the iOS simulator opened the right tab. Phone `npm audit` is now 51 (7 low, 42 moderate, 2
+high) and 36 with `--omit=dev` (6 low, 28 moderate, 2 high). The 2 highs are `@expo/cli` and `zod`,
+which only run while developing. `expo-router` is still listed as low, through
+`@testing-library/react-native`, which is also only for development. Not tried on a real phone.
+
 ## Secrets
 
 | Check | Command | Result |

@@ -134,6 +134,14 @@ what's fake.
   beat what's in `.env`. It only works on the iOS simulator, because 127.0.0.1 on a real phone is
   the phone itself. The [supabase README](../supabase/README.md) lists the stand-in's accounts.
 
+### The patch in `patches/`
+
+`npm audit` flagged the `decode-uri-component` that Expo Router uses to read links. The fixed version
+only has a default export, so `overrides` in `package.json` moves to it and
+`patches/query-string+7.1.3.patch` changes the one line that loads it. `patch-package` puts the patch
+back after every install. When Expo Router stops using `query-string` 7 (`npm ls query-string` will
+show it), delete all three, along with `decode-uri-component` in `transformIgnorePatterns`.
+
 ## Tests
 
 ```bash
@@ -148,6 +156,9 @@ records, account and sync providers in `src/state`, how the session is split up 
 in `src/lib`, and the upload rules and every path through a sync in `src/sync` (the upload rules
 against the same example records as the SQL tests in `supabase/tests/`). They also make sure the
 mock data follows the same rules as the app.
+
+The time limit per test is 30 seconds, because with an empty Jest cache, like on CI, a screen gets
+compiled during its first test.
 
 `expo-sqlite` needs a phone, so in tests `jest/expo-sqlite.js` stands in for it with `sql.js`, which
 is SQLite built for WebAssembly. The tests still run our real SQL against a table with the same
