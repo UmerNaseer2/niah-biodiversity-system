@@ -29,9 +29,10 @@ kept, and you can fix the problem and run it again.
 | `016_iot_readings.sql` | The edge devices and a hash of each one's token, which node sends through which device, the readings, and `iot_add_readings`, the one call a device can make | 28, 29 | Yes. The readings and tokens are kept |
 | `017_iot_alerts.sql` | The threat rules, which run when a reading arrives, the alerts, the limits the rules use, the check for nodes going quiet, and the `iot_node_status` view for the Sensors page | 31 | Yes. Any limits you've tuned are kept |
 | `019_public_record_details.sql` | Gives the public less about a plant whose spot is hidden: the day a record was made, not the time, and the spot stays hidden when a record's name disagrees with its species. The Reports counts follow the same rule | 26 | Yes |
+| `020_record_photo_access.sql` | Someone who loses their field staff role also loses their own record photos, and people who aren't signed in can't call the helper functions | 26 | Yes |
 
 As of 16 Oct 2026 the hosted project has 001 and 002. Run 003, 004, 005, 006, 007, 008, 009, 010,
-011, 012, 013, 014, 015, 016, 017 and 019 next, one file at a time, in that order, and don't stop
+011, 012, 013, 014, 015, 016, 017, 019 and 020 next, one file at a time, in that order, and don't stop
 part way. 018 is saved for the phone work, so there's no 018 yet. When it lands, run it in its
 place. The website's species pages (add, edit and delete) and its public pages need 007, and 007
 stops on its first line if 006 isn't there. Until then the public pages say "This page didn't load". Without
@@ -48,7 +49,9 @@ Without 016 the Sensors page and the overview say the database hasn't been set u
 the staff menu has no badge, but the other pages aren't affected. 016 stops on its first line if
 015 isn't there. Without 017 the Devices page works and the Sensors page says the same. 017 stops
 on its first line if 016 isn't there. Without 019 the public views still give more about a hidden
-plant than they should. 019 stops on its first line if 017 isn't there.
+plant than they should. 019 stops on its first line if 017 isn't there. Without 020 a botanist who
+loses their role can still reach the photos they uploaded. 020 stops on its first line if 019 isn't
+there.
 003 is fine to run even if it turns out to be there already. The history only starts once 013 is
 in, so changes made before that aren't in it.
 
@@ -60,7 +63,7 @@ the field.
 Before running 004, open the `profiles` table in the Table Editor and check every role there is
 one an admin gave on purpose. Set any you don't recognise back to `visitor`. If nobody needs to
 sign up on the website or the app yet, turn sign ups off in the Supabase dashboard
-(Authentication, Sign In / Providers) until 003 to 019 are in. Staff accounts can still be added
+(Authentication, Sign In / Providers) until 003 to 020 are in. Staff accounts can still be added
 by hand there.
 
 If 005 stops with a check error (like `records_gps_check`), a record already on the hosted project
@@ -161,7 +164,8 @@ npm test
   014 (item 18), `tests/downloads.test.js` checks 011, `tests/species-rough.test.js` checks 015
   (item 19), `tests/phone-reads.test.js` checks what the phone reads back when it syncs (item 10),
   `tests/iot.test.js` checks 016, 017 and the node simulator (items 28, 29 and 31), and
-  `tests/public-details.test.js` checks 019 (item 26).
+  `tests/public-details.test.js` checks 019 and `tests/record-photo-access.test.js` checks 020
+  (item 26).
 - `tests/stand-in.js` is a stand-in for our Supabase project that runs on your computer, for
   trying the website without a real project. The
   [web README](../web/README.md#trying-sign-in-without-a-supabase-project) says how, and
