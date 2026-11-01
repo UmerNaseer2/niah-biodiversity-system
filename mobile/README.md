@@ -78,15 +78,6 @@ src/
   types/                PlantRecord and the other shared types
 ```
 
-## Placeholders
-
-Anything that isn't real yet has a dashed "Coming in item N" box on screen, so testers can tell
-what's fake.
-
-| Item | What goes in | Where |
-| --- | --- | --- |
-| 12 | Printable QR tags | Record page |
-
 ## Notes for the team
 
 - The mock coordinates are made up and sit around the park HQ. Never put real locations of
@@ -102,9 +93,13 @@ what's fake.
   scanning on a real phone: make a QR code that holds `NNP-3F2A9C` (the mock Belian) and point the
   phone at it on another screen. On the simulator, type the tag code instead. On iOS, turning
   camera access on or off in Settings closes Expo Go, so open the project again after.
-- A plant's QR tag can hold just the tag code (`NNP-3F2A9C`) or a link to its page on the website
-  (`https://<website>/tag/NNP-3F2A9C`). The app reads both, but it only takes the code out of a
-  link and never opens it. Item 12 picks one format for the printed tags.
+- A printed QR tag holds a link to the plant's page on the website
+  (`https://<website>/tag/NNP-3F2A9C`), so a normal phone camera can open it. The address comes
+  from `EXPO_PUBLIC_SITE_URL` in `.env`, and a build without it puts only the tag code on the tag
+  (`NNP-3F2A9C`). The Scan tab reads both, but it only takes the code out of a link and never opens
+  it. Set the address before printing real tags, because a printed tag can't be changed later. It
+  has to be https, apart from `http://127.0.0.1` and `http://localhost` for trying it on one
+  computer.
 - Records are saved in SQLite on the phone (`niah.db`), so they're still there after the app
   restarts. The fake records are never saved, and they don't show at all in a store build. To start
   again with an empty list, delete the app (or Expo Go) and install it again.

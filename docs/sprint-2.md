@@ -32,7 +32,10 @@ Notes:
 - [x] 11. Photograph Capture & Attachment (Mobile). Merged 1 Nov, see [test
   results](test-results/item-11-photos.md). Tried on the iOS simulator against the stand-in, not on
   Android, a real camera, a real phone or hosted.
-- [ ] 12. QR Code Generation for Plant Records
+- [x] 12. QR Code Generation for Plant Records. Merged 1 Nov, see [test
+  results](test-results/item-12-qr.md). Tried on the iOS simulator against the stand-in, not on
+  Android, a real camera, a real printer, a real phone or hosted. The proposal's printed tag test
+  outdoors hasn't been done.
 
 ## Security (items 25 to 27)
 

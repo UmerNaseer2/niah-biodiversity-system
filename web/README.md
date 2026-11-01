@@ -31,6 +31,13 @@ names `SUPABASE_URL`/`SUPABASE_PUBLISHABLE_KEY`. Without them `/login` says sign
 and `/dashboard` sends you back to `/login`. A production build (`npm run build`) also needs the
 project URL to start with `https://` (item 23), and treats any other URL as not set up.
 
+Set `SITE_URL` to the site's own address as well, and set it before the build, because some pages
+with a tag on them get built ahead of time. It goes in the QR code on the tags drawn on the website
+(item 12), so a phone camera can open the plant's page. It has to be `https://`, except for
+`http://localhost` and `http://127.0.0.1` when trying it out. Without it the QR codes only hold the
+tag code, which the phone app's Scan tab can still read. The phone app has its own
+`EXPO_PUBLIC_SITE_URL`, and both should hold the same address.
+
 With Supabase set up, the public pages read it on every visit, so new species and newly approved
 records show up without a new build. They read the `species_public` and `records_public` views, so
 the project needs 001 to 007 from `supabase/`. The photos need 009, and without it the pages

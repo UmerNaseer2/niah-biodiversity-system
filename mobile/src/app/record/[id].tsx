@@ -3,13 +3,13 @@ import { useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { LocationSummary } from '@/components/location-summary';
+import { QrTag } from '@/components/qr-tag';
 import { RecordPhotos } from '@/components/record-photos';
 import { Screen } from '@/components/screen';
 import { ThemedText } from '@/components/themed-text';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { InfoRow } from '@/components/ui/info-row';
-import { PlaceholderNote } from '@/components/ui/placeholder-note';
 import { SyncTag } from '@/components/ui/sync-badge';
 import { Spacing } from '@/constants/theme';
 import { announce } from '@/lib/announce';
@@ -242,9 +242,7 @@ export default function RecordScreen() {
       <RecordPhotos record={record} />
 
       <Card title="QR tag" icon="qr">
-        <PlaceholderNote item={12}>
-          A printable QR code for this plant that links to its page on the website.
-        </PlaceholderNote>
+        <QrTag record={record} />
         <View style={styles.recordId}>
           <ThemedText type="small" themeColor="textSecondary">
             Record ID
