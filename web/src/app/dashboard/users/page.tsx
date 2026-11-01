@@ -84,7 +84,7 @@ async function loadPeople(you: string) {
       role: profile.role as DbRole,
       state: account ? accountState(account) : null,
       lastSignIn: account?.last_sign_in_at
-        ? formatDateTime(account.last_sign_in_at)
+        ? formatDateTime(parkTime(account.last_sign_in_at))
         : null,
       you: profile.id === you,
     };
@@ -101,7 +101,7 @@ async function loadPeople(you: string) {
       role: null,
       state: accountState(account),
       lastSignIn: account.last_sign_in_at
-        ? formatDateTime(account.last_sign_in_at)
+        ? formatDateTime(parkTime(account.last_sign_in_at))
         : null,
       you: false,
     });
