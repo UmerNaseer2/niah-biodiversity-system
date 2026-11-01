@@ -73,8 +73,8 @@ off their public boards. The site has two addresses, and each one gets its own g
 | First | A+ | `max-age=63072000` | TLS 1.2 and 1.3 | None |
 | Second | A | None, Vercel answered the scanner with a 403 | TLS 1.2 and 1.3 | None |
 
-On both, the scanner found no Heartbleed, POODLE, FREAK, Logjam, BEAST or RC4, forward secrecy worked
-with every browser it simulates, and the certificate chain had no issues.
+On both, the scanner found no Heartbleed, POODLE, FREAK, Logjam, BEAST or RC4, forward secrecy
+worked with every browser it simulates, and the certificate chain had no issues.
 
 HSTS is what takes an A up to an A+, and the 403 didn't have the header. We don't know why Vercel
 sent that 403. Straight after the scan we tried each address with `curl`, 3 times each, and every
