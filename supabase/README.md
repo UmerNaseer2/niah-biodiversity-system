@@ -57,7 +57,7 @@ the field.
 Before running 004, open the `profiles` table in the Table Editor and check every role there is
 one an admin gave on purpose. Set any you don't recognise back to `visitor`. If nobody needs to
 sign up on the website or the app yet, turn sign ups off in the Supabase dashboard
-(Authentication, Sign In / Providers) until 003 to 015 are in. Staff accounts can still be added
+(Authentication, Sign In / Providers) until 003 to 017 are in. Staff accounts can still be added
 by hand there.
 
 If 005 stops with a check error (like `records_gps_check`), a record already on the hosted project

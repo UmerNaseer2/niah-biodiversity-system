@@ -40,10 +40,14 @@ Notes:
 
 ## IoT and monitoring (items 28 to 31)
 
-- [ ] 28. IoT Device Integration Framework
-- [ ] 29. Sensor Data Collection Pipeline
-- [ ] 30. Real-Time Environmental Monitoring Dashboard
-- [ ] 31. Threat Detection & Alert System
+- [x] 28. IoT Device Integration Framework. Merged 31 Oct, see
+  [test results](test-results/item-28-iot-framework.md). Sketches compile but haven't been flashed.
+- [x] 29. Sensor Data Collection Pipeline. Merged 31 Oct, see
+  [test results](test-results/item-29-sensor-pipeline.md). Tested with the simulator, not on hardware.
+- [x] 30. Real-Time Environmental Monitoring Dashboard. Merged 31 Oct, see
+  [test results](test-results/item-30-monitoring-dashboard.md).
+- [x] 31. Threat Detection & Alert System. Merged 31 Oct, see
+  [test results](test-results/item-31-threat-alerts.md). The limits are starting values to tune.
 
 ## Innovation, first half (items 38 and 39)
 
@@ -62,7 +66,7 @@ Notes:
   merged ([where it stands](security/encryption-at-rest.md)).
 - Item 23, checking HTTPS on the real site. It gets checked once the website is deployed.
 - Item 24, Jason still reviews the vulnerability assessment plan.
-- The hosted Supabase project still needs 003 to 015 run, in order (`supabase/README.md`). Only
+- The hosted Supabase project still needs 003 to 017 run, in order (`supabase/README.md`). Only
   Umer can do this.
 
 # After Sprint #2 (Weeks 10 to 11)
