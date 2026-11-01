@@ -20,7 +20,7 @@ fail on purpose, which is how the outage tests ran. No `.env` file was copied.
 | Item | What |
 | --- | --- |
 | 25 | Ran the checks below on `main` and wrote down what came back |
-| 26 | Fixed both highs, 5 of the 7 mediums and 5 of the 14 lows. New SQL: 019, 020 and 021, each with its own test file. The website fixes are in the commits on the branch |
+| 26 | Fixed both highs, 5 of the 7 mediums and 5 of the 14 lows in this round. The other 2 mediums followed on 1 Nov: the link decoding package below, and the records file in [item 22](item-22-encryption.md). New SQL: 019, 020 and 021, each with its own test file. The website fixes are in the commits on the branch |
 | 27 | Ran the same scripts again on the fixed code and compared them line by line |
 
 Commits only describe the changes in general terms.

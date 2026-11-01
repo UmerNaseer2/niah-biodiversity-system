@@ -8,9 +8,11 @@
     "scheme": "niahgt",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon"
+      "icon": "./assets/expo.icon",
+      "bundleIdentifier": "com.niah.groundtruthing"
     },
     "android": {
+      "package": "com.niah.groundtruthing",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -48,7 +50,12 @@
           "imageWidth": 76
         }
       ],
-      "expo-sqlite",
+      [
+        "expo-sqlite",
+        {
+          "useSQLCipher": true
+        }
+      ],
       "expo-secure-store",
       [
         "expo-image-picker",
