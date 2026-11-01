@@ -12,7 +12,8 @@ Supabase. It goes with the three high-level design diagrams in this folder:
 [iot]: IoT%20Plant%20Protection%20-%20High-level%20design.png
 
 The SQL that builds all of this is in [`supabase/`](../../supabase/README.md), run in order from
-001 to 017. Everything below is what those files make, so if they change, this page changes too.
+001 to 021. 018 is held for the phone work and isn't on `main` yet. Everything below is what those
+files make, so if they change, this page changes too.
 
 ## How the parts talk to each other
 
@@ -158,12 +159,13 @@ erDiagram
   }
 ```
 
-The diagram leaves out a few columns the apps don't use yet, and the small `iot_device_tokens` and
-`iot_alert_limits` tables. The SQL files have all of them.
+The diagram leaves out a few columns the apps don't use yet, and the small `iot_device_tokens`,
+`iot_alert_limits` and `role_changes` tables. The SQL files have all of them.
 
 | Table | What it holds | Who can change it (our SQL) |
 | --- | --- | --- |
-| `profiles` | One row per account, with its role | Nobody changes their own role. Only an admin changes other people's |
+| `profiles` | One row per account, with its role | Nobody changes their own role. Only an admin changes other people's, and the last admin can't be removed (021) |
+| `role_changes` | One line for every role change, with who made it, when, and a copy of the person's email and name (021). Admins can read it | Nobody through the API, admins included. A trigger on `profiles` adds each line |
 | `species` | The plant knowledge base: names, family, IUCN status, Sarawak protection, text for the public pages | Conservation officers and admins |
 | `records` | One row per tagged plant from the field, with its GPS point, condition and review status | Field teams add their own as waiting. Officers and admins review, edit and delete any record |
 | `iot_nodes` | Each sensor node and the edge device it sends through. Nothing reads the older status and value columns any more, because 002 filled them with made up numbers | Admins |
@@ -174,8 +176,9 @@ The diagram leaves out a few columns the apps don't use yet, and the small `iot_
 | `iot_alert_limits` | One row with the limits the threat rules use. These are starting values to tune | Admins |
 
 Photos aren't stored in the tables. `record-photos` (005) is a private bucket for the photos the
-phone uploads with a record. `botanical-photos` (001) is public, because the plant pages show its
-species photos, and only officers and admins can add, replace or delete one (006).
+phone uploads with a record. Field staff reach their own while they hold that role, and officers
+and admins reach all of them (020). `botanical-photos` (001) is public, because the plant pages
+show its species photos, and only officers and admins can add, replace or delete one (006).
 
 ## Views
 
@@ -185,13 +188,14 @@ who shouldn't see it.
 | View | Who reads it | What it gives |
 | --- | --- | --- |
 | `species_public` | Anyone, signed in or not | Species for the public pages |
-| `records_public` | Anyone, signed in or not | Published records only. The exact spot only for a species that is LC or NT, not protected in Sarawak and not set to rough area only. Everyone else gets the middle of a 0.004 degree grid square (about 440 m at Niah) |
+| `records_public` | Anyone, signed in or not | Published records only. The exact spot only for a species that is LC or NT, not protected in Sarawak and not set to rough area only, on a record whose name matches that species. Everyone else gets the middle of a 0.004 degree grid square (about 440 m at Niah) and the day it was recorded, not the time (019) |
 | `species_staff` | Conservation officers and admins | Every species column, for the dashboard forms |
 | `records_staff` | Conservation officers and admins | Every record with its exact point, for review and reports |
 | `iot_node_status` | Conservation officers and admins | Each node's latest reading and whether it's gone quiet, for the Sensors page. It has no coordinates |
 
 The website uses the same rule as `records_public` in `showsExactSpot()`
-(`web/src/lib/iucn.ts`), so a hidden plant is never drawn as an exact dot.
+(`web/src/lib/iucn.ts`) and `recordHidesLocation()` (`web/src/data/species.ts`, which also checks
+the name), so a hidden plant is never drawn as an exact dot.
 
 ## Why it's laid out like this
 

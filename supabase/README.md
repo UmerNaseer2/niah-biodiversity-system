@@ -128,9 +128,9 @@ the bucket.
 - The public reads through `species_public` and `records_public`, never the tables themselves,
   because the records table has exact locations. Only published records show in
   `records_public`, and a plant only shows its exact spot there if its species is Least Concern
-  or Near Threatened, isn't protected in Sarawak and isn't set to rough area only. Every other
-  plant, Data Deficient and Not Evaluated ones too, shows the middle of its 0.004 degree grid
-  square (about 440 m at Niah).
+  or Near Threatened, isn't protected in Sarawak and isn't set to rough area only, and the record's
+  name matches that species. Every other plant, Data Deficient and Not Evaluated ones too, shows
+  the middle of its 0.004 degree grid square (about 440 m at Niah) and only the day it was recorded.
 - The server decides who uploaded a record and its status, never the phone. See
   [docs/sync-design.md](../docs/sync-design.md).
 - A new account is always a visitor, whatever was sent when signing up. Only an admin can change
