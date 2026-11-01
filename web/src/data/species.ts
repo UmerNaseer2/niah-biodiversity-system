@@ -7,6 +7,7 @@
 // supabase/007_species_fixes.sql.
 
 import { showsExactSpot, type IucnCode } from "@/lib/iucn";
+import { nameDisagrees } from "@/lib/review";
 import type { SpeciesPhoto } from "@/lib/species-photos";
 
 export type Species = {
@@ -159,4 +160,13 @@ export function getSpecies(slug: string) {
  */
 export function hidesLocation(s: Species) {
   return !showsExactSpot(s.iucn, s.sarawakProtected, s.roughAreaOnly ?? false);
+}
+
+/**
+ * The same for one record, with records_public's rule (supabase/019). A record
+ * with no species, or whose name isn't the name of the species it's linked to,
+ * could be anything, so it only gets a rough square as well.
+ */
+export function recordHidesLocation(recordName: string, plant: Species | undefined | null) {
+  return !plant || hidesLocation(plant) || nameDisagrees(recordName, plant.scientificName);
 }

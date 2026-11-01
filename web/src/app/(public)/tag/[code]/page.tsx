@@ -12,10 +12,11 @@ import {
 import { MainPhoto } from "@/components/photo-gallery";
 import { ParkMap } from "@/components/park-map";
 import { TreeTag } from "@/components/tree-tag";
-import { hidesLocation, type Species } from "@/data/species";
+import { recordHidesLocation, type Species } from "@/data/species";
 import { formatDate, plural } from "@/lib/format";
 import { fromHq, roughAreas } from "@/lib/geo";
 import { getPublishedByTag, type PublicRecord } from "@/lib/records-db";
+import { nameDisagrees } from "@/lib/review";
 import { getSpeciesBySlug } from "@/lib/species-db";
 import { normaliseTag, safeDecode } from "@/lib/tags";
 
@@ -63,8 +64,9 @@ export default async function TagResultPage({
 
   const name = plantName(record, species);
   // Same rule as records_public, which also hides the spot of a plant with no
-  // species yet
-  const hidden = !species || hidesLocation(species);
+  // species yet, or whose name isn't the name of its species
+  const hidden = recordHidesLocation(record.speciesName, species);
+  const unsure = !species || nameDisagrees(record.speciesName, species.scientificName);
   const speciesPhotos = species?.photos ?? [];
 
   return (
@@ -196,7 +198,7 @@ export default async function TagResultPage({
               </span>
               <div>
                 <p className="font-bold">The exact spot is hidden</p>
-                {species ? (
+                {!unsure ? (
                   <>
                     <p className="mt-1 text-moss">
                       Exact spots of threatened and protected plants stay with
@@ -219,10 +221,10 @@ export default async function TagResultPage({
                 )}
               </div>
             </div>
-            {/* With no species there's no species page, so the rough area
-                goes here. The view already moved the point to the middle of
-                its grid square. */}
-            {!species && record.gps && (
+            {/* With no sure species there's no species page to send people
+                to, so the rough area goes here. The view already moved the
+                point to the middle of its grid square. */}
+            {unsure && record.gps && (
               <ParkMap
                 id="tag-map"
                 title={`Map of the rough area around tag ${code}`}

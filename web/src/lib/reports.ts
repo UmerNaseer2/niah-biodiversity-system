@@ -1,4 +1,4 @@
-import { hidesLocation, type Species } from "@/data/species";
+import { recordHidesLocation, type Species } from "@/data/species";
 import { CONDITION_LABEL, type Condition } from "./condition";
 import { formatDate } from "./format";
 import { IUCN, type IucnCode } from "./iucn";
@@ -120,7 +120,7 @@ export function reportRecords(
       family: plant?.family || null,
       iucn: plant?.iucn ?? null,
       threatened: plant ? IUCN[plant.iucn].threatened || plant.sarawakProtected : false,
-      hidesLocation: plant ? hidesLocation(plant) : true,
+      hidesLocation: recordHidesLocation(record.speciesName, plant),
       status: record.status,
       heightM: record.heightM,
       condition: record.condition,

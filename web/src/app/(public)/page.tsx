@@ -8,7 +8,7 @@ import {
 } from "@/components/plant-bits";
 import { PlannedTape } from "@/components/tape";
 import { TrunkWithTag } from "@/components/tree-tag";
-import { hidesLocation } from "@/data/species";
+import { recordHidesLocation } from "@/data/species";
 import { formatDate, itemsLabel } from "@/lib/format";
 import { getRecentPublished } from "@/lib/records-db";
 import { getSpeciesList } from "@/lib/species-db";
@@ -173,7 +173,7 @@ export default async function HomePage() {
                       )}
                       <div className="mt-3 flex flex-wrap gap-2">
                         {plant && <IucnChip code={plant.iucn} />}
-                        {(!plant || hidesLocation(plant)) && <HiddenLocationBadge />}
+                        {recordHidesLocation(record.speciesName, plant) && <HiddenLocationBadge />}
                       </div>
                       <p className="mt-auto pt-4 text-sm text-moss">
                         Recorded {formatDate(record.recordedAt)}
