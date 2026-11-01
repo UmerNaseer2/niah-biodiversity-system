@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
-import { getSession } from "@/lib/auth";
+import { getSession, SERVICE_DOWN } from "@/lib/auth";
 import { DB_ROLE_LABEL, type DbRole } from "@/lib/roles";
 import { authWithServiceKey } from "@/lib/supabase/admin";
 import { authConfigured } from "@/lib/supabase/config";
@@ -31,6 +31,7 @@ async function adminOnly(): Promise<{ id: string } | { message: string }> {
   if (session.status === "signed-out") {
     return { message: "You’re signed out. Sign in again, then try that again." };
   }
+  if (session.status === "unavailable") return { message: SERVICE_DOWN };
   if (session.status !== "ok" || session.role !== "admin") {
     return { message: "Only administrators can manage accounts." };
   }

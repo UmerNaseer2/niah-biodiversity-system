@@ -1,7 +1,7 @@
 "use server";
 
 import { refresh, revalidatePath } from "next/cache";
-import { getSession } from "@/lib/auth";
+import { getSession, SERVICE_DOWN } from "@/lib/auth";
 import { checkAlertId } from "@/lib/iot";
 import { checkAlerts, sqlIsMissing } from "@/lib/iot-db";
 import { authConfigured } from "@/lib/supabase/config";
@@ -21,6 +21,7 @@ async function staffProblem() {
   if (session.status === "signed-out") {
     return "You’re signed out. Sign in again, then try that again.";
   }
+  if (session.status === "unavailable") return SERVICE_DOWN;
   if (session.status !== "ok") {
     return "Only conservation officers and administrators can do this.";
   }

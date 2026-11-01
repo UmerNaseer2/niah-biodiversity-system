@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 import { Icon } from "@/components/icon";
 import { LogoMark } from "@/components/logo";
-import { DB_ROLE_LABEL, getSession, type DbRole } from "@/lib/auth";
+import { DB_ROLE_LABEL, getSession, requireStaff, type DbRole } from "@/lib/auth";
 import { checkAlerts } from "@/lib/iot-db";
 import { createClient } from "@/lib/supabase/server";
 import { signOut } from "../(public)/login/actions";
@@ -23,10 +23,13 @@ export default async function DashboardLayout({
 }: {
   children: ReactNode;
 }) {
+  // requireStaff throws in an outage, which lands on the error screen in
+  // app/error.tsx instead of telling staff they have no access
   const session = await getSession();
   if (session.status === "signed-out") redirect("/login");
   if (session.status === "no-access") return <NoAccess {...session} />;
-  const me = session;
+  const me = await requireStaff();
+  if (!me) return null;
   // Only officers and admins get this far, and records_staff only answers them (supabase/006).
   // If the count fails the badge is left off and the pages say what went wrong.
   const supabase = await createClient();

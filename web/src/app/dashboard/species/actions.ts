@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import sharp from "sharp";
-import { getSession } from "@/lib/auth";
+import { getSession, SERVICE_DOWN } from "@/lib/auth";
 import {
   changedBeforeDelete,
   changedBySomeoneElse,
@@ -85,7 +85,8 @@ async function whyNotAllowed(doing: string) {
   if (session.status === "signed-out") {
     return `You’re signed out. Sign in again, then ${doing}.`;
   }
-  if (session.status === "no-access") {
+  if (session.status === "unavailable") return SERVICE_DOWN;
+  if (session.status !== "ok") {
     return "Only conservation officers and administrators can change species.";
   }
   return null;

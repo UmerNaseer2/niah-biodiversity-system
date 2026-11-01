@@ -25,6 +25,9 @@ export async function GET(request: NextRequest) {
   // The proxy already sends anyone signed out to the sign in page. This
   // checks the role too, like requireStaff does for the pages.
   const session = await getSession();
+  if (session.status === "unavailable") {
+    return refuse(503, "The database isn’t answering. Try the download again in a minute.");
+  }
   if (session.status !== "ok") {
     return refuse(
       session.status === "signed-out" ? 401 : 403,

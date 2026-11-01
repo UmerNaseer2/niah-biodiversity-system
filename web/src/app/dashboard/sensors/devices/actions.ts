@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { getSession } from "@/lib/auth";
+import { getSession, SERVICE_DOWN } from "@/lib/auth";
 import { checkDeviceId, checkDeviceSwitch, checkNewDevice, checkNewNode, checkNodeLink } from "@/lib/iot";
 import { sqlIsMissing } from "@/lib/iot-db";
 import { authConfigured } from "@/lib/supabase/config";
@@ -22,6 +22,7 @@ async function adminProblem() {
   if (session.status === "signed-out") {
     return "You’re signed out. Sign in again, then try that again.";
   }
+  if (session.status === "unavailable") return SERVICE_DOWN;
   if (session.status !== "ok" || session.role !== "admin") {
     return "Only administrators can manage sensor devices.";
   }
