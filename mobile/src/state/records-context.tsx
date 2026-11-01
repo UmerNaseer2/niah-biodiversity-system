@@ -8,6 +8,7 @@ import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { SAMPLE_RECORDS } from '@/data/mock-records';
 import { SPECIES_LIST, type SpeciesOption } from '@/data/species-list';
 import { DatabaseTooNewError } from '@/db/database';
+import { DatabaseLockedError } from '@/db/encryption';
 import { openRecordsStore, type RecordReview, type RecordsStore } from '@/db/records-store';
 import { useTheme } from '@/hooks/use-theme';
 import { matchesTag, newId, tagCodeFor } from '@/lib/id';
@@ -85,8 +86,8 @@ type RecordsContextValue = {
 
 type StoreState =
   | { status: 'loading' }
-  /** tooNew means a newer copy of the app saved the records, so trying again won't help. */
-  | { status: 'failed'; tooNew: boolean }
+  /** Why they wouldn't open. Trying again can only help with 'other'. */
+  | { status: 'failed'; reason: 'too-new' | 'locked' | 'other' }
   | {
       status: 'ready';
       store: RecordsStore;
@@ -97,6 +98,14 @@ type StoreState =
 
 const OPEN_FAILED = "Couldn't open the records saved on this phone.";
 const APP_TOO_OLD = 'Update the app to open the records saved on this phone.';
+const RECORDS_LOCKED = "The records saved on this phone can't be unlocked.";
+
+function failureReason(error: unknown) {
+  if (error instanceof DatabaseTooNewError) {
+    return 'too-new';
+  }
+  return error instanceof DatabaseLockedError ? 'locked' : 'other';
+}
 
 const RecordsContext = createContext<RecordsContextValue | null>(null);
 
@@ -155,7 +164,7 @@ export function RecordsProvider({ children }: { children: ReactNode }) {
         (error: unknown) => {
           if (active) {
             console.warn("Couldn't open the records database.", error);
-            setState({ status: 'failed', tooNew: error instanceof DatabaseTooNewError });
+            setState({ status: 'failed', reason: failureReason(error) });
           }
         },
       );
@@ -165,7 +174,10 @@ export function RecordsProvider({ children }: { children: ReactNode }) {
     };
   }, [attempt]);
 
-  const failedMessage = state.status === 'failed' && state.tooNew ? APP_TOO_OLD : OPEN_FAILED;
+  const failedMessage =
+    state.status === 'failed'
+      ? { 'too-new': APP_TOO_OLD, locked: RECORDS_LOCKED, other: OPEN_FAILED }[state.reason]
+      : OPEN_FAILED;
 
   useEffect(() => {
     if (state.status === 'failed') {
@@ -194,11 +206,18 @@ export function RecordsProvider({ children }: { children: ReactNode }) {
           <ThemedText type="subtitle" role="alert">
             {failedMessage}
           </ThemedText>
-          {state.tooNew ? (
-            // Trying again would only fail the same way, so there's no button for it.
+          {/* For the first two, trying again would only fail the same way, so there's no button. */}
+          {state.reason === 'too-new' ? (
             <ThemedText themeColor="textSecondary">
               A newer copy of the app saved them, and this one can&apos;t read them. They are still
               on this phone and nothing has been changed.
+            </ThemedText>
+          ) : state.reason === 'locked' ? (
+            <ThemedText themeColor="textSecondary">
+              The key that opens them isn&apos;t on this phone any more, which can happen after
+              moving to a new phone from a backup. Anything you already uploaded is safe on the
+              server. Nothing here has been changed. Reinstalling the app starts fresh, but it
+              removes what hadn&apos;t uploaded.
             </ThemedText>
           ) : (
             <>

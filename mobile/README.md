@@ -33,11 +33,20 @@ npx expo start
 
 Then press `i` for the iOS simulator, `a` for an Android emulator or `w` for the browser. On a
 real phone, install Expo Go (the version for SDK 57) and scan the QR code in the terminal.
-Everything used so far comes with Expo Go (`expo-location`, `expo-camera`, `expo-sqlite`,
-`expo-crypto`, `expo-secure-store` and `expo-network` included), so you don't need a development
-build yet. Expo Go asks for location and
-camera access with its own text. Ours, set in `app.json`, only shows in a development or store
-build.
+Expo Go is fine for trying things with made up data, but it has no SQLCipher, so its records file
+stays plain. It also asks for location and camera access with its own text. Ours, set in `app.json`,
+only shows in a development or store build.
+
+Real use needs a development or store build, because that's what encrypts the records file (see
+[item 22](../docs/test-results/item-22-encryption.md)). To make a development build:
+
+```bash
+cd mobile
+npm run ios
+```
+
+`npm run android` does the same for Android. iOS needs Xcode, and `LANG=en_US.UTF-8` set if CocoaPods
+complains. `ios/` and `android/` are generated and stay out of git.
 
 ## What's where
 
@@ -61,6 +70,7 @@ src/
     species-list.ts     species the form suggests, with the same slugs as Supabase
   db/                   the SQLite database on the phone
     database.ts         opens niah.db and runs the steps that set up and update its tables
+    encryption.ts       the SQLCipher key, unlocking niah.db, and encrypting a plain one
     records-store.ts    saves and loads records, the records waiting to upload and the species
                         list. The .web.ts one keeps them in memory instead
   hooks/                use-gps-capture.ts (GPS with expo-location), use-photo-capture.ts (the

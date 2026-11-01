@@ -12,6 +12,7 @@ import type {
 } from '@/types/plant-record';
 
 import { BUSY_TIMEOUT_MS, openDatabase } from './database';
+import { unlockConnection } from './encryption';
 
 /** What an officer decided about one record, read back from the server. */
 export type RecordReview = {
@@ -111,10 +112,11 @@ function isBusyError(error: unknown) {
 async function inOwnTransaction(db: SQLiteDatabase, task: (txn: SQLiteDatabase) => Promise<void>) {
   const attempt = () =>
     db.withExclusiveTransactionAsync(async (txn) => {
-      // expo-sqlite opens a new connection for this every time, and a new connection doesn't wait
-      // at all when the database is busy, so a record being saved would fail the task straight
-      // away. Setting the wait here is still in time, because expo-sqlite starts the transaction
-      // with a plain BEGIN, which doesn't lock anything until the first write.
+      // expo-sqlite opens a new connection for this every time, and a new connection doesn't have
+      // the key and doesn't wait at all when the database is busy, so a record being saved would
+      // fail the task straight away. Setting both here is still in time, because expo-sqlite starts
+      // the transaction with a plain BEGIN, which doesn't touch the file until the first read.
+      await unlockConnection(txn);
       await txn.execAsync(`PRAGMA busy_timeout = ${BUSY_TIMEOUT_MS}`);
       await task(txn);
     });

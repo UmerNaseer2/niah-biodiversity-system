@@ -42,9 +42,10 @@ Notes:
 - [x] 25. Initial Security Penetration Testing. Done 31 Oct on Umer's Mac against a local production
   build and the stand-in, see [test results](test-results/item-25-27-security.md). OWASP ZAP,
   Security Advisor and SSL Labs didn't run.
-- [x] 26. Vulnerability Remediation & Fixes. Both highs, 5 of 7 mediums and 5 of 14 lows are fixed in
-  our code, with SQL 019 to 021. The hosted project doesn't have them until Umer runs 003 to 021 and
-  the site is deployed.
+- [x] 26. Vulnerability Remediation & Fixes. Both highs, all 7 mediums and 5 of 14 lows are fixed in
+  our code, with SQL 019 to 021. The phone's records file (item 22) is only fixed in development and
+  store builds, and has only been tested on the simulator. The hosted project doesn't have the rest
+  until Umer runs 003 to 021 and the site is redeployed.
 - [ ] 27. Security Reassessment & Verification. Partly done. Everything from item 25 that ran was run
   again on the fixed code and compared, and nothing widened. ZAP and a reassessment on the hosted
   project are still to do.
@@ -73,8 +74,10 @@ Notes:
 - Item 2, signing in on the phone, merged 31 Oct with item 10. Inviting people, changing roles and
   deactivating accounts on the website's Users and roles page were merged 31 Oct, see
   [test results](test-results/item-2-admin-users.md).
-- Item 22, encryption at rest on the phones. Jason's SQLCipher branch needs fixing before it can be
-  merged ([where it stands](security/encryption-at-rest.md)).
+- Item 22, encryption at rest on the phones. Jason's SQLCipher branch was merged with fixes on 1
+  Nov, and tested in a development build on the iOS simulator, see
+  [test results](test-results/item-22-encryption.md). Android, real phones and Jason's review of the
+  changes are left.
 - Item 23, checking HTTPS on the real site. It gets checked once the website is deployed.
 - Item 24, Jason still reviews the vulnerability assessment plan.
 - The hosted Supabase project still needs 003 to 021 run, in order (`supabase/README.md`). Only

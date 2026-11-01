@@ -9,6 +9,7 @@ import { AccessibilityInfo, Text } from 'react-native';
 import { MOCK_RECORDS } from '@/data/mock-records';
 import { SPECIES_LIST, type SpeciesOption } from '@/data/species-list';
 import { DATABASE_NAME, MIGRATIONS } from '@/db/database';
+import * as encryption from '@/db/encryption';
 import { EMPTY_SPECIES_LIST, NOT_DELETED, openRecordsStore } from '@/db/records-store';
 import { tagCodeFor } from '@/lib/id';
 import { RecordsProvider, useRecords } from '@/state/records-context';
@@ -243,6 +244,25 @@ describe('RecordsProvider', () => {
       expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull();
       expect(screen.queryByText('The app')).toBeNull();
     } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it("says the records can't be unlocked when the key is gone, with no Try again", async () => {
+    const open = jest
+      .spyOn(encryption, 'openEncryptedDatabase')
+      .mockRejectedValue(new encryption.DatabaseLockedError());
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      renderApp();
+      const message = "The records saved on this phone can't be unlocked.";
+      expect(await screen.findByRole('alert')).toHaveTextContent(message);
+      expect(AccessibilityInfo.announceForAccessibility).toHaveBeenCalledWith(message);
+      expect(screen.getByText(/Nothing here has been changed/)).toBeVisible();
+      expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull();
+      expect(screen.queryByText('The app')).toBeNull();
+    } finally {
+      open.mockRestore();
       warn.mockRestore();
     }
   });

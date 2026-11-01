@@ -161,4 +161,10 @@ async function deleteDatabaseAsync(databaseName) {
 }
 
 // __esModule keeps the same object behind `import * as SQLite`, so jest.spyOn works on it.
-module.exports = { __esModule: true, SQLiteDatabase, openDatabaseAsync, deleteDatabaseAsync };
+module.exports = {
+  __esModule: true,
+  SQLiteDatabase,
+  openDatabaseAsync,
+  deleteDatabaseAsync,
+  defaultDatabaseDirectory: '/stand-in/SQLite',
+};

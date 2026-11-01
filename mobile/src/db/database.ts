@@ -1,4 +1,6 @@
-import { openDatabaseAsync, type SQLiteDatabase } from 'expo-sqlite';
+import type { SQLiteDatabase } from 'expo-sqlite';
+
+import { openEncryptedDatabase } from './encryption';
 
 /** The SQLite file on the phone that holds the records. */
 export const DATABASE_NAME = 'niah.db';
@@ -168,7 +170,7 @@ export async function migrate(db: SQLiteDatabase, steps: readonly string[] = MIG
 
 /** Opens the records database and brings it up to date. */
 export async function openDatabase() {
-  const db = await openDatabaseAsync(DATABASE_NAME);
+  const db = await openEncryptedDatabase(DATABASE_NAME);
   try {
     // Replacing the species list writes on a second connection (see records-store.ts). If a
     // record is saved while that's happening, this waits up to 5 seconds for it to finish instead

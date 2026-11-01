@@ -202,9 +202,8 @@ so nothing typed into the form, like a species name or a note, can change what t
 
 **What's on the phone.** The records sit in the app's own folder, which other apps can't read, and
 iOS and Android both encrypt the phone's storage when it has a passcode. The file isn't encrypted
-on top of that yet. That's part of item 22, see
-[encryption at rest](../security/encryption-at-rest.md). `expo-sqlite` can use SQLCipher for it in
-a development build (it doesn't work in Expo Go). Once botanists use the app in the park the
+on top of that yet. **Fixed on 1 Nov:** a development or store build encrypts it with SQLCipher, see
+[item 22](item-22-encryption.md). Expo Go still doesn't. Once botanists use the app in the park the
 records hold real GPS points of plants, some of them protected, so don't share the database file
 or screenshots of real records anywhere public.
 
@@ -394,8 +393,8 @@ since then. They come from three advisories: `decode-uri-component` and `zod` (h
 **SQL.** The new queries use bound parameters too, so a species name from the download can't change
 what the SQL does. The species list is names only, never locations.
 
-**What's on the phone.** Same as round 1: the database isn't encrypted on top of the phone's own
-encryption yet (item 22), so don't share the database file or screenshots of real records
+**What's on the phone.** Same as round 1: the database wasn't encrypted on top of the phone's own
+encryption yet (**fixed on 1 Nov**, [item 22](item-22-encryption.md)), so don't share the database file or screenshots of real records
 anywhere public.
 
 Don't run `npm audit fix --force`. It would drop Expo down to an old SDK and break the app.
