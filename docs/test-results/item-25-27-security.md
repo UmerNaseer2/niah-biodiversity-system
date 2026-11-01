@@ -168,8 +168,8 @@ the private findings log.
   the image and the cross platform download both failed. No ZAP result exists, and the script above
   doesn't replace it.
 - Anything on the hosted project: Security Advisor, Auth settings and real sign in limits.
-- **Fixed on 1 Nov:** this line said HTTPS on a real host and SSL Labs weren't tested because nothing
-  was deployed. The site is live but older than `main`, and both were checked on 1 Nov, see
+- **Fixed on 1 Nov:** this line said HTTPS on a real host and SSL Labs weren't tested because
+  nothing was deployed. The site is live but older than `main`, and both were checked on 1 Nov, see
   [encryption in transit](../security/encryption-in-transit.md).
 - Two administrators changing roles at the same moment on real connections. PGlite has one
   connection and the Mac has no Postgres, so the tests check the refusal one after the other, and
