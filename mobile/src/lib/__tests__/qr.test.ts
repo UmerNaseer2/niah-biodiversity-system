@@ -1,5 +1,13 @@
 import { newId, tagCodeFor } from '@/lib/id';
-import { isNewScan, MAX_QR_LENGTH, parseTagQr, RESCAN_AFTER_MS } from '@/lib/qr';
+import {
+  cleanWebsite,
+  isNewScan,
+  MAX_QR_LENGTH,
+  parseTagQr,
+  RESCAN_AFTER_MS,
+  tagQrText,
+  tagWebsite,
+} from '@/lib/qr';
 
 describe('parseTagQr', () => {
   it.each(['NNP-3F2A9C', 'nnp-3f2a9c', 'NNP3F2A9C', 'NNP 3F2A9C', '  NNP-3F2A9C\n', 'Nnp-3f2A9c'])(
@@ -17,7 +25,6 @@ describe('parseTagQr', () => {
     'https://niah.example.org/tag/NNP-3F2A9C#plant',
     'https://niah.example.org:3000/park/tag/NNP-3F2A9C',
     'HTTPS://NIAH.EXAMPLE.ORG/tag/NNP-3F2A9C',
-    'https://niah.example.org/tag/3f2a9c',
     'https://niah.example.org/tag/NNP%2D3F2A9C',
     ' https://niah.example.org/tag/NNP-3F2A9C\n',
   ])('reads the tag code out of a website link like %p', (data) => {
@@ -35,6 +42,8 @@ describe('parseTagQr', () => {
     ['a code inside other text', 'Tag: NNP-3F2A9C'],
     ['a Wi-Fi QR code', 'WIFI:T:WPA;S:ParkOffice;P:secret;;'],
     ['a link to some other page', 'https://example.com/plants/NNP-3F2A9C'],
+    ['a link without NNP', 'https://niah.example.org/tag/3f2a9c'],
+    ["a blog's tag page", 'https://blog.example.com/tag/nature'],
     ['a link with no code', 'https://niah.example.org/tag/'],
     ['a link with more path after the code', 'https://niah.example.org/tag/NNP-3F2A9C/edit'],
     ['a link with a bad code', 'https://niah.example.org/tag/NNP-3F2A'],
@@ -57,6 +66,62 @@ describe('parseTagQr', () => {
       expect(parseTagQr(tag)).toBe(tag);
     }
   });
+});
+
+describe('cleanWebsite', () => {
+  it.each([
+    ['https://niah.example.org', 'https://niah.example.org'],
+    ['https://niah.example.org/', 'https://niah.example.org'],
+    ['  https://niah.example.org/park/ ', 'https://niah.example.org/park'],
+    ['https://niah.example.org:8443', 'https://niah.example.org:8443'],
+    ['http://127.0.0.1:3210', 'http://127.0.0.1:3210'],
+    ['http://localhost:3000/', 'http://localhost:3000'],
+  ])('takes %p', (address, cleaned) => {
+    expect(cleanWebsite(address)).toBe(cleaned);
+  });
+
+  it.each([
+    ['nothing', undefined],
+    ['an empty value', ''],
+    ['no scheme', 'niah.example.org'],
+    ['plain http on a real website', 'http://niah.example.org'],
+    ['a name made to look local', 'http://127.0.0.1.example.org'],
+    ['a sign in in the address', 'https://someone@niah.example.org'],
+    ['a query', 'https://niah.example.org/?a=1'],
+    ['a hash', 'https://niah.example.org/#a'],
+    ['a space', 'https://niah example.org'],
+    ['a letter outside ASCII', 'https://niäh.example.org'],
+    ['some other scheme', 'javascript:alert(1)'],
+    ['an address too long for a good QR code', `https://${'a'.repeat(200)}.example.org`],
+  ])('turns down %s', (_what, address) => {
+    expect(cleanWebsite(address)).toBeUndefined();
+  });
+
+  it('reads the address from the build settings', () => {
+    expect(tagWebsite()).toBeUndefined();
+    process.env.EXPO_PUBLIC_SITE_URL = 'https://niah.example.org/';
+    expect(tagWebsite()).toBe('https://niah.example.org');
+    delete process.env.EXPO_PUBLIC_SITE_URL;
+  });
+});
+
+describe('tagQrText', () => {
+  it('links to the plant page when the build has a website', () => {
+    expect(tagQrText('NNP-3F2A9C', 'https://niah.example.org')).toBe(
+      'https://niah.example.org/tag/NNP-3F2A9C',
+    );
+  });
+
+  it('holds only the code when it has none', () => {
+    expect(tagQrText('NNP-3F2A9C', undefined)).toBe('NNP-3F2A9C');
+  });
+
+  it.each(['https://niah.example.org', 'https://niah.example.org/park', undefined])(
+    'gives the Scan tab back the same code, with the website as %p',
+    (website) => {
+      expect(parseTagQr(tagQrText('NNP-3F2A9C', website))).toBe('NNP-3F2A9C');
+    },
+  );
 });
 
 describe('isNewScan', () => {

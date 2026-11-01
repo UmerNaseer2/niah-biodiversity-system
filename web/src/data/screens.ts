@@ -34,7 +34,7 @@ export const publicScreens: Screen[] = [
     title: "Scan a tag",
     path: "/tag",
     items: [12, 16],
-    works: "Typing a tag code works. Printing the QR codes comes in item 12.",
+    works: "Typing a tag code works, and so does scanning a printed tag with a phone camera. Botanists print the tags from the phone app.",
   },
   {
     title: "Tag page",

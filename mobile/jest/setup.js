@@ -12,3 +12,4 @@ jest.mock('expo-crypto', () => ({
 // mobile/.env is for running the app, and no test should ever talk to a real server.
 delete process.env.EXPO_PUBLIC_SUPABASE_URL;
 delete process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+delete process.env.EXPO_PUBLIC_SITE_URL;

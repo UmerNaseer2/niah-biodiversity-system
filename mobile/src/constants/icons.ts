@@ -17,6 +17,7 @@ export const Icons = {
   leaf: symbol('leaf', 'eco'),
   chevron: symbol('chevron.right', 'chevron_right'),
   qr: symbol('qrcode', 'qr_code_2'),
+  print: symbol('printer', 'print'),
   keyboard: symbol('keyboard', 'keyboard'),
   search: symbol('magnifyingglass', 'search'),
   ruler: symbol('ruler', 'straighten'),

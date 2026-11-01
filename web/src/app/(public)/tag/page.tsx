@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Icon } from "@/components/icon";
 import { PageHeader } from "@/components/page-header";
-import { Planned } from "@/components/tape";
 import { TreeTag } from "@/components/tree-tag";
 import { TagLookup } from "./tag-lookup";
 
@@ -55,15 +54,18 @@ export default function TagPage() {
         </section>
       </div>
 
-      <Planned items={[12]} title="Real QR codes" className="self-start">
-        <p>
-          The squares on our tags are a pattern made from the tag code, so
-          they won’t scan yet. Making and printing real QR codes is item 12.
+      <aside className="self-start">
+        <h2 className="font-bold">Where the tags come from</h2>
+        <p className="mt-2 text-sm text-moss">
+          Botanists print each tag from the plant’s record in our phone app,
+          even with no signal. The QR code opens the plant’s page here once a
+          conservation officer has approved the record, and the app’s Scan tab
+          reads it too.
         </p>
         <div aria-hidden="true" className="mt-5 flex justify-center pb-2">
-          <TreeTag code="NNP-3F2A9C" size="sm" />
+          <TreeTag code="NNP-3F2A9C" />
         </div>
-      </Planned>
+      </aside>
     </div>
   );
 }

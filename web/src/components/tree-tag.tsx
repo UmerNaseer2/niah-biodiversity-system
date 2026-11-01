@@ -1,69 +1,29 @@
 import Link from "next/link";
+import createQrCode from "qrcode-generator";
+import { tagQrText } from "@/lib/tags";
 
-// The metal tag that gets nailed to each recorded plant. The square pattern
-// is made from the tag code so every tag looks different, but it is NOT a
-// real QR code yet. Generating real ones is item 12.
+// The metal tag that gets nailed to each recorded plant. The QR code on it is
+// real and holds the same thing as the tags the phone app prints, so a phone
+// can read it off the screen too.
 
-const QR_SIZE = 21;
-const FINDERS = [
-  [0, 0],
-  [0, QR_SIZE - 7],
-  [QR_SIZE - 7, 0],
-];
+// The blank border a scanner needs, in squares. The QR standard asks for 4.
+const QUIET_ZONE = 4;
 
-function hash(text: string) {
-  // FNV-1a, enough to turn a code into a seed
-  let h = 0x811c9dc5;
-  for (let i = 0; i < text.length; i++) {
-    h ^= text.charCodeAt(i);
-    h = Math.imul(h, 0x01000193);
-  }
-  return h >>> 0;
-}
-
-function finderModule(row: number, col: number) {
-  for (const [top, left] of FINDERS) {
-    const r = row - top;
-    const c = col - left;
-    // The 7 by 7 square plus a 1 module white gap around it
-    if (r >= -1 && r <= 7 && c >= -1 && c <= 7) {
-      if (r < 0 || r > 6 || c < 0 || c > 6) return false;
-      const ring = r === 0 || r === 6 || c === 0 || c === 6;
-      const centre = r >= 2 && r <= 4 && c >= 2 && c <= 4;
-      return ring || centre;
+function qrCode(text: string) {
+  const code = createQrCode(0, "Q");
+  code.addData(text);
+  code.make();
+  const size = code.getModuleCount();
+  let path = "";
+  for (let row = 0; row < size; row++) {
+    for (let col = 0; col < size; col++) {
+      if (code.isDark(row, col)) path += `M${col} ${row}h1v1h-1z`;
     }
   }
-  return null;
-}
-
-function qrPath(code: string) {
-  let state = hash(code) || 1;
-  const nextBit = () => {
-    // xorshift32
-    state ^= state << 13;
-    state ^= state >>> 17;
-    state ^= state << 5;
-    state >>>= 0;
-    return (state >>> 11) & 1;
-  };
-
-  let d = "";
-  for (let row = 0; row < QR_SIZE; row++) {
-    for (let col = 0; col < QR_SIZE; col++) {
-      let dark = finderModule(row, col);
-      if (dark === null) {
-        if (row === 6) dark = col % 2 === 0;
-        else if (col === 6) dark = row % 2 === 0;
-        else dark = nextBit() === 1;
-      }
-      if (dark) d += `M${col} ${row}h1v1h-1z`;
-    }
-  }
-  return d;
+  return { path, size };
 }
 
 const SIZES = {
-  sm: { width: "w-28", park: "text-[0.5rem]", code: "text-[0.8125rem]" },
   md: { width: "w-36", park: "text-[0.5625rem]", code: "text-base" },
   lg: { width: "w-44", park: "text-[0.625rem]", code: "text-lg" },
 };
@@ -80,6 +40,7 @@ export function TreeTag({
   className?: string;
 }) {
   const s = SIZES[size];
+  const qr = qrCode(tagQrText(code));
   return (
     <div
       className={`${s.width} ${swing ? "origin-[50%_0.9375rem] animate-tag-swing" : ""} ${className}`}
@@ -100,12 +61,12 @@ export function TreeTag({
           Niah National Park
         </p>
         <svg
-          viewBox={`-1 -1 ${QR_SIZE + 2} ${QR_SIZE + 2}`}
+          viewBox={`${-QUIET_ZONE} ${-QUIET_ZONE} ${qr.size + QUIET_ZONE * 2} ${qr.size + QUIET_ZONE * 2}`}
           aria-hidden="true"
           shapeRendering="crispEdges"
           className="mx-auto my-2 block w-full rounded-sm bg-[#eef1ed]"
         >
-          <path d={qrPath(code)} fill="#26302a" />
+          <path d={qr.path} fill="#26302a" />
         </svg>
         <p
           className={`stamped font-mono font-bold leading-none tracking-[0.06em] ${s.code}`}
