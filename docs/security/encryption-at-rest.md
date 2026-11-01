@@ -57,8 +57,8 @@ The code is in `mobile/src/db/encryption.ts`. Jason started it on `item-22-data-
 was merged on 1 Nov with the fixes this page used to list.
 
 1. **The key.** 32 random bytes from `expo-crypto`, saved in `expo-secure-store` before anything
-   uses them. `PRAGMA key = "x'<64 hex characters>'"` uses them as they are, because PBKDF2 would only
-   slow the app down when the key is already random.
+   uses them. `PRAGMA key = "x'<64 hex characters>'"` uses them as they are, because PBKDF2 would
+   only slow the app down when the key is already random.
 2. **A plain file from before.** `sqlcipher_export()` copies it into a new encrypted file, the rows
    of every table get counted, and only then does the copy replace it. If that's cut off, the next
    open throws away a half made copy or finishes moving a complete one.

@@ -78,7 +78,10 @@ Notes:
   Nov, and tested in a development build on the iOS simulator, see
   [test results](test-results/item-22-encryption.md). Android, real phones and Jason's review of the
   changes are left.
-- Item 23, checking HTTPS on the real site. It gets checked once the website is deployed.
+- Item 23, checking HTTPS on the real site. Checked on the live site on 1 Nov: http goes to https,
+  HSTS is on, TLS 1.3, TLS 1.0 and 1.1 refused, and the certificate is valid
+  ([results](security/encryption-in-transit.md)). SSL Labs is left, and the live site is older than
+  `main`, so it needs redeploying.
 - Item 24, Jason still reviews the vulnerability assessment plan.
 - The hosted Supabase project still needs 003 to 021 run, in order (`supabase/README.md`). Only
   Umer can do this.
