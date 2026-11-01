@@ -40,8 +40,8 @@ Notes:
 ## Security (items 25 to 27)
 
 - [x] 25. Initial Security Penetration Testing. Done 31 Oct on Umer's Mac against a local production
-  build and the stand-in, see [test results](test-results/item-25-27-security.md). OWASP ZAP,
-  Security Advisor and SSL Labs didn't run.
+  build and the stand-in, see [test results](test-results/item-25-27-security.md). OWASP ZAP and
+  Security Advisor didn't run. SSL Labs ran on 1 Nov with item 23.
 - [x] 26. Vulnerability Remediation & Fixes. Both highs, all 7 mediums and 5 of 14 lows are fixed in
   our code, with SQL 019 to 021. The phone's records file (item 22) is only fixed in development and
   store builds, and has only been tested on the simulator. The hosted project doesn't have the rest
@@ -80,8 +80,9 @@ Notes:
   changes are left.
 - Item 23, checking HTTPS on the real site. Checked on the live site on 1 Nov: http goes to https,
   HSTS is on, TLS 1.3, TLS 1.0 and 1.1 refused, and the certificate is valid
-  ([results](security/encryption-in-transit.md)). SSL Labs is left, and the live site is older than
-  `main`, so it needs redeploying.
+  ([results](security/encryption-in-transit.md)). SSL Labs gave A+ and A on the site's two addresses.
+  The live site is older than `main`, so it needs redeploying, and SSL Labs should run again after
+  that.
 - Item 24, Jason still reviews the vulnerability assessment plan.
 - The hosted Supabase project still needs 003 to 021 run, in order (`supabase/README.md`). Only
   Umer can do this.
