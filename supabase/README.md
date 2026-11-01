@@ -49,11 +49,11 @@ can say its place on the public map changed when it didn't. 015 stops on its fir
 there. Without 016 the Sensors page and the overview say the database hasn't been set up for
 sensors, and the staff menu has no badge, but the other pages aren't affected. 016 stops on its
 first line if 015 isn't there. Without 017 the Devices page works and the Sensors page says the
-same. 017 stops on its first line if 016 isn't there. Without 019 the public views still give more
-about a hidden plant than they should. 019 stops on its first line if 017 isn't there. Without 020 a
-botanist who loses their role can still reach the photos they uploaded. 020 stops on its first line
-if 019 isn't there. Without 021 role changes aren't written down and the Users page says so, and two
-administrators acting at the same moment could remove each other. Changing roles still works. 021
+same. 017 stops on its first line if 016 isn't there. Without 019 the public views and the Reports
+counts stay as 007 and 012 left them. 019 stops on its first line if 017 isn't there. Without 020 record
+photos and the helper functions keep the access the earlier files gave them. 020 stops on its first line
+if 019 isn't there. Without 021 role changes aren't written down and the Users page says so. Changing
+roles still works. 021
 stops on its first line if 020 isn't there. The list only starts once 021 is in, so earlier changes
 aren't in it.
 003 is fine to run even if it turns out to be there already. The history only starts once 013 is
