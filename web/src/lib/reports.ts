@@ -344,14 +344,34 @@ export function hiddenSpotCount(rows: ReportRecord[]) {
 }
 
 /**
+ * The order of a plain file. Newest first would put a hidden row between the
+ * rows recorded just before and after it, and those can have exact spots. So
+ * each day's hidden rows go last, by tag code.
+ */
+function plainFileOrder(rows: ReportRecord[]) {
+  return [...rows].sort((a, b) => {
+    const day = b.recordedAt.slice(0, 10).localeCompare(a.recordedAt.slice(0, 10));
+    if (day !== 0) return day;
+    if (a.hidesLocation !== b.hidesLocation) return a.hidesLocation ? 1 : -1;
+    return a.hidesLocation
+      ? a.code.localeCompare(b.code)
+      : b.recordedAt.localeCompare(a.recordedAt);
+  });
+}
+
+/**
  * The whole file. Rows of threatened and protected plants only get their
- * coordinates when includeExact is set. Starts with a BOM so Excel opens it
- * as UTF-8.
+ * coordinates when includeExact is set. Without it they lose the notes and the
+ * time of day too, because a note can say where a plant grows and a time can
+ * place it on someone's walk. So a plain file says nothing about the spot, and
+ * that's why it doesn't go on the admins' download list. Starts with a BOM so
+ * Excel opens it as UTF-8.
  */
 export function buildCsv(rows: ReportRecord[], includeExact: boolean) {
-  const lines = rows.map((row) => {
+  const lines = (includeExact ? rows : plainFileOrder(rows)).map((row) => {
     const location = locationOf(row, includeExact);
     const point = location === "Exact" ? row.gps : null;
+    const withheld = row.hidesLocation && !includeExact;
     return [
       row.code,
       row.commonName,
@@ -364,12 +384,12 @@ export function buildCsv(rows: ReportRecord[], includeExact: boolean) {
       CONDITION_LABEL[row.condition],
       row.recordedBy,
       // Spreadsheets sort "2026-10-02 10:24" properly, so the file gets that
-      row.recordedAt.replace("T", " "),
+      withheld ? row.recordedAt.slice(0, 10) : row.recordedAt.replace("T", " "),
       location,
       point?.lat ?? null,
       point?.lng ?? null,
       point?.accuracyM ?? null,
-      row.notes,
+      withheld ? null : row.notes,
     ]
       .map(csvCell)
       .join(",");
