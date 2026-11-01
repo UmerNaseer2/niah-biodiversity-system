@@ -3,7 +3,9 @@ import { StatusBar } from 'expo-status-bar';
 
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { AccountProvider } from '@/state/account-context';
 import { RecordsProvider } from '@/state/records-context';
+import { SyncProvider } from '@/state/sync-context';
 
 export const unstable_settings = {
   anchor: '(tabs)',
@@ -27,18 +29,22 @@ export default function RootLayout() {
 
   return (
     <ThemeProvider value={navigationTheme}>
-      <RecordsProvider>
-        <Stack
-          screenOptions={{
-            headerTintColor: colors.primary,
-            headerBackButtonDisplayMode: 'minimal',
-            // Without this the back button gets read out as "(tabs), back".
-            headerBackTitle: 'Back',
-          }}>
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name="record/[id]" options={{ title: 'Plant record' }} />
-        </Stack>
-      </RecordsProvider>
+      <AccountProvider>
+        <RecordsProvider>
+          <SyncProvider>
+            <Stack
+              screenOptions={{
+                headerTintColor: colors.primary,
+                headerBackButtonDisplayMode: 'minimal',
+                // Without this the back button gets read out as "(tabs), back".
+                headerBackTitle: 'Back',
+              }}>
+              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+              <Stack.Screen name="record/[id]" options={{ title: 'Plant record' }} />
+            </Stack>
+          </SyncProvider>
+        </RecordsProvider>
+      </AccountProvider>
       <StatusBar style="auto" />
     </ThemeProvider>
   );

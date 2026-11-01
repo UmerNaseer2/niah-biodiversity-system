@@ -372,7 +372,7 @@ export function ReviewQueue({
                           Why are you rejecting it?
                         </label>
                         <p id={`reason-${item.id}-hint`} className="text-sm text-moss">
-                          It’s saved with the record, so say what to fix.
+                          The ranger sees this on their phone after their next sync, so say what to fix.
                         </p>
                         {reasonError && (
                           <p

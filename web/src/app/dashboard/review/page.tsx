@@ -42,7 +42,7 @@ export default async function ReviewPage() {
     <PageHeader
       eyebrow="Records"
       title="Review queue"
-      description="New records from the mobile app wait here until an officer checks them. Approved ones go on the public site. Rejected ones stay off it, and your reason is saved with the record."
+      description="New records from the mobile app wait here until an officer checks them. Approved ones go on the public site. Rejected ones stay off it, and the ranger sees your reason on their phone after their next sync."
     />
   );
 

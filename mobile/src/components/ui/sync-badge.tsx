@@ -7,7 +7,7 @@ import { Pill } from '@/components/ui/pill';
 import { Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { plural } from '@/lib/format';
-import type { SyncStatus, UploadProblem } from '@/types/plant-record';
+import type { ReviewStatus, SyncStatus, UploadProblem } from '@/types/plant-record';
 
 /** Summary for the whole phone, shown at the top of Home. */
 export function SyncBadge({ pending, total }: { pending: number; total: number }) {
@@ -41,20 +41,45 @@ export function SyncBadge({ pending, total }: { pending: number; total: number }
   );
 }
 
+type SyncBannerProps = {
+  waiting: number;
+  problems: number;
+  signedIn?: boolean;
+  syncing?: boolean;
+  /** What the last sync came to, if there's anything to say about it. */
+  message?: string | null;
+  onSync?: () => void;
+  onSignIn?: () => void;
+};
+
 /**
  * Banner at the top of My records while anything is still on the phone only. Records with an
  * upload problem are counted apart from the rest, because waiting for signal won't send them.
- * Shows nothing when both counts are 0.
+ * Shows nothing when both counts are 0 and the last sync has nothing to say.
  */
-export function SyncBanner({ waiting, problems }: { waiting: number; problems: number }) {
+export function SyncBanner({
+  waiting,
+  problems,
+  signedIn = false,
+  syncing = false,
+  message,
+  onSync,
+  onSignIn,
+}: SyncBannerProps) {
   const theme = useTheme();
   if (waiting === 0 && problems === 0) {
-    return null;
+    // The last record just went up, so this is the only place left to say so.
+    return message ? (
+      <View style={[styles.banner, { backgroundColor: theme.successSoft }]}>
+        <ThemedText type="small" themeColor="success">
+          {message}
+        </ThemedText>
+      </View>
+    ) : null;
   }
 
   const one = problems === 1;
-  const sortedOut = one ? 'it is sorted out' : 'they are sorted out';
-  // Only problem records are left, so the banner is about them and Sync now wouldn't help.
+  // Only problem records are left, so the banner is about them.
   const onlyProblems = waiting === 0;
   const tone = onlyProblems ? 'danger' : 'warning';
   const title = onlyProblems
@@ -75,33 +100,79 @@ export function SyncBanner({ waiting, problems }: { waiting: number; problems: n
       </View>
       {onlyProblems ? null : (
         <ThemedText type="small" themeColor="warning">
-          {waiting === 1 ? 'It is' : 'They are'} saved on this phone and safe to leave until you
-          have signal. Uploading comes in item 10.
+          {waiting === 1 ? 'It is' : 'They are'} saved on this phone and safe to leave.{' '}
+          {signedIn
+            ? `${waiting === 1 ? 'It goes' : 'They go'} up on ${waiting === 1 ? 'its' : 'their'} own when you have signal.`
+            : `Sign in and ${waiting === 1 ? 'it goes' : 'they go'} up when you have signal.`}
         </ThemedText>
       )}
       {problems > 0 ? (
         <ThemedText type="small" themeColor={tone}>
           {onlyProblems
-            ? `${one ? 'It is' : 'They are'} still saved on this phone, but `
-            : `${plural(problems, 'record')} also couldn't upload last time and `}
-          won&apos;t go up until {sortedOut}. Open {one ? 'it' : 'them'} to see why.
+            ? `${one ? 'It is' : 'They are'} still saved on this phone. `
+            : `${plural(problems, 'record')} also couldn't upload last time. `}
+          Open {one ? 'it' : 'them'} to see why, and press Sync now once {one ? "it's" : "they're"}{' '}
+          sorted out.
         </ThemedText>
       ) : null}
-      {onlyProblems ? null : <Button label="Sync now" icon="sync" variant="outline" disabled />}
+      {message ? (
+        <ThemedText type="small" themeColor={tone}>
+          {message}
+        </ThemedText>
+      ) : null}
+      {signedIn ? (
+        <Button
+          label={syncing ? 'Syncing...' : 'Sync now'}
+          icon="sync"
+          variant="outline"
+          disabled={syncing}
+          onPress={onSync}
+        />
+      ) : (
+        <Button label="Sign in to sync" icon="login" variant="outline" onPress={onSignIn} />
+      )}
     </View>
   );
 }
 
-/** Tag for a single record in a list or on its page. */
-export function SyncTag({ status, problem }: { status: SyncStatus; problem?: UploadProblem }) {
+/** The words for where a record has got to. The tag shows them and a screen reader reads them. */
+export function syncTagLabel(
+  status: SyncStatus,
+  problem?: UploadProblem,
+  review?: ReviewStatus,
+): string {
   if (problem) {
-    // Still waiting, but it won't go up until someone sorts it out. The record's page says how.
-    return <Pill tone="danger" icon="warning" label="Couldn't upload" />;
+    return "Couldn't upload";
+  }
+  if (status === 'pending') {
+    return 'Pending sync';
+  }
+  if (review === 'rejected') {
+    return 'Rejected';
+  }
+  return review === 'published' ? 'Approved' : 'Synced';
+}
+
+/** Tag for a single record in a list or on its page. */
+export function SyncTag({
+  status,
+  problem,
+  review,
+}: {
+  status: SyncStatus;
+  problem?: UploadProblem;
+  review?: ReviewStatus;
+}) {
+  const label = syncTagLabel(status, problem, review);
+  // A problem means it's still waiting, but it won't go up until someone sorts it out. A rejection
+  // means an officer turned it down. The record's page says what to do about either.
+  if (problem || (status === 'synced' && review === 'rejected')) {
+    return <Pill tone="danger" icon="warning" label={label} />;
   }
   return status === 'pending' ? (
-    <Pill tone="warning" icon="pending" label="Pending sync" />
+    <Pill tone="warning" icon="pending" label={label} />
   ) : (
-    <Pill tone="success" icon="synced" label="Synced" />
+    <Pill tone="success" icon="synced" label={label} />
   );
 }
 

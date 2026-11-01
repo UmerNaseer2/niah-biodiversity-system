@@ -9,17 +9,17 @@ suggestions and checks on what you type. Since item 8 the form gets the location
 GPS, and a record can't be saved without one. Since item 6 the Scan tab uses the camera to read a
 plant's QR tag and open its record. Since item 9 the records are saved in SQLite on the phone, so
 they're still there after the app restarts, and the phone has a place to keep the species list and
-what happened to each upload. Nothing talks to Supabase yet, but the rules for uploading a record
-are in `src/sync/` since item 3, ready for the "Sync now" button in item 10
-([docs/sync-design.md](../docs/sync-design.md) explains them).
+what happened to each upload. Since item 10 you sign in on the Profile tab, and the app uploads
+waiting records by itself when it has signal, then reads back what officers decided and downloads
+the species list ([docs/sync-design.md](../docs/sync-design.md) explains the rules).
 
 | Tab | What it shows |
 | --- | --- |
 | Home | How many plants were recorded today and whether anything is waiting to sync |
 | Scan | The camera, which opens a record from its QR tag, plus a box to type a tag code by hand |
 | New Record | The plant form, with species suggestions, GPS capture and photo slots |
-| My Records | Every record on the phone, tagged "Pending sync", "Synced" or "Couldn't upload" |
-| Profile | Where sign in will go, plus some info about the phone and app |
+| My Records | Every record on the phone, tagged "Pending sync", "Synced", "Approved", "Rejected" or "Couldn't upload", plus a Sync now button |
+| Profile | Signing in and out, what's on the phone, when it last synced and some info about the app |
 
 Tapping a record (or saving a new one) opens its page.
 
@@ -33,8 +33,9 @@ npx expo start
 
 Then press `i` for the iOS simulator, `a` for an Android emulator or `w` for the browser. On a
 real phone, install Expo Go (the version for SDK 57) and scan the QR code in the terminal.
-Everything used so far comes with Expo Go (`expo-location`, `expo-camera`, `expo-sqlite` and
-`expo-crypto` included), so you don't need a development build yet. Expo Go asks for location and
+Everything used so far comes with Expo Go (`expo-location`, `expo-camera`, `expo-sqlite`,
+`expo-crypto`, `expo-secure-store` and `expo-network` included), so you don't need a development
+build yet. Expo Go asks for location and
 camera access with its own text. Ours, set in `app.json`, only shows in a development or store
 build.
 
@@ -48,7 +49,7 @@ jest/
 src/
   __tests__/            screen tests (they can't go in app/, see Tests below)
   app/                  screens. Every file in here is a route
-    _layout.tsx         root stack, colours and the records provider
+    _layout.tsx         root stack, colours and the account, records and sync providers
     (tabs)/             the five tabs: index (Home), scan, new-record, records, profile
     record/[id].tsx     one plant record
   components/           Screen, ListScreen, RecordRow, LocationCapture, LocationSummary, QrScanner
@@ -65,11 +66,14 @@ src/
   hooks/                use-gps-capture.ts (GPS with expo-location), use-now.ts (the time, read
                         again when the app comes back to the front), plus the theme hooks
   lib/                  formatting, the GPS and QR rules, the height and form checks, species
-                        search, IDs and tag codes
+                        search, IDs and tag codes, the Supabase client and how the session is
+                        stored in the keychain
   state/                records-context.tsx loads the saved records when the app starts and
-                        shares them with every screen
-  sync/                 upload-row.ts, the rules for uploading a record to Supabase and reading
-                        the answer (item 10 uses them)
+                        shares them with every screen. account-context.tsx looks after signing
+                        in, and sync-context.tsx decides when to sync
+  sync/                 sync-engine.ts runs one sync from start to finish, supabase-api.ts makes
+                        the real server calls, and upload-row.ts has the rules for uploading a
+                        record and reading the answer
   types/                PlantRecord and the other shared types
 ```
 
@@ -80,8 +84,6 @@ what's fake.
 
 | Item | What goes in | Where |
 | --- | --- | --- |
-| 2 | Sign in with Supabase Auth | Profile tab |
-| 10 | Uploading records to Supabase | "Sync now" button on My Records |
 | 11 | Taking photos | New Record tab |
 | 12 | Printable QR tags | Record page |
 
@@ -120,11 +122,15 @@ what's fake.
 - `src/data/species-list.ts` uses the same slugs as the species table in Supabase, but it has two
   the server doesn't have yet, *Durio graveolens* and *Dryobalanops aromatica*. A record of one
   of those still uploads, because the server keeps the species name and only clears a slug it
-  doesn't know. If you add a species, add it to both. Once item 10 downloads the list when the
-  phone syncs, the phone keeps the downloaded one (`src/db`) and only uses this file until the
-  first sync.
+  doesn't know. If you add a species, add it to both. The phone downloads the list when it
+  syncs and keeps that one (`src/db`), so it only uses this file until the first sync.
 - Keys: copy `.env.example` to `.env` and ask Umer for the values. Only the Supabase anon key
   goes in the app. The service role key never goes in mobile code.
+- To try syncing without a real project, start the stand-in (`npm run stand-in` in
+  `supabase/tests`), then start the app with `EXPO_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321` and
+  `EXPO_PUBLIC_SUPABASE_ANON_KEY=stand-in-anon-key` set in front of `npx expo start --clear`. Those
+  beat what's in `.env`. It only works on the iOS simulator, because 127.0.0.1 on a real phone is
+  the phone itself. The [supabase README](../supabase/README.md) lists the stand-in's accounts.
 
 ## Tests
 
@@ -136,8 +142,9 @@ Jest runs the tests in the `__tests__` folders, which sit next to the code they 
 the helpers in `src/lib` (dates, heights, the form checks, the GPS and QR rules, species search, IDs
 and tag lookup), the GPS and clock hooks in `src/hooks` (GPS against a mocked `expo-location`),
 the sync badge and banner in `src/components/ui`, the database and records store in `src/db`, the
-records provider in `src/state`, and the upload rules in `src/sync`
-(against the same example records as the SQL tests in `supabase/tests/`). They also make sure the
+records, account and sync providers in `src/state`, how the session is split up for the keychain
+in `src/lib`, and the upload rules and every path through a sync in `src/sync` (the upload rules
+against the same example records as the SQL tests in `supabase/tests/`). They also make sure the
 mock data follows the same rules as the app.
 
 `expo-sqlite` needs a phone, so in tests `jest/expo-sqlite.js` stands in for it with `sql.js`, which
@@ -151,7 +158,7 @@ real UUIDs, because the jest-expo stand-in gives nothing back.
 because Expo Router treats every file in there as a screen. Jest can't read CSS, so
 `jest/css-stub.js` stands in for `global.css`.
 
-Manual test results go in `docs/test-results/`. See the item 5 to 9 ones for an example.
+Manual test results go in `docs/test-results/`. See the item 5 to 10 ones for an example.
 
 ## Before you open a pull request
 
