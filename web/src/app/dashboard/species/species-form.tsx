@@ -17,6 +17,7 @@ import {
   ProtectedBadge,
 } from "@/components/plant-bits";
 import { IUCN, IUCN_CODES, type IucnCode } from "@/lib/iucn";
+import { NO_ANSWER, answerOnFailure } from "@/lib/keep-form";
 import {
   EMPTY,
   FIELD_ORDER,
@@ -26,6 +27,7 @@ import {
   lockReason,
   splitNames,
   tidy,
+  valuesFromFormData,
   type Errors,
   type FieldId,
   type Values,
@@ -33,6 +35,15 @@ import {
 import { addSpecies, editSpecies, type SpeciesFormState } from "./actions";
 
 const INITIAL: SpeciesFormState = { status: "idle" };
+const NOT_ANSWERED = (formData: FormData): SpeciesFormState => ({
+  status: "error",
+  message: NO_ANSWER,
+  fieldErrors: {},
+  values: valuesFromFormData(formData),
+});
+// How the form saves with JavaScript, so a failed request keeps what was typed
+const sendNew = answerOnFailure(addSpecies, NOT_ANSWERED);
+const sendEdit = answerOnFailure(editSpecies, NOT_ANSWERED);
 
 function FieldError({ id, message }: { id: string; message?: string }) {
   if (!message) return null;
@@ -68,10 +79,9 @@ type Props =
 
 export function SpeciesForm(props: Props) {
   const adding = props.mode === "add";
-  const [state, formAction, pending] = useActionState(
-    adding ? addSpecies : editSpecies,
-    INITIAL,
-  );
+  const [posted, formAction] = useActionState(adding ? addSpecies : editSpecies, INITIAL);
+  const [sent, sendAction, pending] = useActionState(adding ? sendNew : sendEdit, INITIAL);
+  const state = sent === INITIAL ? posted : sent;
   // Without JavaScript the browser posts the form itself, and the page comes
   // back with the server's answer as the first state, so it starts from that.
   // The edit form doesn't send the scientific name, so that comes from the
@@ -178,7 +188,7 @@ export function SpeciesForm(props: Props) {
       return;
     }
     const formData = new FormData(event.currentTarget);
-    startTransition(() => formAction(formData));
+    startTransition(() => sendAction(formData));
   }
 
   function jumpTo(event: MouseEvent<HTMLAnchorElement>, id: FieldId) {
