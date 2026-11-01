@@ -152,7 +152,7 @@ the private findings log.
 | --- | --- |
 | OWASP Top 10 | Findings are in the private log. Nothing found for injection or server side request forgery. Hosted Auth settings not checked |
 | ASVS (authentication, sessions, access, validation, errors, data, communication, business logic, files, API, configuration) | Findings are in the private log. Parts that depend on hosted settings or a deployed site not checked |
-| MASVS (read only, no phone) | Session in the keychain for this device only, backups off, https only in the code, and the bundle has no secrets. Findings are in the private log. Record photo EXIF to check when item 11 lands, since it isn't on `main` yet |
+| MASVS (read only, no phone) | Session in the keychain for this device only, backups off, https only in the code, and the bundle has no secrets. Findings are in the private log. Record photo EXIF to check when item 11 lands, since it isn't on `main` yet. **Checked on 1 Nov 2026 with item 11:** the GPS block is gone from a saved library photo and the server's copy, on the iOS simulator. A real camera isn't checked, see [item 11](item-11-photos.md) |
 
 ## Not tested yet
 

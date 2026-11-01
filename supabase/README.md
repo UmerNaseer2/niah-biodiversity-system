@@ -34,30 +34,28 @@ kept, and you can fix the problem and run it again.
 
 As of 16 Oct 2026 the hosted project has 001 and 002. Run 003, 004, 005, 006, 007, 008, 009, 010,
 011, 012, 013, 014, 015, 016, 017, 019, 020 and 021 next, one file at a time, in that order, and
-don't stop part way. 018 is saved for the phone work, so there's no 018 yet. When it lands, run it
-in its place. The website's species pages (add, edit and delete) and its public pages need 007, and
-007 stops on its first line if 006 isn't there. Until then the public pages say "This page didn't
-load". Without 009 the plant pages show no photos. Without 010 a phone that hadn't synced a record
-can upload it again after an officer deletes it. Without 011 the website turns down every report
-download with exact spots, because it can't put the download on the list. Without 012 the Reports
-page says the records didn't load, but the spreadsheet download still works. 012 stops on its first
-line if 011 isn't there. Without 013 the edit pages say the history didn't load, and saving still
-works. 013 stops on its first line if 012 isn't there. Without 014 the website finds a record's
-photos from `submitted_by`, so they're lost when the account that sent it is deleted. 014 stops on
-its first line if 013 isn't there. Without 015 the first save of a threatened or protected species
-can say its place on the public map changed when it didn't. 015 stops on its first line if 014 isn't
-there. Without 016 the Sensors page and the overview say the database hasn't been set up for
-sensors, and the staff menu has no badge, but the other pages aren't affected. 016 stops on its
+don't stop part way. There's no 018 file: the number was held for the phone's photos, and they
+didn't need one. The website's species pages (add, edit and delete) and its public pages need 007,
+and 007 stops on its first line if 006 isn't there. Until then the public pages say "This page
+didn't load". Without 009 the plant pages show no photos. Without 010 a phone that hadn't synced a
+record can upload it again after an officer deletes it. Without 011 the website turns down every
+report download with exact spots, because it can't put the download on the list. Without 012 the
+Reports page says the records didn't load, but the spreadsheet download still works. 012 stops on
+its first line if 011 isn't there. Without 013 the edit pages say the history didn't load, and
+saving still works. 013 stops on its first line if 012 isn't there. Without 014 the website finds a
+record's photos from `submitted_by`, so they're lost when the account that sent it is deleted. 014
+stops on its first line if 013 isn't there. Without 015 the first save of a threatened or protected
+species can say its place on the public map changed when it didn't. 015 stops on its first line if
+014 isn't there. Without 016 the Sensors page and the overview say the database hasn't been set up
+for sensors, and the staff menu has no badge, but the other pages aren't affected. 016 stops on its
 first line if 015 isn't there. Without 017 the Devices page works and the Sensors page says the
 same. 017 stops on its first line if 016 isn't there. Without 019 the public views and the Reports
-counts stay as 007 and 012 left them. 019 stops on its first line if 017 isn't there. Without 020 record
-photos and the helper functions keep the access the earlier files gave them. 020 stops on its first line
-if 019 isn't there. Without 021 role changes aren't written down and the Users page says so. Changing
-roles still works. 021
-stops on its first line if 020 isn't there. The list only starts once 021 is in, so earlier changes
-aren't in it.
-003 is fine to run even if it turns out to be there already. The history only starts once 013 is
-in, so changes made before that aren't in it.
+counts stay as 007 and 012 left them. 019 stops on its first line if 017 isn't there. Without 020
+record photos and the helper functions keep the access the earlier files gave them. 020 stops on its
+first line if 019 isn't there. Without 021 role changes aren't written down and the Users page says
+so. Changing roles still works. 021 stops on its first line if 020 isn't there. The list only starts
+once 021 is in, so earlier changes aren't in it. 003 is fine to run even if it turns out to be there
+already. The history only starts once 013 is in, so changes made before that aren't in it.
 
 The sensor steps are 016 and 017, after 015. Then an admin opens **Sensors**, then **Devices**, adds
 each edge device, links its nodes and makes it a token. [`iot/README.md`](../iot/README.md) has the

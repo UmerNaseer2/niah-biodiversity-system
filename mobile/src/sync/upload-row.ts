@@ -143,3 +143,50 @@ export function uploadProblemMessage(problem: UploadProblem) {
       );
   }
 }
+
+/** The storage-js error fields that say what happened. It has no status when fetch itself failed. */
+export type PhotoUploadError = { status?: number; statusCode?: string; code?: string };
+
+/** What came of sending one photo. */
+export type PhotoUploadAnswer =
+  'uploaded' | 'missing' | 'rejected' | 'offline' | 'signed-out' | 'not-allowed' | 'retry';
+
+// Supabase Storage says the same thing in more than one way depending on where it was refused, and
+// can send a 400 with the real number in the body, so these look at all three fields.
+const PHOTO_ALREADY_THERE = ['409', 'Duplicate', 'ResourceAlreadyExists', 'KeyAlreadyExists'];
+const PHOTO_SIGNED_OUT = ['401', 'InvalidJWT', 'ExpiredToken'];
+const PHOTO_NOT_ALLOWED = ['403', 'Unauthorized', 'AccessDenied'];
+const PHOTO_TURNED_DOWN = [
+  '413',
+  'EntityTooLarge',
+  'Payload too large',
+  '415',
+  'InvalidMimeType',
+  'invalid_mime_type',
+];
+
+/**
+ * Sorts out what the server said about a photo. The file on the server can't be replaced, so "it's
+ * already there" means an earlier try got through and only the answer was lost. Anything this
+ * doesn't know about goes again next time, because trying again can't do any harm.
+ */
+export function classifyPhotoUpload(error: PhotoUploadError | null): PhotoUploadAnswer {
+  if (!error) {
+    return 'uploaded';
+  }
+  if (error.status === undefined && error.statusCode === undefined) {
+    return 'offline';
+  }
+  const said = [String(error.status), error.statusCode, error.code];
+  const saidAny = (answers: string[]) => said.some((one) => one && answers.includes(one));
+  if (saidAny(PHOTO_ALREADY_THERE)) {
+    return 'uploaded';
+  }
+  if (saidAny(PHOTO_SIGNED_OUT)) {
+    return 'signed-out';
+  }
+  if (saidAny(PHOTO_NOT_ALLOWED)) {
+    return 'not-allowed';
+  }
+  return saidAny(PHOTO_TURNED_DOWN) ? 'rejected' : 'retry';
+}

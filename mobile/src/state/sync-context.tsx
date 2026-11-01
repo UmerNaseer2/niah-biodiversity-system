@@ -13,7 +13,7 @@ import { runSync, syncResultMessage, type SyncResult } from '@/sync/sync-engine'
 // coming back, so nobody has to remember to press anything. It only runs while the app is open,
 // which docs/sync-design.md lists under Known limits.
 
-/** How often to try again while a record is waiting. Under the 5 minutes, and costs little. */
+/** How often to try again while anything is waiting. Under the 5 minutes, and costs little. */
 const TRY_EVERY_MS = 60 * 1000;
 
 /** With nothing to upload, a sync is only for fresh downloads, which can wait this long. */
@@ -38,9 +38,12 @@ function worthMentioning(result: SyncResult) {
 
 export function SyncProvider({ children }: { children: ReactNode }) {
   const records = useRecords();
-  const { status, refreshProfile } = useAccount();
+  const { status, account, refreshProfile } = useAccount();
   const signedIn = status === 'signed-in';
   const { waitingCount, loadLastSynced } = records;
+  // Only used for whether there's anything to do. A record going up during a sync makes this rise,
+  // so the two places below that watch for something new look at the records alone.
+  const anythingWaiting = waitingCount + records.photosWaitingFor(account?.userId) > 0;
 
   const [running, setRunning] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -114,7 +117,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       return;
     }
     const recently = Date.now() - lastFinished.current < QUIET_FOR_MS;
-    if (waitingCount === 0 && recently) {
+    if (!anythingWaiting && recently) {
       return;
     }
     run(false, false).catch((error: unknown) => {
@@ -188,10 +191,9 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     previousWaiting.current = waitingCount;
   }, [waitingCount]);
 
-  // Every minute while a record is waiting, in case the phone didn't notice signal coming back.
-  const hasWaiting = waitingCount > 0;
+  // Every minute while anything is waiting, in case the phone didn't notice signal coming back.
   useEffect(() => {
-    if (!signedIn || !hasWaiting) {
+    if (!signedIn || !anythingWaiting) {
       return;
     }
     const timer = setInterval(() => {
@@ -201,7 +203,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       }
     }, TRY_EVERY_MS);
     return () => clearInterval(timer);
-  }, [signedIn, hasWaiting]);
+  }, [signedIn, anythingWaiting]);
 
   function syncNow() {
     return run(true, true).catch((error: unknown) => {

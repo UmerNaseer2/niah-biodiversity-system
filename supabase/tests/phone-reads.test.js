@@ -10,7 +10,8 @@ const { uploads } = readFixture('phone-upload.json');
 const [everyField] = uploads;
 
 // The same columns the phone asks for.
-const READ_REVIEWS = 'SELECT id, status, review_notes FROM public.records WHERE id = ANY($1::uuid[])';
+const READ_REVIEWS =
+  'SELECT id, status, review_notes FROM public.records WHERE id = ANY($1::uuid[])';
 const READ_SPECIES =
   'SELECT id, scientific_name, common_names FROM public.species_public ORDER BY id LIMIT 500';
 const READ_PROFILE = 'SELECT name, role FROM public.profiles WHERE id = $1';
@@ -110,6 +111,52 @@ describe('downloading the species list', () => {
       await selectAs(db, visitor, READ_SPECIES),
       await selectAs(db, botanist, READ_SPECIES),
     );
+  });
+});
+
+describe('sending photos', () => {
+  // The same path mobile/src/sync/sync-engine.ts builds, and the bucket supabase-api.ts sends to.
+  function sendPhoto(user, name) {
+    return insertAs(db, user, 'storage.objects', {
+      bucket_id: 'record-photos',
+      name,
+      owner: user.id,
+    });
+  }
+
+  function pathFor(account, recordId, position = 1) {
+    return `${account.id}/${recordId}/${position}.jpg`;
+  }
+
+  test('a botanist can send photos of their record to their own folder', async () => {
+    const id = await uploadAs(botanist);
+    await sendPhoto(botanist, pathFor(botanist, id, 1));
+    await sendPhoto(botanist, pathFor(botanist, id, 2));
+  });
+
+  test('the website looks in the same folder the phone sends to', async () => {
+    const id = await uploadAs(botanist);
+    const { rows } = await asUser(db, officer, (tx) =>
+      tx.query('SELECT photo_folder FROM public.records WHERE id = $1', [id]),
+    );
+    assert.equal(rows[0].photo_folder, botanist.id);
+  });
+
+  test("nobody can send photos to someone else's folder, so they wait for that account", async () => {
+    const id = await uploadAs(botanist);
+    await assert.rejects(sendPhoto(otherBotanist, pathFor(botanist, id)), { code: '42501' });
+  });
+
+  test('an account without the role can not send photos, even to its own folder', async () => {
+    const id = await uploadAs(botanist);
+    await assert.rejects(sendPhoto(visitor, pathFor(visitor, id)), { code: '42501' });
+  });
+
+  test('sending the same photo again is turned down, and the phone counts that as done', async () => {
+    const id = await uploadAs(botanist);
+    const path = pathFor(botanist, id);
+    await sendPhoto(botanist, path);
+    await assert.rejects(sendPhoto(botanist, path), { code: '23505' });
   });
 });
 

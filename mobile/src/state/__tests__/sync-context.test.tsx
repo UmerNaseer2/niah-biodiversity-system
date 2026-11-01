@@ -31,6 +31,9 @@ function result(changes: Partial<SyncResult> = {}): SyncResult {
     uploaded: 0,
     problems: 0,
     retryLater: 0,
+    photosUploaded: 0,
+    photoProblems: 0,
+    photosRetryLater: 0,
     refreshFailed: false,
     finishedAt: FINISHED,
     ...changes,
@@ -46,8 +49,12 @@ function setAccount(status: 'signed-in' | 'signed-out') {
   jest.mocked(useAccount).mockReturnValue({ status, refreshProfile } as never);
 }
 
-function setWaiting(waitingCount: number) {
-  jest.mocked(useRecords).mockReturnValue({ waitingCount, loadLastSynced } as never);
+function setWaiting(waitingCount: number, photosWaiting = 0) {
+  jest.mocked(useRecords).mockReturnValue({
+    waitingCount,
+    loadLastSynced,
+    photosWaitingFor: () => photosWaiting,
+  } as never);
 }
 
 function wrapper({ children }: { children: ReactNode }) {
@@ -176,6 +183,25 @@ describe('when a sync runs', () => {
     jest.mocked(runSync).mockClear();
     await settle(5 * MINUTE);
     expect(syncs()).toBe(5);
+  });
+
+  it('tries every minute for photos too, once the record has gone up', async () => {
+    setWaiting(0, 2);
+    await renderSync();
+    jest.mocked(runSync).mockClear();
+    await settle(3 * MINUTE);
+    expect(syncs()).toBe(3);
+  });
+
+  it('counts photos when the app comes back to the front', async () => {
+    setWaiting(0, 1);
+    await renderSync();
+    jest.mocked(runSync).mockClear();
+    await act(async () => appStateListener('background'));
+    await settle();
+    await act(async () => appStateListener('active'));
+    await settle();
+    expect(syncs()).toBe(1);
   });
 
   it('stops trying every minute with nothing waiting', async () => {

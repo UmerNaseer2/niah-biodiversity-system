@@ -97,6 +97,74 @@ describe('SyncBanner', () => {
   });
 });
 
+describe('SyncBanner with photos', () => {
+  it('talks about the photos when the records have all gone up', () => {
+    const onSync = jest.fn();
+    render(<SyncBanner waiting={0} problems={0} photosWaiting={2} signedIn onSync={onSync} />);
+    expect(screen.getByRole('heading', { name: '2 photos waiting to upload' })).toBeVisible();
+    expect(screen.getByText('2 photos go up on their own when you have signal.')).toBeVisible();
+    expect(screen.queryByText(/waiting to sync/)).toBeNull();
+    fireEvent.press(screen.getByRole('button', { name: 'Sync now' }));
+    expect(onSync).toHaveBeenCalledTimes(1);
+  });
+
+  it('says when photos are waiting for the account that sent their record', () => {
+    render(<SyncBanner waiting={0} problems={0} photosHeld={1} signedIn />);
+    expect(screen.getByRole('heading', { name: '1 photo waiting to upload' })).toBeVisible();
+    expect(
+      screen.getByText('1 photo waits for the account that sent its record to sign in.'),
+    ).toBeVisible();
+  });
+
+  it('says when photos could not upload', () => {
+    render(<SyncBanner waiting={0} problems={0} photoProblems={3} signedIn />);
+    expect(screen.getByRole('heading', { name: "3 photos couldn't upload" })).toBeVisible();
+    expect(
+      screen.getByText("3 photos couldn't upload. Open their records to see why."),
+    ).toBeVisible();
+  });
+
+  it("doesn't repeat what the last sync already said", () => {
+    const said =
+      "1 record couldn't upload. Open it to see why. 1 photo couldn't upload. Open its record to see why.";
+    render(<SyncBanner waiting={1} problems={1} photoProblems={1} message={said} signedIn />);
+    expect(screen.getByText(said)).toBeVisible();
+    expect(screen.queryByText(/also couldn't upload last time/)).toBeNull();
+    expect(screen.queryByText("1 photo couldn't upload. Open its record to see why.")).toBeNull();
+  });
+
+  it('still says it when the last sync was about something else', () => {
+    render(
+      <SyncBanner
+        waiting={1}
+        problems={1}
+        photoProblems={1}
+        message="2 photos uploaded."
+        signedIn
+      />,
+    );
+    expect(screen.getByText(/1 record also couldn't upload last time/)).toBeVisible();
+    expect(screen.getByText("1 photo couldn't upload. Open its record to see why.")).toBeVisible();
+  });
+
+  it('keeps the records in the title when both are waiting', () => {
+    render(<SyncBanner waiting={1} problems={0} photosWaiting={1} signedIn />);
+    expect(screen.getByRole('heading', { name: '1 record waiting to sync' })).toBeVisible();
+    expect(screen.getByText('1 photo goes up on its own when you have signal.')).toBeVisible();
+  });
+});
+
+describe('SyncBadge with photos', () => {
+  it('says what is left, records first', () => {
+    const { rerender } = render(<SyncBadge pending={1} total={4} photos={2} />);
+    expect(screen.getByText('1 record waiting to sync')).toBeVisible();
+    rerender(<SyncBadge pending={0} total={4} photos={2} />);
+    expect(screen.getByText('2 photos not uploaded')).toBeVisible();
+    rerender(<SyncBadge pending={0} total={4} photos={0} />);
+    expect(screen.getByText('Everything is synced')).toBeVisible();
+  });
+});
+
 describe('syncTagLabel', () => {
   it('goes by the upload first, then what an officer decided', () => {
     expect(syncTagLabel('pending')).toBe('Pending sync');

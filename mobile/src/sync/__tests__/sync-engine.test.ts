@@ -11,11 +11,12 @@ import {
   type SyncResult,
   type SyncStore,
 } from '@/sync/sync-engine';
-import type { UploadError, UploadOutcome, UploadRow } from '@/sync/upload-row';
-import type { PlantRecord, UploadProblem } from '@/types/plant-record';
+import type { PhotoUploadAnswer, UploadError, UploadOutcome, UploadRow } from '@/sync/upload-row';
+import type { PhotoOutcome, PlantRecord, RecordPhoto, UploadProblem } from '@/types/plant-record';
 
 // A fake phone and a fake server. Every answer comes from what supabase-js really gives back.
 
+const ACCOUNT = 'aaaaaaaa-0000-4000-8000-000000000000';
 const NO_SIGNAL = { error: { message: 'TypeError: Network request failed', code: '' }, status: 0 };
 const OK = { error: null, status: 201 };
 const NOT_ALLOWED = { error: { code: '42501', message: 'row-level security' }, status: 403 };
@@ -40,17 +41,27 @@ function recordNamed(number: number, uploadProblem?: UploadProblem): PlantRecord
   };
 }
 
+function photoOf(record: PlantRecord, position: number, changes: Partial<RecordPhoto> = {}) {
+  return {
+    recordId: record.id,
+    position,
+    path: `record-photos/${record.id}-${position}.jpg`,
+    ...changes,
+  } satisfies RecordPhoto;
+}
+
 const belian: SpeciesOption = {
   slug: 'eusideroxylon-zwageri',
   scientificName: 'Eusideroxylon zwageri',
   commonNames: ['Belian'],
 };
 
-function fakePhone(waiting: PlantRecord[], syncedIds: string[] = []) {
+function fakePhone(waiting: PlantRecord[], syncedIds: string[] = [], photos: RecordPhoto[] = []) {
   const outcomes: [string, UploadOutcome][] = [];
+  const photoOutcomes: [string, number, PhotoOutcome][] = [];
   const store = {
     loadWaiting: jest.fn(async () => waiting),
-    saveUploadOutcome: jest.fn(async (id: string, outcome: UploadOutcome) => {
+    saveUploadOutcome: jest.fn(async (id: string, outcome: UploadOutcome, _uploadedBy?: string) => {
       outcomes.push([id, outcome]);
     }),
     loadSyncedIds: jest.fn(async () => [
@@ -60,18 +71,33 @@ function fakePhone(waiting: PlantRecord[], syncedIds: string[] = []) {
     saveReviews: jest.fn(async (_reviews: RecordReview[]) => {}),
     replaceSpecies: jest.fn(async (_list: SpeciesOption[]) => {}),
     saveLastSynced: jest.fn(async (_at: string) => {}),
+    loadPhotosToUpload: jest.fn(async (_accountId: string) => photos),
+    savePhotoOutcome: jest.fn(async (recordId: string, position: number, outcome: PhotoOutcome) => {
+      photoOutcomes.push([recordId, position, outcome]);
+    }),
   } satisfies SyncStore;
-  return { store, outcomes };
+  return { store, outcomes, photoOutcomes };
 }
 
 type Answer = { error: UploadError | null; status: number };
 
-function fakeServer(answers: Answer[] = [], sessions: SessionCheck[] = []) {
+function fakeServer(
+  answers: Answer[] = [],
+  sessions: SessionCheck[] = [],
+  photoAnswers: PhotoUploadAnswer[] = [],
+) {
   const sent: UploadRow[] = [];
+  const photosSent: [string, string][] = [];
   const answerQueue = [...answers];
   const sessionQueue = [...sessions];
+  const photoQueue = [...photoAnswers];
   const api = {
     session: jest.fn(async () => sessionQueue.shift() ?? 'ok'),
+    accountId: jest.fn(async () => ACCOUNT as string | null),
+    uploadPhoto: jest.fn(async (storagePath: string, localPath: string) => {
+      photosSent.push([storagePath, localPath]);
+      return photoQueue.shift() ?? 'uploaded';
+    }),
     insertRecord: jest.fn(async (row: UploadRow) => {
       sent.push(row);
       return answerQueue.shift() ?? OK;
@@ -79,7 +105,7 @@ function fakeServer(answers: Answer[] = [], sessions: SessionCheck[] = []) {
     fetchReviews: jest.fn(async (_ids: string[]) => [] as RecordReview[] | null),
     fetchSpecies: jest.fn(async () => [belian] as SpeciesOption[] | null),
   } satisfies SyncApi;
-  return { api, sent };
+  return { api, sent, photosSent };
 }
 
 const automatic = { retryProblems: false };
@@ -257,6 +283,161 @@ describe('runSync: records with a problem', () => {
   });
 });
 
+describe('runSync: photos', () => {
+  const synced = recordNamed(1);
+
+  it('sends each photo to the folder the website looks in, after every record', async () => {
+    const waiting = recordNamed(2);
+    const { store, outcomes, photoOutcomes } = fakePhone(
+      [waiting],
+      [],
+      [photoOf(synced, 1), photoOf(synced, 2)],
+    );
+    const { api, photosSent } = fakeServer();
+    jest.useFakeTimers({ now: new Date('2026-11-01T02:00:00.000Z') });
+
+    const result = await runSync(api, store, automatic);
+    jest.useRealTimers();
+
+    expect(photosSent).toEqual([
+      [`${ACCOUNT}/${synced.id}/1.jpg`, photoOf(synced, 1).path],
+      [`${ACCOUNT}/${synced.id}/2.jpg`, photoOf(synced, 2).path],
+    ]);
+    expect(api.insertRecord.mock.invocationCallOrder[0]).toBeLessThan(
+      api.uploadPhoto.mock.invocationCallOrder[0],
+    );
+    expect(outcomes[0][1].kind).toBe('synced');
+    expect(photoOutcomes).toEqual([
+      [synced.id, 1, { kind: 'uploaded', uploadedAt: '2026-11-01T02:00:00.000Z' }],
+      [synced.id, 2, { kind: 'uploaded', uploadedAt: '2026-11-01T02:00:00.000Z' }],
+    ]);
+    expect(result).toMatchObject({ outcome: 'done', uploaded: 1, photosUploaded: 2 });
+  });
+
+  it('saves which account sent a record, because only it can send the photos', async () => {
+    const { store } = fakePhone([synced]);
+    const { api } = fakeServer();
+
+    await runSync(api, store, automatic);
+
+    expect(store.saveUploadOutcome).toHaveBeenCalledWith(
+      synced.id,
+      expect.objectContaining({ kind: 'synced' }),
+      ACCOUNT,
+    );
+    expect(store.loadPhotosToUpload).toHaveBeenCalledWith(ACCOUNT);
+  });
+
+  it('checks the session before each photo, and not at all with no photos', async () => {
+    const none = fakePhone([]);
+    const noneServer = fakeServer();
+    await runSync(noneServer.api, none.store, automatic);
+    expect(noneServer.api.session).toHaveBeenCalledTimes(1);
+
+    const two = fakePhone([], [], [photoOf(synced, 1), photoOf(synced, 2)]);
+    const twoServer = fakeServer();
+    await runSync(twoServer.api, two.store, automatic);
+    expect(twoServer.api.session).toHaveBeenCalledTimes(3);
+  });
+
+  it('stops without marking anything when a session check says no signal', async () => {
+    const { store, photoOutcomes } = fakePhone([], [], [photoOf(synced, 1)]);
+    const { api } = fakeServer([], ['ok', 'offline']);
+
+    const result = await runSync(api, store, automatic);
+
+    expect(result.outcome).toBe('offline');
+    expect(api.uploadPhoto).not.toHaveBeenCalled();
+    expect(photoOutcomes).toEqual([]);
+  });
+
+  it.each(['offline', 'signed-out', 'not-allowed'] as const)(
+    'stops at the first photo when the answer is %s, and leaves it to go up later',
+    async (answer) => {
+      const { store, photoOutcomes } = fakePhone([], [], [photoOf(synced, 1), photoOf(synced, 2)]);
+      const { api } = fakeServer([], [], [answer]);
+
+      const result = await runSync(api, store, automatic);
+
+      expect(result.outcome).toBe(answer);
+      expect(api.uploadPhoto).toHaveBeenCalledTimes(1);
+      expect(photoOutcomes).toEqual([]);
+      expect(api.fetchSpecies).not.toHaveBeenCalled();
+    },
+  );
+
+  it('moves on from a server hiccup and tries that photo next time', async () => {
+    const { store, photoOutcomes } = fakePhone([], [], [photoOf(synced, 1), photoOf(synced, 2)]);
+    const { api } = fakeServer([], [], ['retry', 'uploaded']);
+
+    const result = await runSync(api, store, automatic);
+
+    expect(result).toMatchObject({ outcome: 'done', photosUploaded: 1, photosRetryLater: 1 });
+    expect(photoOutcomes.map(([, position]) => position)).toEqual([2]);
+  });
+
+  it.each(['missing', 'rejected'] as const)(
+    'keeps the reason when a photo comes back as %s, and carries on',
+    async (answer) => {
+      const { store, photoOutcomes } = fakePhone([], [], [photoOf(synced, 1), photoOf(synced, 2)]);
+      const { api } = fakeServer([], [], [answer, 'uploaded']);
+
+      const result = await runSync(api, store, automatic);
+
+      expect(photoOutcomes[0]).toEqual([synced.id, 1, { kind: 'problem', problem: answer }]);
+      expect(result).toMatchObject({ outcome: 'done', photosUploaded: 1, photoProblems: 1 });
+    },
+  );
+
+  it('leaves a photo with a problem alone until someone presses Sync now', async () => {
+    const stuck = photoOf(synced, 1, { problem: 'rejected' });
+
+    const automaticRun = fakePhone([], [], [stuck]);
+    const automaticServer = fakeServer();
+    const left = await runSync(automaticServer.api, automaticRun.store, automatic);
+    expect(automaticServer.api.uploadPhoto).not.toHaveBeenCalled();
+    expect(left).toMatchObject({ photoProblems: 1, photosUploaded: 0 });
+
+    const manualRun = fakePhone([], [], [stuck]);
+    const manualServer = fakeServer();
+    const tried = await runSync(manualServer.api, manualRun.store, manual);
+    expect(manualServer.api.uploadPhoto).toHaveBeenCalledTimes(1);
+    expect(tried).toMatchObject({ photoProblems: 0, photosUploaded: 1 });
+  });
+
+  it('goes on to the downloads after the photos', async () => {
+    const { store } = fakePhone([], [], [photoOf(synced, 1)]);
+    const { api } = fakeServer();
+
+    await runSync(api, store, automatic);
+
+    expect(api.uploadPhoto.mock.invocationCallOrder[0]).toBeLessThan(
+      api.fetchSpecies.mock.invocationCallOrder[0],
+    );
+  });
+
+  it('asks someone to sign in again if the account has gone by the time photos start', async () => {
+    const { store } = fakePhone([], [], [photoOf(synced, 1)]);
+    const { api } = fakeServer();
+    api.accountId.mockResolvedValue(null);
+
+    const result = await runSync(api, store, automatic);
+
+    expect(result.outcome).toBe('signed-out');
+    expect(store.loadPhotosToUpload).not.toHaveBeenCalled();
+  });
+
+  it('counts a saved photo outcome failing as a problem on the phone', async () => {
+    const { store } = fakePhone([], [], [photoOf(synced, 1)]);
+    const { api } = fakeServer();
+    store.savePhotoOutcome.mockRejectedValue(new Error('disk full'));
+
+    const result = await runSync(api, store, automatic);
+
+    expect(result.outcome).toBe('error');
+  });
+});
+
 describe('runSync: downloading', () => {
   it('asks about synced records in batches, including the ones it just uploaded', async () => {
     const ids = Array.from({ length: 250 }, (_, index) => `id-${index}`);
@@ -430,6 +611,9 @@ describe('syncResultMessage', () => {
     uploaded: 0,
     problems: 0,
     retryLater: 0,
+    photosUploaded: 0,
+    photoProblems: 0,
+    photosRetryLater: 0,
     refreshFailed: false,
     finishedAt: '2026-10-31T00:00:00.000Z',
     ...changes,
@@ -469,6 +653,22 @@ describe('syncResultMessage', () => {
   it('counts what went up before the sync stopped', () => {
     expect(syncResultMessage(result({ outcome: 'offline', uploaded: 2 }))).toMatch(
       /^2 records uploaded\. /,
+    );
+    expect(
+      syncResultMessage(result({ outcome: 'offline', uploaded: 1, photosUploaded: 2 })),
+    ).toMatch(/^1 record uploaded\. 2 photos uploaded\. /);
+  });
+
+  it('says what happened to the photos', () => {
+    expect(syncResultMessage(result({ photosUploaded: 1 }))).toBe('1 photo uploaded.');
+    expect(syncResultMessage(result({ uploaded: 1, photosUploaded: 3 }))).toBe(
+      '1 record uploaded. 3 photos uploaded.',
+    );
+    expect(syncResultMessage(result({ photoProblems: 1 }))).toBe(
+      "1 photo couldn't upload. Open its record to see why.",
+    );
+    expect(syncResultMessage(result({ photoProblems: 2, photosRetryLater: 1 }))).toBe(
+      "2 photos couldn't upload. Open their records to see why. 1 photo will try again next time.",
     );
   });
 });

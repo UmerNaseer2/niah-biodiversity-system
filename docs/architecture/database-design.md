@@ -11,9 +11,9 @@ Supabase. It goes with the three high-level design diagrams in this folder:
 [ground]: Ground-Truthing%20Platform%20-%20High-level%20design.png
 [iot]: IoT%20Plant%20Protection%20-%20High-level%20design.png
 
-The SQL that builds all of this is in [`supabase/`](../../supabase/README.md), run in order from
-001 to 021. 018 is held for the phone work and isn't on `main` yet. Everything below is what those
-files make, so if they change, this page changes too.
+The SQL that builds all of this is in [`supabase/`](../../supabase/README.md), run in order from 001
+to 021. There's no 018 file, because the phone's photos didn't need one. Everything below is what
+those files make, so if they change, this page changes too.
 
 ## How the parts talk to each other
 

@@ -197,4 +197,80 @@ describe('signing out', () => {
     expect(await screen.findByRole('button', { name: 'Sign in' })).toBeVisible();
     expect(client.auth.signOut).toHaveBeenCalled();
   });
+
+  async function saveUploadedRecordWithPhoto(uploadedBy: string) {
+    const store = await openRecordsStore();
+    const id = 'c8f4a0e2-3d5b-4f7c-9e1a-2b4d6f8a0c31';
+    await store.saveRecord(
+      {
+        id,
+        tagCode: 'NNP-C8F4A0',
+        speciesName: 'Ficus benjamina',
+        condition: 'healthy',
+        photoCount: 1,
+        recordedAt: '2026-10-31T01:00:00.000Z',
+        syncStatus: 'pending',
+      },
+      ['record-photos/one.jpg'],
+    );
+    await store.saveUploadOutcome(id, { kind: 'synced' }, uploadedBy);
+    await store.close();
+  }
+
+  it('warns first with photos waiting, since only this account can send them', async () => {
+    const client = fakeClient();
+    await saveUploadedRecordWithPhoto(USER.id);
+    renderProfile();
+    await signIn();
+    await screen.findByText('Rina');
+    await act(async () => {});
+    fireEvent.press(await screen.findByRole('button', { name: 'Sign out' }));
+    expect(
+      await screen.findByText(
+        '1 photo is still waiting, and it only goes up once this account signs in again.',
+      ),
+    ).toBeVisible();
+    expect(screen.queryByText(/under whoever signs in next/)).toBeNull();
+    expect(client.auth.signOut).not.toHaveBeenCalled();
+  });
+
+  it("doesn't warn about photos that are waiting for a different account", async () => {
+    const client = fakeClient();
+    await saveUploadedRecordWithPhoto('someone-else');
+    renderProfile();
+    await signIn();
+    await screen.findByText('Rina');
+    await act(async () => {});
+    fireEvent.press(await screen.findByRole('button', { name: 'Sign out' }));
+    expect(await screen.findByRole('button', { name: 'Sign in' })).toBeVisible();
+    expect(client.auth.signOut).toHaveBeenCalled();
+  });
+});
+
+describe('the sync card', () => {
+  it('counts photos waiting, whichever account they are waiting for', async () => {
+    fakeClient();
+    const store = await openRecordsStore();
+    await store.saveRecord(
+      {
+        id: 'd9a5b1f3-4e6c-4a8d-8f2b-3c5e7a9b1d42',
+        tagCode: 'NNP-D9A5B1',
+        speciesName: 'Ficus benjamina',
+        condition: 'healthy',
+        photoCount: 9,
+        recordedAt: '2026-10-31T01:00:00.000Z',
+        syncStatus: 'pending',
+      },
+      Array.from({ length: 9 }, (_, index) => `record-photos/${index}.jpg`),
+    );
+    await store.saveUploadOutcome(
+      'd9a5b1f3-4e6c-4a8d-8f2b-3c5e7a9b1d42',
+      { kind: 'synced' },
+      'someone-else',
+    );
+    await store.close();
+    renderProfile();
+    expect(await screen.findByText('Photos waiting')).toBeVisible();
+    expect(screen.getByText('9')).toBeVisible();
+  });
 });

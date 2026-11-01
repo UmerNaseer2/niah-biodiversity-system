@@ -29,7 +29,9 @@ Notes:
 - [x] 10. Data Synchronization Engine (Mobile ↔ Cloud). Merged 31 Oct, see
   [test results](test-results/item-10-sync.md). Tried on the iOS simulator against the stand-in, not
   on Android, a real phone or hosted.
-- [ ] 11. Photograph Capture & Attachment (Mobile)
+- [x] 11. Photograph Capture & Attachment (Mobile). Merged 1 Nov, see [test
+  results](test-results/item-11-photos.md). Tried on the iOS simulator against the stand-in, not on
+  Android, a real camera, a real phone or hosted.
 - [ ] 12. QR Code Generation for Plant Records
 
 ## Security (items 25 to 27)
@@ -64,7 +66,7 @@ Notes:
 
 - Item 9, keeping the species list on the phone, the queue of records waiting to upload, and a
   FlatList for My Records. Done 29 Oct. Saving photos on the phone with their record moved to
-  item 11, since that's the item that takes them.
+  item 11, since that's the item that takes them, and was merged with it on 1 Nov.
 - Item 2, signing in on the phone, merged 31 Oct with item 10. Inviting people, changing roles and
   deactivating accounts on the website's Users and roles page were merged 31 Oct, see
   [test results](test-results/item-2-admin-users.md).

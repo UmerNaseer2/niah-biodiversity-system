@@ -25,11 +25,19 @@ const FILTERS: { value: Filter; label: string; empty: string }[] = [
 
 export default function RecordsScreen() {
   const router = useRouter();
-  const { records, pendingCount, syncedCount } = useRecords();
-  const { status } = useAccount();
+  const {
+    records,
+    pendingCount,
+    syncedCount,
+    waitingPhotoCount,
+    photoProblemCount,
+    photosWaitingFor,
+  } = useRecords();
+  const { status, account } = useAccount();
   const { syncNow, running, message } = useSync();
   // Records the server turned down are still pending, but they won't go up by waiting for signal.
   const problemCount = records.filter((record) => record.uploadProblem).length;
+  const photosWaiting = photosWaitingFor(account?.userId);
   const [filter, setFilter] = useState<Filter>('all');
 
   const counts = {
@@ -50,6 +58,9 @@ export default function RecordsScreen() {
           <SyncBanner
             waiting={pendingCount - problemCount}
             problems={problemCount}
+            photosWaiting={photosWaiting}
+            photosHeld={waitingPhotoCount - photosWaiting}
+            photoProblems={photoProblemCount}
             signedIn={status === 'signed-in'}
             syncing={running}
             message={message}

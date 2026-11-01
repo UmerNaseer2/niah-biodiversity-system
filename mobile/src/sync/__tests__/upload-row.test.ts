@@ -1,5 +1,6 @@
 import { tagCodeFor } from '@/lib/id';
 import {
+  classifyPhotoUpload,
   classifyUpload,
   toUploadRow,
   uploadProblemMessage,
@@ -160,6 +161,60 @@ describe('classifyUpload', () => {
   ])('$about', ({ error, outcome }) => {
     expect(classifyUpload(error)).toEqual(outcome);
   });
+});
+
+describe('classifyPhotoUpload', () => {
+  it('counts no error as uploaded', () => {
+    expect(classifyPhotoUpload(null)).toBe('uploaded');
+  });
+
+  it('reads an error with no status as no signal', () => {
+    // storage-js gives back an error with neither when fetch itself failed.
+    expect(classifyPhotoUpload({})).toBe('offline');
+  });
+
+  it.each([
+    ['the stand-in and the status it uses', { status: 409, statusCode: 'Duplicate' }],
+    ['a body that says 409 on a 400', { status: 400, statusCode: '409' }],
+    ['the code hosted Storage uses', { status: 400, code: 'ResourceAlreadyExists' }],
+    ['an older name for it', { status: 400, statusCode: 'KeyAlreadyExists' }],
+  ])("counts a file that's already there as uploaded: %s", (_name, error) => {
+    expect(classifyPhotoUpload(error)).toBe('uploaded');
+  });
+
+  it.each([
+    [{ status: 401 }],
+    [{ status: 400, statusCode: '401' }],
+    [{ status: 400, code: 'InvalidJWT' }],
+    [{ status: 400, statusCode: 'ExpiredToken' }],
+  ])('asks to sign in again for %j', (error) => {
+    expect(classifyPhotoUpload(error)).toBe('signed-out');
+  });
+
+  it.each([
+    [{ status: 403, statusCode: 'Unauthorized' }],
+    [{ status: 400, statusCode: '403' }],
+    [{ status: 400, code: 'AccessDenied' }],
+  ])('says the account is not allowed for %j', (error) => {
+    expect(classifyPhotoUpload(error)).toBe('not-allowed');
+  });
+
+  it.each([
+    [{ status: 413, statusCode: 'Payload too large' }],
+    [{ status: 400, statusCode: '413' }],
+    [{ status: 400, code: 'EntityTooLarge' }],
+    [{ status: 415, statusCode: 'invalid_mime_type' }],
+    [{ status: 400, code: 'InvalidMimeType' }],
+  ])('keeps the reason when the server turns the file down for %j', (error) => {
+    expect(classifyPhotoUpload(error)).toBe('rejected');
+  });
+
+  it.each([[{ status: 500 }], [{ status: 503, statusCode: 'DatabaseTimeout' }], [{ status: 404 }]])(
+    'tries again later for anything else, like %j',
+    (error) => {
+      expect(classifyPhotoUpload(error)).toBe('retry');
+    },
+  );
 });
 
 describe('isNoSignal', () => {

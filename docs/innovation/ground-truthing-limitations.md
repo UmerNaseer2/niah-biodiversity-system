@@ -203,11 +203,12 @@ fixed afterwards.
   ([item 18](../test-results/item-18-photo-gallery.md)), and exact spot report downloads get logged.
   Tested on the local stand-in.
 - **Still open:** a rare plant wrongly named as a common species shows its exact spot (L7). Record
-  photos still need the metadata check once item 11 lands. The square size is SFC's decision. Ours
-  sits between GBIF's low category of 0.001 degrees (about 100 m) and medium of 0.01 (about 1 km), and
-  is far tighter than high at 0.1 (about 10 km) (Chapman, 2020). The park is only about 5.6 km across
-  if it were square (our arithmetic), so the larger sizes would just say "in the park". Researchers see
-  what the public sees for now, because SFC approved exact access isn't built.
+  photos can only be checked as far as the simulator goes: since item 11 the GPS block comes out of
+  a photo from the library, but a real camera hasn't been tried. The square size is SFC's decision.
+  Ours sits between GBIF's low category of 0.001 degrees (about 100 m) and medium of 0.01 (about 1
+  km), and is far tighter than high at 0.1 (about 10 km) (Chapman, 2020). The park is only about 5.6
+  km across if it were square (our arithmetic), so the larger sizes would just say "in the park".
+  Researchers see what the public sees for now, because SFC approved exact access isn't built.
 
 ### L10. Tags and hardware mark the plant (Medium, rank 7)
 

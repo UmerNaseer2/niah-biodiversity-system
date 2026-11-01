@@ -10,17 +10,17 @@ import {
 } from 'react-native';
 
 import { LocationCapture } from '@/components/location-capture';
+import { PhotoCapture } from '@/components/photo-capture';
 import { Screen } from '@/components/screen';
 import { ThemedText } from '@/components/themed-text';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Chip, ChipRow } from '@/components/ui/chip';
 import { Field } from '@/components/ui/field';
-import { Icon } from '@/components/ui/icon';
-import { PlaceholderNote } from '@/components/ui/placeholder-note';
 import { Radius, Spacing } from '@/constants/theme';
 import type { SpeciesOption } from '@/data/species-list';
 import { useGpsCapture } from '@/hooks/use-gps-capture';
+import { usePhotoCapture } from '@/hooks/use-photo-capture';
 import { useTheme } from '@/hooks/use-theme';
 import { conditionLabel, plural } from '@/lib/format';
 import {
@@ -44,6 +44,7 @@ export default function NewRecordScreen() {
   const theme = useTheme();
   const { addRecord, species: speciesList } = useRecords();
   const gps = useGpsCapture({ active: useIsFocused() });
+  const photos = usePhotoCapture();
 
   const [species, setSpecies] = useState('');
   const [commonName, setCommonName] = useState('');
@@ -108,6 +109,7 @@ export default function NewRecordScreen() {
     setCondition('healthy');
     setNotes('');
     gps.clear();
+    photos.clear();
     setTouched({ species: false, height: false });
     setFormKey((key) => key + 1);
   }
@@ -120,16 +122,19 @@ export default function NewRecordScreen() {
     setSaving(true);
     setSaveFailed(false);
     try {
-      const record = await addRecord({
-        // Names on the list are saved the way the list spells them.
-        speciesName: speciesMatch?.scientificName ?? tidyName(species),
-        speciesSlug: speciesMatch?.slug,
-        commonName: tidyName(commonName) || undefined,
-        heightM: form.heightM,
-        condition,
-        notes: notes.trim() || undefined,
-        location: gps.location,
-      });
+      const record = await addRecord(
+        {
+          // Names on the list are saved the way the list spells them.
+          speciesName: speciesMatch?.scientificName ?? tidyName(species),
+          speciesSlug: speciesMatch?.slug,
+          commonName: tidyName(commonName) || undefined,
+          heightM: form.heightM,
+          condition,
+          notes: notes.trim() || undefined,
+          location: gps.location,
+        },
+        photos.paths,
+      );
       resetForm();
       router.push({ pathname: '/record/[id]', params: { id: record.id } });
     } catch (error) {
@@ -244,25 +249,15 @@ export default function NewRecordScreen() {
       </Card>
 
       <Card title="Photos" icon="camera">
-        <View style={styles.photos}>
-          {[1, 2, 3].map((slot) => (
-            <View
-              key={slot}
-              style={[
-                styles.photoSlot,
-                { borderColor: theme.border, backgroundColor: theme.background },
-              ]}>
-              <Icon name="addPhoto" size={24} color={theme.textSecondary} />
-            </View>
-          ))}
-        </View>
-        <PlaceholderNote item={11}>
-          Taking photos goes here. They stay on the phone with the record until it syncs.
-        </PlaceholderNote>
+        <PhotoCapture photos={photos} />
       </Card>
 
       <View style={styles.save}>
-        <Button label="Save record" onPress={save} disabled={!form.canSave || saving} />
+        <Button
+          label="Save record"
+          onPress={save}
+          disabled={!form.canSave || saving || photos.busy}
+        />
         {saveFailed ? (
           <ThemedText type="small" themeColor="danger" role="alert" style={styles.saveHint}>
             {SAVE_FAILED}
@@ -293,20 +288,6 @@ const styles = StyleSheet.create({
   },
   italic: {
     fontStyle: 'italic',
-  },
-  photos: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-  },
-  photoSlot: {
-    width: 88,
-    height: 88,
-    borderRadius: Radius.md,
-    borderWidth: 1,
-    borderStyle: 'dashed',
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   save: {
     gap: Spacing.two,

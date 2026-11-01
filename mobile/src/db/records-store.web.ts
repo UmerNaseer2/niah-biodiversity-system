@@ -1,5 +1,5 @@
 import type { SpeciesOption } from '@/data/species-list';
-import type { PlantRecord } from '@/types/plant-record';
+import type { PlantRecord, RecordPhoto } from '@/types/plant-record';
 
 import type { RecordsStore } from './records-store';
 
@@ -10,6 +10,7 @@ import type { RecordsStore } from './records-store';
 // file, so the messages are written out here instead of imported.
 export async function openRecordsStore(): Promise<RecordsStore> {
   const saved: PlantRecord[] = [];
+  const photos: RecordPhoto[] = [];
   let species: SpeciesOption[] = [];
   let lastSynced: string | null = null;
 
@@ -17,17 +18,20 @@ export async function openRecordsStore(): Promise<RecordsStore> {
     async loadRecords() {
       return [...saved];
     },
-    async saveRecord(record) {
+    async saveRecord(record, photoPaths = []) {
       if (saved.some((other) => other.id === record.id || other.tagCode === record.tagCode)) {
         throw new Error(`A record with the ID or tag code of ${record.tagCode} is already saved.`);
       }
       saved.unshift(record);
+      for (const [index, path] of photoPaths.entries()) {
+        photos.push({ recordId: record.id, position: index + 1, path });
+      }
     },
     async loadWaiting() {
       // Newest first turned around. Records are saved as they're made, so that's oldest first.
       return saved.filter((record) => record.syncStatus === 'pending').reverse();
     },
-    async saveUploadOutcome(id, outcome) {
+    async saveUploadOutcome(id, outcome, uploadedBy) {
       if (outcome.kind === 'retry') {
         return;
       }
@@ -37,7 +41,7 @@ export async function openRecordsStore(): Promise<RecordsStore> {
       }
       const record = saved[index];
       if (outcome.kind === 'synced') {
-        saved[index] = { ...record, syncStatus: 'synced', uploadProblem: undefined };
+        saved[index] = { ...record, syncStatus: 'synced', uploadProblem: undefined, uploadedBy };
       } else if (record.syncStatus === 'pending') {
         saved[index] = { ...record, uploadProblem: outcome.problem };
       } else {
@@ -52,6 +56,11 @@ export async function openRecordsStore(): Promise<RecordsStore> {
         throw new Error('Only a record an officer deleted on the website can be removed.');
       }
       saved.splice(index, 1);
+      for (let photo = photos.length - 1; photo >= 0; photo--) {
+        if (photos[photo].recordId === id) {
+          photos.splice(photo, 1);
+        }
+      }
     },
     async loadSyncedIds() {
       return saved.filter((record) => record.syncStatus === 'synced').map((record) => record.id);
@@ -76,6 +85,37 @@ export async function openRecordsStore(): Promise<RecordsStore> {
         throw new Error('Only a record whose tag code was taken can get a new one.');
       }
       saved[index] = { ...saved[index], id: newId, tagCode: newTagCode, uploadProblem: undefined };
+      for (const photo of photos) {
+        if (photo.recordId === id) {
+          photo.recordId = newId;
+        }
+      }
+    },
+    async loadPhotos() {
+      return photos.map((photo) => ({ ...photo }));
+    },
+    async loadPhotosToUpload(accountId) {
+      // saved is newest first and photos are in order within a record, so turn the records around.
+      return [...saved]
+        .reverse()
+        .filter((record) => record.syncStatus === 'synced' && record.uploadedBy === accountId)
+        .flatMap((record) =>
+          photos
+            .filter((photo) => photo.recordId === record.id && !photo.uploadedAt)
+            .map((photo) => ({ ...photo })),
+        );
+    },
+    async savePhotoOutcome(recordId, position, outcome) {
+      const photo = photos.find((one) => one.recordId === recordId && one.position === position);
+      if (!photo) {
+        return;
+      }
+      if (outcome.kind === 'uploaded') {
+        photo.uploadedAt = outcome.uploadedAt;
+        photo.problem = undefined;
+      } else {
+        photo.problem = outcome.problem;
+      }
     },
     async loadLastSynced() {
       return lastSynced;

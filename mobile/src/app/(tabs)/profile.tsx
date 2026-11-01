@@ -120,7 +120,7 @@ function SignInForm() {
 
 function SignedIn() {
   const { account, signOut } = useAccount();
-  const { notUploadedCount } = useRecords();
+  const { notUploadedCount, photosWaitingFor } = useRecords();
   const [asking, setAsking] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
 
@@ -128,10 +128,18 @@ function SignedIn() {
     return null;
   }
 
-  const askText =
+  // Photos can only go up under the account that sent their records, so they wait for this one.
+  const photosWaiting = photosWaitingFor(account?.userId);
+  const recordsText =
     `${plural(notUploadedCount, 'record')} ${notUploadedCount === 1 ? 'is' : 'are'} still waiting. ` +
     `${notUploadedCount === 1 ? 'It stays' : 'They stay'} on this phone, and ` +
     `${notUploadedCount === 1 ? "it'll" : "they'll"} upload under whoever signs in next.`;
+  const photosText =
+    `${plural(photosWaiting, 'photo')} ${photosWaiting === 1 ? 'is' : 'are'} still waiting, and ` +
+    `${photosWaiting === 1 ? 'it only goes' : 'they only go'} up once this account signs in again.`;
+  const askText = [notUploadedCount > 0 && recordsText, photosWaiting > 0 && photosText]
+    .filter(Boolean)
+    .join(' ');
 
   async function leave() {
     setSigningOut(true);
@@ -139,7 +147,7 @@ function SignedIn() {
   }
 
   function press() {
-    if (notUploadedCount > 0) {
+    if (askText) {
       setAsking(true);
       announce(askText);
     } else {
@@ -212,7 +220,7 @@ function AccountCard() {
 }
 
 export default function ProfileScreen() {
-  const { records, pendingCount, syncedCount } = useRecords();
+  const { records, pendingCount, syncedCount, waitingPhotoCount } = useRecords();
   const { status } = useAccount();
   const { syncNow, running, message, lastSyncedAt } = useSync();
   const version = Constants.expoConfig?.version ?? '1.0.0';
@@ -226,6 +234,7 @@ export default function ProfileScreen() {
       <Card title="This phone" icon="phone">
         <InfoRow label="Records on this phone" value={String(records.length)} />
         <InfoRow label="Waiting to sync" value={String(pendingCount)} />
+        <InfoRow label="Photos waiting" value={String(waitingPhotoCount)} />
         <InfoRow label="Synced" value={String(syncedCount)} />
         <InfoRow
           label="Last synced"

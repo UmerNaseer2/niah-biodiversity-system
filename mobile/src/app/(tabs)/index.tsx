@@ -14,7 +14,7 @@ import { useRecords } from '@/state/records-context';
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { records, pendingCount } = useRecords();
+  const { records, pendingCount, waitingPhotoCount, photoProblemCount } = useRecords();
   // Changes when the app comes back to the front, which also redraws the "Today" and "Yesterday"
   // on the recent records below.
   const now = useNow();
@@ -25,7 +25,11 @@ export default function HomeScreen() {
 
   return (
     <Screen eyebrow="Niah National Park" title="Ground-truthing">
-      <SyncBadge pending={pendingCount} total={records.length} />
+      <SyncBadge
+        pending={pendingCount}
+        total={records.length}
+        photos={waitingPhotoCount + photoProblemCount}
+      />
 
       <Card>
         <View style={styles.today}>

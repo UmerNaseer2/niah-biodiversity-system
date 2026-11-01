@@ -248,6 +248,54 @@ describe('getting a new tag', () => {
   });
 });
 
+describe('photos', () => {
+  const ACCOUNT = 'aaaaaaaa-0000-4000-8000-000000000000';
+
+  it('saves them with the record, numbered from 1', async () => {
+    await store.saveRecord(older, ['record-photos/a.jpg', 'record-photos/b.jpg']);
+    expect(await store.loadPhotos()).toEqual([
+      { recordId: older.id, position: 1, path: 'record-photos/a.jpg' },
+      { recordId: older.id, position: 2, path: 'record-photos/b.jpg' },
+    ]);
+  });
+
+  it('only hands over photos of records on the server, for the account that sent them', async () => {
+    await store.saveRecord(older, ['record-photos/a.jpg']);
+    expect(await store.loadPhotosToUpload(ACCOUNT)).toEqual([]);
+    await store.saveUploadOutcome(older.id, { kind: 'synced' }, ACCOUNT);
+    expect(await store.loadPhotosToUpload(ACCOUNT)).toHaveLength(1);
+    expect(await store.loadPhotosToUpload('someone-else')).toEqual([]);
+  });
+
+  it('stops handing over a photo once it is up, and keeps a problem to try again', async () => {
+    await store.saveRecord(older, ['record-photos/a.jpg', 'record-photos/b.jpg']);
+    await store.saveUploadOutcome(older.id, { kind: 'synced' }, ACCOUNT);
+    await store.savePhotoOutcome(older.id, 1, {
+      kind: 'uploaded',
+      uploadedAt: '2026-11-01T01:00:00.000Z',
+    });
+    await store.savePhotoOutcome(older.id, 2, { kind: 'problem', problem: 'missing' });
+    expect(await store.loadPhotosToUpload(ACCOUNT)).toEqual([
+      { recordId: older.id, position: 2, path: 'record-photos/b.jpg', problem: 'missing' },
+    ]);
+  });
+
+  it('removes them with a record an officer deleted', async () => {
+    await store.saveRecord(older, ['record-photos/a.jpg']);
+    await store.saveUploadOutcome(older.id, { kind: 'problem', problem: 'deleted' });
+    await store.removeDeleted(older.id);
+    expect(await store.loadPhotos()).toEqual([]);
+  });
+
+  it('moves them with a record that gets a new tag', async () => {
+    const NEW_ID = 'f0e1d2c3-b4a5-4968-8776-655443322110';
+    await store.saveRecord(older, ['record-photos/a.jpg']);
+    await store.saveUploadOutcome(older.id, { kind: 'problem', problem: 'tag-clash' });
+    await store.renewTag(older.id, NEW_ID, 'NNP-F0E1D2');
+    expect((await store.loadPhotos())[0].recordId).toBe(NEW_ID);
+  });
+});
+
 describe('when the phone last synced', () => {
   it('has no date until the first sync, then remembers the latest', async () => {
     expect(await store.loadLastSynced()).toBeNull();

@@ -17,7 +17,7 @@ the species list ([docs/sync-design.md](../docs/sync-design.md) explains the rul
 | --- | --- |
 | Home | How many plants were recorded today and whether anything is waiting to sync |
 | Scan | The camera, which opens a record from its QR tag, plus a box to type a tag code by hand |
-| New Record | The plant form, with species suggestions, GPS capture and photo slots |
+| New Record | The plant form, with species suggestions, GPS capture and up to 5 photos |
 | My Records | Every record on the phone, tagged "Pending sync", "Synced", "Approved", "Rejected" or "Couldn't upload", plus a Sync now button |
 | Profile | Signing in and out, what's on the phone, when it last synced and some info about the app |
 
@@ -52,8 +52,8 @@ src/
     _layout.tsx         root stack, colours and the account, records and sync providers
     (tabs)/             the five tabs: index (Home), scan, new-record, records, profile
     record/[id].tsx     one plant record
-  components/           Screen, ListScreen, RecordRow, LocationCapture, LocationSummary, QrScanner
-                        and the two tab bars
+  components/           Screen, ListScreen, RecordRow, LocationCapture, LocationSummary, QrScanner,
+                        PhotoCapture, RecordPhotos and the two tab bars
     ui/                 small pieces: Button, Card, Field, Chip, Pill, SyncBadge, SyncBanner...
   constants/            colours, spacing and icon names
   data/
@@ -63,17 +63,18 @@ src/
     database.ts         opens niah.db and runs the steps that set up and update its tables
     records-store.ts    saves and loads records, the records waiting to upload and the species
                         list. The .web.ts one keeps them in memory instead
-  hooks/                use-gps-capture.ts (GPS with expo-location), use-now.ts (the time, read
-                        again when the app comes back to the front), plus the theme hooks
+  hooks/                use-gps-capture.ts (GPS with expo-location), use-photo-capture.ts (the
+                        camera and the library), use-now.ts (the time, read again when the app
+                        comes back to the front), plus the theme hooks
   lib/                  formatting, the GPS and QR rules, the height and form checks, species
-                        search, IDs and tag codes, the Supabase client and how the session is
-                        stored in the keychain
+                        search, IDs and tag codes, saving photo files, the Supabase client and
+                        how the session is stored in the keychain
   state/                records-context.tsx loads the saved records when the app starts and
                         shares them with every screen. account-context.tsx looks after signing
                         in, and sync-context.tsx decides when to sync
   sync/                 sync-engine.ts runs one sync from start to finish, supabase-api.ts makes
                         the real server calls, and upload-row.ts has the rules for uploading a
-                        record and reading the answer
+                        record or a photo and reading the answer
   types/                PlantRecord and the other shared types
 ```
 
@@ -84,7 +85,6 @@ what's fake.
 
 | Item | What goes in | Where |
 | --- | --- | --- |
-| 11 | Taking photos | New Record tab |
 | 12 | Printable QR tags | Record page |
 
 ## Notes for the team
@@ -96,6 +96,8 @@ what's fake.
 - A record needs a location to save. On the iOS simulator, pick one with Features > Location in
   the Simulator menu, or run `xcrun simctl location booted set 3.8141,113.7787` (the park HQ,
   which is public). On an Android emulator it's under Extended controls > Location.
+- To try photos on the iOS simulator, use "Choose from library", since it has no camera. Add your
+  own test picture with `xcrun simctl addmedia booted <file>`.
 - The iOS simulator has no camera, so the camera box on the Scan tab stays black there. Try
   scanning on a real phone: make a QR code that holds `NNP-3F2A9C` (the mock Belian) and point the
   phone at it on another screen. On the simulator, type the tag code instead. On iOS, turning

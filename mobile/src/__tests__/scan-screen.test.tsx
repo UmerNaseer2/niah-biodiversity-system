@@ -9,6 +9,7 @@ import RecordScreen from '@/app/record/[id]';
 import { DATABASE_NAME } from '@/db/database';
 import { openRecordsStore } from '@/db/records-store';
 import { RESCAN_AFTER_MS } from '@/lib/qr';
+import { AccountProvider } from '@/state/account-context';
 import { RecordsProvider } from '@/state/records-context';
 
 jest.mock('expo-camera', () => {
@@ -60,9 +61,11 @@ function letTimePass(ms: number) {
 
 function TestLayout() {
   return (
-    <RecordsProvider>
-      <Stack />
-    </RecordsProvider>
+    <AccountProvider>
+      <RecordsProvider>
+        <Stack />
+      </RecordsProvider>
+    </AccountProvider>
   );
 }
 
