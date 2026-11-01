@@ -33,3 +33,24 @@ export const authConfigured = Boolean(
     !url.includes("your-project-id") &&
     !anonKey.includes("your-anon-key"),
 );
+
+// How long a login cookie lasts when nobody uses it. The proxy refreshes the
+// session about once an hour on the dashboard, and each refresh starts this
+// again, so it only runs out for someone who's gone away.
+const SESSION_SECONDS = 12 * 60 * 60;
+
+// Scripts on a page can't read the login cookies, because every Supabase call
+// happens on the server. A production build only sends them over https.
+export const SESSION_COOKIE_OPTIONS = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === "production",
+  sameSite: "lax",
+  path: "/",
+} as const;
+
+/** @supabase/ssr ignores a maxAge in cookieOptions and sets 400 days on every
+ *  cookie, so the life goes on here. A maxAge of 0 is it removing a cookie
+ *  at sign out, which stays as it is. */
+export function withSessionLife<Options extends { maxAge?: number }>(options: Options) {
+  return options.maxAge === 0 ? options : { ...options, maxAge: SESSION_SECONDS };
+}

@@ -1,6 +1,12 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
-import { authConfigured, SUPABASE_ANON_KEY, SUPABASE_URL } from "./config";
+import {
+  authConfigured,
+  SESSION_COOKIE_OPTIONS,
+  SUPABASE_ANON_KEY,
+  SUPABASE_URL,
+  withSessionLife,
+} from "./config";
 
 /** Refreshes the session cookie on every request and sends anyone who isn't
  *  signed in away from /dashboard. This is only the first gate. The role
@@ -13,6 +19,7 @@ export async function updateSession(request: NextRequest) {
   }
 
   const supabase = createServerClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    cookieOptions: SESSION_COOKIE_OPTIONS,
     cookies: {
       getAll() {
         return request.cookies.getAll();
@@ -23,7 +30,7 @@ export async function updateSession(request: NextRequest) {
         }
         response = NextResponse.next({ request });
         for (const { name, value, options } of cookiesToSet) {
-          response.cookies.set(name, value, options);
+          response.cookies.set(name, value, withSessionLife(options));
         }
       },
     },

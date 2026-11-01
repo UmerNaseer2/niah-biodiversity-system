@@ -192,6 +192,9 @@ planned for, so it's clear what's real during the demo. The item numbers match t
   public page.
 - Photos are plain `<img>` tags, not `next/image`, because the image optimizer won't fetch from
   a local address like the stand-in's.
+- Login cookies are set in `src/lib/supabase/config.ts`. Page scripts can't read them, a production
+  build only sends them over https, and they last 12 hours from the last session refresh. Safari
+  won't keep them on `http://localhost` after `npm start`, so try a production build in Chrome.
 - Dates are formatted by hand in `src/lib/format.ts`, so the server and the browser print the same
   thing. Don't call `new Date()` or `Date.now()` while a page renders. In a client component it
   causes hydration errors, and in a server component that doesn't read the cookies the date gets
