@@ -9,8 +9,8 @@ headers and the https check for the website. This page writes them up with test 
 | --- | --- | --- |
 | Browser to website | HTTPS from wherever we host it. Production builds send `Strict-Transport-Security: max-age=63072000` (2 years), so a browser that has visited once only uses https for our site after that | Done (`web/next.config.ts`) |
 | Website and browser to Supabase | Supabase only answers over https. A production build treats a Supabase URL that isn't https as not set up, so sign in and the staff pages stay off. Plain http only works for `localhost` and `127.0.0.1` with `npm run dev` | Done (`web/src/lib/supabase/config.ts`) |
-| Phone to Supabase | The phone doesn't talk to Supabase yet, that's item 10 (Sprint 2). It will use the https project URL. Release builds on iOS (App Transport Security) and Android 9 and later block plain http unless the app adds an exception, and we won't add one | Planned |
-| ESP32 sensor nodes to Supabase | Item 28 (Sprint 2). Use HTTPS with `WiFiClientSecure` and the root certificate set with `setCACert()`, never `setInsecure()` | Planned |
+| Phone to Supabase | Since item 10 the phone uses the https project URL from `EXPO_PUBLIC_SUPABASE_URL`. Release builds on iOS (App Transport Security) and Android 9 and later block plain http unless the app adds an exception. There's none in `mobile/app.json` (read on 31 Oct) | Done in the code. Not yet tried on a release build against the hosted project |
+| ESP32 sensor nodes to Supabase | Item 28. The edge device uses HTTPS with `WiFiClientSecure` and the root certificate set with `setCACert()`, never `setInsecure()` (`iot/edge-device/edge-device.ino`, read on 31 Oct) | Done in the code. Not retried on a real device for items 25 to 27 |
 
 The website also sends these on every response:
 
@@ -21,6 +21,8 @@ The website also sends these on every response:
 | `Referrer-Policy: strict-origin-when-cross-origin` | Other sites only see our domain, never the full address of a page |
 | `Content-Security-Policy` | Added on 29 Oct. Scripts, requests and forms can only go to our own site. See [security-headers.md](../test-results/security-headers.md) |
 | `Permissions-Policy` | Added on 29 Oct. No page can ask for the camera, microphone, location or payments |
+| `Cross-Origin-Opener-Policy: same-origin` | Added on 31 Oct. A page another site opens in a new window can't reach back into ours |
+| `Cross-Origin-Resource-Policy: same-origin` | Added on 31 Oct. Other sites can't load our pages and files into theirs |
 
 ## Test results
 
@@ -49,4 +51,4 @@ that https works, because that depends on the host.
 | --- | --- | --- |
 | HTTPS on the real site | The website isn't deployed yet | Once it is, check http sends you to https, and run the site through SSL Labs |
 | HSTS preload | It needs `includeSubDomains` and `preload`, and only makes sense on a domain we own | Leave it until SFC gives us a domain |
-| Phone and ESP32 links | Not built yet | Test them with items 10 and 28 |
+| Phone and ESP32 links against the hosted project | The hosted project is behind on the SQL files | Try them once Umer has run the SQL. See [item 25 to 27 results](../test-results/item-25-27-security.md) |
