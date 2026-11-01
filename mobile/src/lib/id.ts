@@ -12,8 +12,8 @@ export function newId(): string {
 
 /**
  * Short code printed under the QR code, like NNP-3F2A9C (NNP for Niah National Park).
- * Six hex characters gives about 16 million codes. Item 12 should still check for clashes
- * before printing a tag.
+ * Six hex characters gives about 16 million codes, so two records can end up with the same one.
+ * The server turns the second one down, and the record's page offers it a new tag.
  */
 export function tagCodeFor(id: string) {
   return `NNP-${id.replace(/-/g, '').slice(0, 6).toUpperCase()}`;

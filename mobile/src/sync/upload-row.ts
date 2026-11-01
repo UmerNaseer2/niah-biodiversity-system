@@ -1,6 +1,6 @@
 // The rules for sending a record to Supabase and reading what comes back. Nothing in here talks to
-// the server yet: item 10 adds the "Sync now" button and the Supabase client that use these.
-// docs/sync-design.md explains the whole plan, and supabase/005_phone_sync.sql is the server side.
+// the server: src/sync/sync-engine.ts does that with these. docs/sync-design.md explains the whole
+// plan, and supabase/005_phone_sync.sql is the server side.
 import type { PlantRecord, UploadProblem } from '@/types/plant-record';
 
 // The phone keeps the problem with the record (src/db), so the type lives with the record types.
@@ -101,13 +101,29 @@ export function classifyUpload(error: UploadError | null): UploadOutcome {
   return { kind: 'retry' };
 }
 
+/**
+ * Whether the request never got an answer. supabase-js gives status 0 and no code when fetch fails,
+ * and then the rest of the records won't get through either.
+ */
+export function isNoSignal(error: UploadError | null, status: number) {
+  return Boolean(error) && (status === 0 || !error?.code);
+}
+
+/**
+ * Whether the server said the login token isn't any good. PGRST301 and PGRST303 are the API
+ * (PostgREST) saying so. That's about the session and not the record, so the record stays as it is.
+ */
+export function isSessionRefused(error: UploadError | null) {
+  return error?.code?.startsWith('PGRST30') ?? false;
+}
+
 /** What to tell the person syncing when a record can't go up. */
 export function uploadProblemMessage(problem: UploadProblem) {
   switch (problem) {
     case 'tag-clash':
       return (
-        'Another record on the server has the same tag code. Ask an officer to sort it out ' +
-        "before you print this plant's tag."
+        'Another record on the server already has this tag code, so this one needs a new tag. If ' +
+        'you already put a tag on the plant, it has to be swapped for the new one.'
       );
     case 'not-allowed':
       return (

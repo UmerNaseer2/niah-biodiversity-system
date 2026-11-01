@@ -3,18 +3,11 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { Icon } from '@/components/ui/icon';
-import { SyncTag } from '@/components/ui/sync-badge';
+import { SyncTag, syncTagLabel } from '@/components/ui/sync-badge';
 import { Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { formatRecordedAt } from '@/lib/format';
 import type { PlantRecord } from '@/types/plant-record';
-
-function syncLabel(record: PlantRecord) {
-  if (record.uploadProblem) {
-    return "couldn't upload";
-  }
-  return record.syncStatus === 'pending' ? 'pending sync' : 'synced';
-}
 
 export function RecordRow({ record }: { record: PlantRecord }) {
   const theme = useTheme();
@@ -23,7 +16,7 @@ export function RecordRow({ record }: { record: PlantRecord }) {
     record.speciesName,
     record.commonName,
     `tag ${record.tagCode}`,
-    syncLabel(record),
+    syncTagLabel(record.syncStatus, record.uploadProblem, record.reviewStatus).toLowerCase(),
     recordedAt,
   ]
     .filter(Boolean)
@@ -52,7 +45,11 @@ export function RecordRow({ record }: { record: PlantRecord }) {
                 {record.commonName ? `${record.commonName} · ${record.tagCode}` : record.tagCode}
               </ThemedText>
               <View style={styles.meta}>
-                <SyncTag status={record.syncStatus} problem={record.uploadProblem} />
+                <SyncTag
+                  status={record.syncStatus}
+                  problem={record.uploadProblem}
+                  review={record.reviewStatus}
+                />
                 <ThemedText type="small" themeColor="textSecondary">
                   {recordedAt}
                 </ThemedText>

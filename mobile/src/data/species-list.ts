@@ -4,7 +4,7 @@
 // The common names follow the fixes in supabase/007_species_fixes.sql.
 // The form only uses this list until the phone first syncs. After that it uses the species list
 // downloaded from Supabase and saved on the phone (src/db), so a new species added on the website
-// shows up without an app update. Item 10 adds the download.
+// shows up without an app update.
 
 export type SpeciesOption = {
   /** Same as species.id and species.slug in Supabase. */

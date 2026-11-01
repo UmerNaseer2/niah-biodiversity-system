@@ -8,7 +8,7 @@ import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { SAMPLE_RECORDS } from '@/data/mock-records';
 import { SPECIES_LIST, type SpeciesOption } from '@/data/species-list';
 import { DatabaseTooNewError } from '@/db/database';
-import { openRecordsStore, type RecordsStore } from '@/db/records-store';
+import { openRecordsStore, type RecordReview, type RecordsStore } from '@/db/records-store';
 import { useTheme } from '@/hooks/use-theme';
 import { matchesTag, newId, tagCodeFor } from '@/lib/id';
 import type { UploadOutcome } from '@/sync/upload-row';
@@ -16,14 +16,20 @@ import type { NewPlantRecord, PlantRecord } from '@/types/plant-record';
 
 // Records are saved in SQLite on the phone (src/db), so they're still there after the app
 // restarts or the phone runs out of battery. The species list downloaded when the phone syncs is
-// saved there too. Item 10 adds the "Sync now" button that uploads and downloads them, using the
-// functions here.
+// saved there too. src/state/sync-context.tsx uploads and downloads them, using the functions here.
 
 type RecordsContextValue = {
   /** Newest first. */
   records: PlantRecord[];
   pendingCount: number;
   syncedCount: number;
+  /** Saved records that can go up as soon as there's signal, so no sample or problem records. */
+  waitingCount: number;
+  /**
+   * Saved records that aren't on the server yet, the ones with a problem too. Pressing Sync now
+   * tries those again, so this is what would go up under whoever signs in next.
+   */
+  notUploadedCount: number;
   /**
    * Saves the record on the phone, then puts it at the top of the list. If saving fails it
    * throws and the list stays as it was.
@@ -40,6 +46,17 @@ type RecordsContextValue = {
    * for any other record and the list stays as it was.
    */
   removeDeleted: (id: string) => Promise<void>;
+  /** The IDs of the records on the server, so the phone can ask what became of them. */
+  loadSyncedIds: () => Promise<string[]>;
+  /** Saves what officers decided, then updates the records in the list. */
+  saveReviews: (reviews: RecordReview[]) => Promise<void>;
+  /**
+   * Gives a record whose tag code was taken on the server a new ID and tag code, then updates the
+   * list and gives back the new ID. Throws for any other record and the list stays as it was.
+   */
+  renewTag: (id: string) => Promise<string>;
+  loadLastSynced: () => Promise<string | null>;
+  saveLastSynced: (finishedAt: string) => Promise<void>;
   /**
    * The species the New Record form suggests: the last list downloaded, or the one that comes
    * with the app if there hasn't been a download yet.
@@ -143,8 +160,8 @@ export function RecordsProvider({ children }: { children: ReactNode }) {
           {state.tooNew ? (
             // Trying again would only fail the same way, so there's no button for it.
             <ThemedText themeColor="textSecondary">
-              A newer copy of the app saved them, and this one can&apos;t read them. They are
-              still on this phone and nothing has been changed.
+              A newer copy of the app saved them, and this one can&apos;t read them. They are still
+              on this phone and nothing has been changed.
             </ThemedText>
           ) : (
             <>
@@ -166,23 +183,32 @@ export function RecordsProvider({ children }: { children: ReactNode }) {
   }
 
   const { store } = state;
-  // The sample records only show in development builds. They're never saved, so the upload in
-  // item 10 (which only reads the database) can't send them anywhere.
+  // The sample records only show in development builds. They're never saved, so the upload (which
+  // only reads the database) can't send them anywhere.
   const records = [...state.saved, ...SAMPLE_RECORDS].sort(newestFirst);
 
   const pendingCount = records.filter((record) => record.syncStatus === 'pending').length;
-  // Counted on its own instead of total minus pending, so records that fail to upload in item 10
-  // don't show up as synced.
+  // Counted on its own instead of total minus pending, so records that fail to upload don't show
+  // up as synced.
   const syncedCount = records.filter((record) => record.syncStatus === 'synced').length;
+  const waitingCount = state.saved.filter(
+    (record) => record.syncStatus === 'pending' && !record.uploadProblem,
+  ).length;
+  const notUploadedCount = state.saved.filter((record) => record.syncStatus === 'pending').length;
   const species = state.species.length > 0 ? state.species : SPECIES_LIST;
 
-  async function addRecord(draft: NewPlantRecord) {
+  /** The tag code is only the start of the ID, so two records could end up with the same one. */
+  function unusedId() {
     let id = newId();
-    // The tag code is only the start of the ID, so two records could end up with the same one.
     // That's very unlikely, but a fresh ID costs nothing and the table won't take a repeat.
     while (records.some((record) => record.tagCode === tagCodeFor(id))) {
       id = newId();
     }
+    return id;
+  }
+
+  async function addRecord(draft: NewPlantRecord) {
+    const id = unusedId();
     const record: PlantRecord = {
       ...draft,
       id,
@@ -233,6 +259,59 @@ export function RecordsProvider({ children }: { children: ReactNode }) {
     );
   }
 
+  function loadSyncedIds() {
+    return store.loadSyncedIds();
+  }
+
+  async function saveReviews(reviews: RecordReview[]) {
+    await store.saveReviews(reviews);
+    const byId = new Map(reviews.map((review) => [review.id, review]));
+    setState((current) =>
+      current.status === 'ready'
+        ? {
+            ...current,
+            saved: current.saved.map((record) => {
+              const review = byId.get(record.id);
+              return review
+                ? {
+                    ...record,
+                    reviewStatus: review.status,
+                    reviewNotes: review.notes ?? undefined,
+                  }
+                : record;
+            }),
+          }
+        : current,
+    );
+  }
+
+  async function renewTag(id: string) {
+    const newRecordId = unusedId();
+    const tagCode = tagCodeFor(newRecordId);
+    await store.renewTag(id, newRecordId, tagCode);
+    setState((current) =>
+      current.status === 'ready'
+        ? {
+            ...current,
+            saved: current.saved.map((record) =>
+              record.id === id
+                ? { ...record, id: newRecordId, tagCode, uploadProblem: undefined }
+                : record,
+            ),
+          }
+        : current,
+    );
+    return newRecordId;
+  }
+
+  function loadLastSynced() {
+    return store.loadLastSynced();
+  }
+
+  function saveLastSynced(finishedAt: string) {
+    return store.saveLastSynced(finishedAt);
+  }
+
   async function replaceSpecies(list: SpeciesOption[]) {
     await store.replaceSpecies(list);
     setState((current) => (current.status === 'ready' ? { ...current, species: list } : current));
@@ -244,12 +323,19 @@ export function RecordsProvider({ children }: { children: ReactNode }) {
         records,
         pendingCount,
         syncedCount,
+        waitingCount,
+        notUploadedCount,
         addRecord,
         getRecord,
         findByTag,
         loadWaiting,
         saveUploadOutcome,
         removeDeleted,
+        loadSyncedIds,
+        saveReviews,
+        renewTag,
+        loadLastSynced,
+        saveLastSynced,
         species,
         replaceSpecies,
       }}>
