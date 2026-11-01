@@ -1,8 +1,9 @@
 import { unstable_rethrow } from "next/navigation";
 
-/** What a form says when its request got no answer */
+/** What a form says when its request got no answer. A login that ran out
+ *  looks the same from here, since the proxy sends that request to sign in. */
 export const NO_ANSWER =
-  "The server didn’t answer, so this may not have saved. What you entered is still here, so try again in a minute.";
+  "The server didn’t answer, so this may not have saved. What you entered is still here. Try again in a minute. If it keeps happening you may be signed out, so sign in again in a new tab and save from here.";
 
 /**
  * A server action for a form's JavaScript path. A request that fails throws,
