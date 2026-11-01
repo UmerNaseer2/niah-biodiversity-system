@@ -147,7 +147,7 @@ The stand-in comes with a made up device, `NNP-EDGE-01`, with the nodes `NNP-IOT
 | `dry`, `wet` | Soil out of range | A routine alert |
 | `hot`, `cold` | Temperature out of range | A routine alert |
 | `low-battery` | Battery low | A routine alert |
-| `quiet` | Its last reading is 20 minutes old, then it stops | An urgent alert at the next check, or a routine one if its battery was low |
+| `quiet` | Sends one reading dated 20 minutes ago, then stops. Run it first on a fresh stand-in, because a newer reading from that node wins. | An urgent alert at the next check, or a routine one if its battery was low |
 | `resend` | Each round is sent twice | The second one counts as already there |
 | `bad-value` | A value no sensor could read | That reading is turned down, the others go in |
 

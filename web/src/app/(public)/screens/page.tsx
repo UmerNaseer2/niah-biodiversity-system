@@ -14,7 +14,8 @@ export const metadata: Metadata = {
 
 const WORKS_NOW = [
   "Every page is clickable and links to the others.",
-  "Plant search, the tag lookup, the review queue and the sensor alerts all respond as you use them.",
+  "Plant search, the tag lookup and the review queue all respond as you use them.",
+  "The sensors page shows real readings and threat alerts from Supabase, and checks again every 15 seconds while it’s open. Officers and admins can acknowledge and resolve alerts. The simulator in iot/ can send readings with no hardware.",
   "The reports page counts the real plant records and prints or saves as a PDF. The server builds its CSV download after checking the role, and hidden spots stay blank unless an officer asks for them.",
   "Threatened and protected plants only show a rough area on public pages. Their exact points never leave the server.",
   "Staff sign in with Supabase, and only conservation officers and administrators can open the dashboard. Every staff page checks that on the server.",
@@ -25,7 +26,6 @@ const WORKS_NOW = [
 ];
 
 const NOT_REAL_YET = [
-  "On the dashboard, the review queue, the sensors and the users list still come from mock files in web/src/data.",
   "Staff accounts are made by hand in Supabase. Inviting people and changing roles on the website are item 2.",
   "Apart from species, record edits and photos, nothing is saved yet. Refreshing a page puts it back how it was.",
   "The squares on the tags don’t scan yet (item 12).",

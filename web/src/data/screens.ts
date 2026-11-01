@@ -54,8 +54,8 @@ export const staffScreens: Screen[] = [
   {
     title: "Overview",
     path: "/dashboard",
-    items: [13, 20],
-    works: "Today's date, the records waiting for review, counts and the newest records from Supabase, and a map of every plant record. The sensor alerts are still made up.",
+    items: [13, 20, 30],
+    works: "Today's date, the records waiting for review, counts and the newest records from Supabase, a map of every plant record, and the open sensor alerts. Sensors stay off the map until item 32.",
   },
   {
     title: "Species",
@@ -96,8 +96,14 @@ export const staffScreens: Screen[] = [
   {
     title: "Sensors",
     path: "/dashboard/sensors",
-    items: [30, 31, 32],
-    works: "Alerts can be acknowledged. Readings are made up.",
+    items: [30, 31],
+    works: "Real readings and threat alerts from Supabase, checking again every 15 seconds while the page is open. Officers and admins can acknowledge and resolve alerts. Without the sensor SQL it says so and shows no numbers.",
+  },
+  {
+    title: "Sensor devices",
+    path: "/dashboard/sensors/devices",
+    items: [28, 29],
+    works: "Admins add edge devices and nodes, link them, make a token that's shown once, and turn a device off.",
   },
   {
     title: "Users and roles",
