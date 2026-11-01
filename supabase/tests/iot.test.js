@@ -699,7 +699,8 @@ describe('threat rules', () => {
     await sendFrom(node, { tilt_degrees: 80, shock_g: 5, distance_change_cm: 50 });
     const alerts = await alertsFor(node);
     assert.equal(alerts.length, 1);
-    assert.equal(alerts[0].repeat_count, 3);
+    assert.equal(alerts[0].repeat_count, 1);
+    assert.equal(alerts[0].reading_field, 'tilt_degrees');
   });
 
   test('different problems and different nodes get their own alerts', async () => {

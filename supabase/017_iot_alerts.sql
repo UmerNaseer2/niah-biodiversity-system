@@ -196,15 +196,14 @@ DECLARE
 BEGIN
   SELECT * INTO limits FROM public.iot_alert_limits;
 
+  -- ELSIF, because one reading is seen once even if it breaks all three limits
   IF NEW.tilt_degrees > limits.tilt_degrees_max THEN
     PERFORM public.iot_raise_alert(NEW.node_id, 'disturbance', 'urgent', 'tilt_degrees',
       NEW.tilt_degrees, limits.tilt_degrees_max, NEW.recorded_at, limits.reraise_minutes);
-  END IF;
-  IF NEW.shock_g > limits.shock_g_max THEN
+  ELSIF NEW.shock_g > limits.shock_g_max THEN
     PERFORM public.iot_raise_alert(NEW.node_id, 'disturbance', 'urgent', 'shock_g',
       NEW.shock_g, limits.shock_g_max, NEW.recorded_at, limits.reraise_minutes);
-  END IF;
-  IF NEW.distance_change_cm > limits.distance_change_cm_max THEN
+  ELSIF NEW.distance_change_cm > limits.distance_change_cm_max THEN
     PERFORM public.iot_raise_alert(NEW.node_id, 'disturbance', 'urgent', 'distance_change_cm',
       NEW.distance_change_cm, limits.distance_change_cm_max, NEW.recorded_at, limits.reraise_minutes);
   END IF;
