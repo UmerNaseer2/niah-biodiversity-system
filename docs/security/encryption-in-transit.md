@@ -61,13 +61,29 @@ Nothing was signed in to or changed.
 
 The live build is older than `main`. `/welcome` is a 404 and the two cross origin headers from 31
 Oct aren't there, so the site needs redeploying, after Umer runs the SQL on the hosted project. These
-checks cover Vercel's HTTPS, which doesn't change with a redeploy, but they don't replace SSL Labs,
-which we haven't run.
+checks cover Vercel's HTTPS, which doesn't change with a redeploy.
+
+### SSL Labs
+
+We ran the site through the SSL Labs scanner on 1 Nov 2026, with publishing turned off so it stays
+off their public boards. The site has two addresses, and each one gets its own grade.
+
+| Address | Grade | HSTS the scanner saw | Protocols | Warnings |
+| --- | --- | --- | --- | --- |
+| First | A+ | `max-age=63072000` | TLS 1.2 and 1.3 | None |
+| Second | A | None, Vercel answered the scanner with a 403 | TLS 1.2 and 1.3 | None |
+
+On both, the scanner found no Heartbleed, POODLE, FREAK, Logjam, BEAST or RC4, forward secrecy worked
+with every browser it simulates, and the certificate chain had no issues.
+
+HSTS is what takes an A up to an A+, and the 403 didn't have the header. We don't know why Vercel
+sent that 403. Straight after the scan we tried each address with `curl`, 3 times each, and every
+answer was a 200 with HSTS, so the setup doesn't look different between them.
 
 ## Not tested yet
 
 | What | Why | Next step |
 | --- | --- | --- |
-| SSL Labs on the real site | Not run. It's a public scan, and it's best done on the redeployed site | Redeploy, then run the site through SSL Labs and write the grade here |
+| SSL Labs on the redeployed site | The 1 Nov scan was on the older build, and one address sent the scanner a 403 | Redeploy, run it again and write the grades here |
 | HSTS preload | It needs `includeSubDomains` and `preload`, and only makes sense on a domain we own | Leave it until SFC gives us a domain |
 | Phone and ESP32 links against the hosted project | The hosted project is behind on the SQL files | Try them once Umer has run the SQL. See [item 25 to 27 results](../test-results/item-25-27-security.md) |
