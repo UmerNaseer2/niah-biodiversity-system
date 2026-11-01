@@ -1,7 +1,53 @@
 import { openDatabaseAsync, type SQLiteDatabase } from 'expo-sqlite';
+import * as Crypto from 'expo-crypto';
+import * as SecureStore from 'expo-secure-store';
+import { Platform } from 'react-native';
 
 /** The SQLite file on the phone that holds the records. */
 export const DATABASE_NAME = 'niah.db';
+const DATABASE_KEY = 'niah.records.database-key.v1';
+
+/** Opens the native SQLCipher database with a random key kept in the OS credential store. */
+async function unlockDatabase(db: SQLiteDatabase) {
+  // The browser build uses its existing in-memory store, not the native SQLite database.
+  if (Platform.OS === 'web') return;
+
+  const cipher = await db.getFirstAsync<{ cipher_version: string }>('PRAGMA cipher_version');
+  if (!cipher?.cipher_version) {
+    throw new Error('Encrypted record storage requires a native development or production build.');
+  }
+
+  let key = await SecureStore.getItemAsync(DATABASE_KEY);
+  if (key) {
+    await db.execAsync(`PRAGMA key = '${key}'`);
+    try {
+      await db.getFirstAsync('SELECT count(*) AS count FROM sqlite_master');
+    } catch {
+      // If first-run encryption was interrupted after persisting the key, finish rekeying.
+      await db.execAsync(`PRAGMA rekey = '${key}'`);
+    }
+  } else {
+    key = Array.from(await Crypto.getRandomBytesAsync(32), (byte) =>
+      byte.toString(16).padStart(2, '0'),
+    ).join('');
+
+    // Check for the version 1 plaintext database before applying a key. Keep the new key first,
+    // so an interrupted in-place rekey can be completed the next time the app opens.
+    const hasRecordsTable = await db.getFirstAsync<{ name: string }>(
+      "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'plant_records'",
+    );
+    await SecureStore.setItemAsync(DATABASE_KEY, key);
+    if (hasRecordsTable) {
+      await db.execAsync('PRAGMA wal_checkpoint(TRUNCATE)');
+      await db.execAsync(`PRAGMA rekey = '${key}'`);
+    } else {
+      await db.execAsync(`PRAGMA key = '${key}'`);
+    }
+  }
+
+  // Fail closed if the database still cannot be read with the protected key.
+  await db.getFirstAsync('SELECT count(*) AS count FROM sqlite_master');
+}
 
 /** How long a write waits for one on another connection to finish before it fails. */
 export const BUSY_TIMEOUT_MS = 5000;
@@ -170,6 +216,7 @@ export async function migrate(db: SQLiteDatabase, steps: readonly string[] = MIG
 export async function openDatabase() {
   const db = await openDatabaseAsync(DATABASE_NAME);
   try {
+    await unlockDatabase(db);
     // Replacing the species list writes on a second connection (see records-store.ts). If a
     // record is saved while that's happening, this waits up to 5 seconds for it to finish instead
     // of failing straight away. It only lasts while the connection is open, so it isn't a step,
