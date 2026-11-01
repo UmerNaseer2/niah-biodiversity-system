@@ -4,6 +4,7 @@
   "version": "1.0.0",
   "dependencies": {
     "@expo/ui": "~57.0.26",
+    "@supabase/supabase-js": "^2.118.0",
     "expo": "~57.0.31",
     "expo-camera": "~57.0.6",
     "expo-constants": "~57.0.20",
@@ -14,7 +15,9 @@
     "expo-image": "~57.0.5",
     "expo-linking": "~57.0.13",
     "expo-location": "~57.0.22",
+    "expo-network": "~57.0.3",
     "expo-router": "~57.0.29",
+    "expo-secure-store": "~57.0.4",
     "expo-splash-screen": "~57.0.10",
     "expo-sqlite": "~57.0.4",
     "expo-status-bar": "~57.0.1",

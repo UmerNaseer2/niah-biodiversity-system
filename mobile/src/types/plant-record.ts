@@ -19,6 +19,11 @@ export const UPLOAD_PROBLEMS = ['tag-clash', 'not-allowed', 'rejected', 'deleted
 
 export type UploadProblem = (typeof UPLOAD_PROBLEMS)[number];
 
+/** What an officer decided about a record on the website. Same values as the server's status. */
+export const REVIEW_STATUSES = ['waiting', 'published', 'rejected'] as const;
+
+export type ReviewStatus = (typeof REVIEW_STATUSES)[number];
+
 export type GpsReading = {
   latitude: number;
   longitude: number;
@@ -47,6 +52,10 @@ export type PlantRecord = {
   syncStatus: SyncStatus;
   /** Why the last upload didn't go through. Only a pending record can have one. */
   uploadProblem?: UploadProblem;
+  /** What an officer decided, as of the last sync. Left out until the phone has heard. */
+  reviewStatus?: ReviewStatus;
+  /** The officer's reason, when the record was rejected. */
+  reviewNotes?: string;
 };
 
 /** What the New Record form fills in. The rest is set when the record is saved. */

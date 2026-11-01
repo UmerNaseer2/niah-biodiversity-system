@@ -32,7 +32,7 @@ describe('openDatabase', () => {
     const db = await openDatabase();
     try {
       expect(await versionOf(db)).toBe(MIGRATIONS.length);
-      expect(await tablesIn(db)).toEqual(['plant_records', 'species']);
+      expect(await tablesIn(db)).toEqual(['plant_records', 'species', 'sync_meta']);
       const journal = await db.getFirstAsync<{ journal_mode: string }>('PRAGMA journal_mode');
       expect(journal?.journal_mode).toBe('wal');
     } finally {
@@ -75,7 +75,7 @@ describe('openDatabase', () => {
     const db = await openDatabase();
     try {
       expect(await versionOf(db)).toBe(MIGRATIONS.length);
-      expect(await tablesIn(db)).toEqual(['plant_records', 'species']);
+      expect(await tablesIn(db)).toEqual(['plant_records', 'species', 'sync_meta']);
       expect(
         await db.getAllAsync('SELECT tag_code, sync_status, upload_problem FROM plant_records'),
       ).toEqual([
@@ -115,8 +115,11 @@ describe('openDatabase', () => {
     const db = await openDatabase();
     try {
       expect(await versionOf(db)).toBe(MIGRATIONS.length);
-      expect(await tablesIn(db)).toEqual(['plant_records', 'species']);
-      expect(await db.getAllAsync('SELECT * FROM plant_records ORDER BY id')).toEqual(before);
+      expect(await tablesIn(db)).toEqual(['plant_records', 'species', 'sync_meta']);
+      // Version 5 adds two columns, and nobody has heard from an officer yet.
+      expect(await db.getAllAsync('SELECT * FROM plant_records ORDER BY id')).toEqual(
+        before.map((row) => Object.assign({}, row, { review_status: null, review_notes: null })),
+      );
       const indexes = await db.getAllAsync<{ name: string }>(
         "SELECT name FROM sqlite_master WHERE type = 'index' AND name NOT LIKE 'sqlite_%'",
       );
@@ -142,6 +145,34 @@ describe('openDatabase', () => {
       await expect(
         db.runAsync("UPDATE plant_records SET photo_count = 'two' WHERE tag_code = 'NNP-0C9D8E'"),
       ).rejects.toThrow('cannot store TEXT value in INTEGER column');
+    } finally {
+      await db.closeAsync();
+    }
+  });
+
+  it('adds the review columns in version 5 and only takes statuses the server has', async () => {
+    const old = await openDatabaseAsync(DATABASE_NAME);
+    await migrate(old, MIGRATIONS.slice(0, 4));
+    await old.runAsync(
+      `INSERT INTO plant_records (id, tag_code, species_name, condition, recorded_at, sync_status)
+      VALUES ('5e4d3c2b-1a09-4f8e-b7d6-c5b4a3928170', 'NNP-5E4D3C', 'Ficus sp.', 'healthy',
+        '2026-10-18T03:00:00.000Z', 'synced')`,
+    );
+    await old.closeAsync();
+
+    const db = await openDatabase();
+    try {
+      expect(
+        await db.getAllAsync('SELECT tag_code, review_status, review_notes FROM plant_records'),
+      ).toEqual([{ tag_code: 'NNP-5E4D3C', review_status: null, review_notes: null }]);
+      await db.runAsync("UPDATE plant_records SET review_status = 'rejected'");
+      await expect(db.runAsync("UPDATE plant_records SET review_status = 'lost'")).rejects.toThrow(
+        'CHECK constraint failed',
+      );
+      await db.runAsync("INSERT INTO sync_meta (key, value) VALUES ('last_synced', 'then')");
+      expect(await db.getAllAsync('SELECT * FROM sync_meta')).toEqual([
+        { key: 'last_synced', value: 'then' },
+      ]);
     } finally {
       await db.closeAsync();
     }

@@ -1,6 +1,6 @@
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useRef, useState } from 'react';
-import { AccessibilityInfo, Platform, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { LocationSummary } from '@/components/location-summary';
 import { Screen } from '@/components/screen';
@@ -11,6 +11,7 @@ import { InfoRow } from '@/components/ui/info-row';
 import { PlaceholderNote } from '@/components/ui/placeholder-note';
 import { SyncTag } from '@/components/ui/sync-badge';
 import { Spacing } from '@/constants/theme';
+import { announce } from '@/lib/announce';
 import { conditionLabel, formatHeight, formatRecordedAt } from '@/lib/format';
 import { useRecords } from '@/state/records-context';
 import { uploadProblemMessage } from '@/sync/upload-row';
@@ -19,13 +20,10 @@ const REMOVE_ASK =
   "The server doesn't have this record any more, so once it's off this phone it's gone for " +
   'good. Remove it?';
 const REMOVE_FAILED = "Couldn't remove the record from this phone. Try again.";
-
-/** Reads a message out on a phone. On the web a role="alert" on the message does the same job. */
-function announce(message: string) {
-  if (Platform.OS !== 'web') {
-    AccessibilityInfo.announceForAccessibility(message);
-  }
-}
+const RENEW_ASK =
+  'This gives the record a new tag code. If you already put the old tag on the plant, it has to ' +
+  'be swapped for the new one. Get a new tag?';
+const RENEW_FAILED = "Couldn't change the tag code. Try again.";
 
 /**
  * Takes a record an officer deleted on the website off the phone. It asks first, because the
@@ -91,6 +89,67 @@ function RemoveDeleted({ id }: { id: string }) {
   );
 }
 
+/**
+ * Gives a record whose tag code is already taken on the server a new one. The tag code comes from
+ * the record's ID, so the ID changes as well, and this asks first in case the old tag is on a plant.
+ */
+function RenewTag({ id }: { id: string }) {
+  const router = useRouter();
+  const { renewTag } = useRecords();
+  const [asking, setAsking] = useState(false);
+  const [renewing, setRenewing] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const busy = useRef(false);
+
+  function ask() {
+    setAsking(true);
+    announce(RENEW_ASK);
+  }
+
+  async function renew() {
+    if (busy.current) {
+      return;
+    }
+    busy.current = true;
+    setRenewing(true);
+    setFailed(false);
+    try {
+      const newId = await renewTag(id);
+      router.replace({ pathname: '/record/[id]', params: { id: newId } });
+    } catch (error) {
+      console.warn("Couldn't change the tag code.", error);
+      busy.current = false;
+      setFailed(true);
+      setRenewing(false);
+      announce(RENEW_FAILED);
+    }
+  }
+
+  if (!asking) {
+    return <Button label="Get a new tag" variant="outline" onPress={ask} />;
+  }
+
+  return (
+    <View style={styles.ask}>
+      <ThemedText type="smallBold" role="alert">
+        {RENEW_ASK}
+      </ThemedText>
+      <Button label="Get a new tag" onPress={renew} disabled={renewing} />
+      <Button
+        label="Not now"
+        variant="outline"
+        onPress={() => setAsking(false)}
+        disabled={renewing}
+      />
+      {failed ? (
+        <ThemedText type="small" themeColor="danger" role="alert">
+          {RENEW_FAILED}
+        </ThemedText>
+      ) : null}
+    </View>
+  );
+}
+
 export default function RecordScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -132,7 +191,11 @@ export default function RecordScreen() {
           </ThemedText>
         ) : null}
         <View style={styles.tag}>
-          <SyncTag status={record.syncStatus} problem={record.uploadProblem} />
+          <SyncTag
+            status={record.syncStatus}
+            problem={record.uploadProblem}
+            review={record.reviewStatus}
+          />
         </View>
       </View>
 
@@ -140,6 +203,17 @@ export default function RecordScreen() {
         <Card title="Couldn't upload" icon="warning">
           <ThemedText>{uploadProblemMessage(record.uploadProblem)}</ThemedText>
           {record.uploadProblem === 'deleted' ? <RemoveDeleted id={record.id} /> : null}
+          {record.uploadProblem === 'tag-clash' ? <RenewTag id={record.id} /> : null}
+        </Card>
+      ) : null}
+
+      {record.syncStatus === 'synced' && record.reviewStatus === 'rejected' ? (
+        <Card title="Rejected by an officer" icon="warning">
+          {record.reviewNotes ? <ThemedText>{record.reviewNotes}</ThemedText> : null}
+          <ThemedText type="small" themeColor="textSecondary">
+            It won&apos;t go on the public site. The app can&apos;t change a record once it&apos;s
+            uploaded, so ask an officer to fix it on the website, or make a new record.
+          </ThemedText>
         </Card>
       ) : null}
 

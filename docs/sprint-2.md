@@ -26,7 +26,9 @@ Notes:
 
 - [x] 9. Offline Data Collection & Local Storage (started in Sprint #1). Merged 29 Oct, see
   [test results](test-results/item-9-offline-storage.md)
-- [ ] 10. Data Synchronization Engine (Mobile ↔ Cloud)
+- [x] 10. Data Synchronization Engine (Mobile ↔ Cloud). Merged 31 Oct, see
+  [test results](test-results/item-10-sync.md). Tried on the iOS simulator against the stand-in, not
+  on Android, a real phone or hosted.
 - [ ] 11. Photograph Capture & Attachment (Mobile)
 - [ ] 12. QR Code Generation for Plant Records
 
@@ -45,15 +47,15 @@ Notes:
 
 ## Innovation, first half (items 38 and 39)
 
-- [ ] 38. Analysis of Current Ground-Truthing Limitations
-- [ ] 39. Proposed Innovative Workflow Design
+- [x] 38. Analysis of Current Ground-Truthing Limitations. Merged 31 Oct, see [the analysis](innovation/ground-truthing-limitations.md)
+- [x] 39. Proposed Innovative Workflow Design. Merged 31 Oct, see [the design](innovation/improved-workflow.md)
 
 ## Carried over from Sprint #1
 
 - Item 9, keeping the species list on the phone, the queue of records waiting to upload, and a
   FlatList for My Records. Done 29 Oct. Saving photos on the phone with their record moved to
   item 11, since that's the item that takes them.
-- Item 2, signing in on the phone (comes with item 10). Inviting people, changing roles and
+- Item 2, signing in on the phone, merged 31 Oct with item 10. Inviting people, changing roles and
   deactivating accounts on the website's Users and roles page were merged 31 Oct, see
   [test results](test-results/item-2-admin-users.md).
 - Item 22, encryption at rest on the phones. Jason's SQLCipher branch needs fixing before it can be

@@ -10,7 +10,9 @@ import { Chip, ChipRow } from '@/components/ui/chip';
 import { SyncBanner } from '@/components/ui/sync-badge';
 import { Spacing } from '@/constants/theme';
 import { plural } from '@/lib/format';
+import { useAccount } from '@/state/account-context';
 import { useRecords } from '@/state/records-context';
+import { useSync } from '@/state/sync-context';
 import type { SyncStatus } from '@/types/plant-record';
 
 type Filter = 'all' | SyncStatus;
@@ -24,6 +26,8 @@ const FILTERS: { value: Filter; label: string; empty: string }[] = [
 export default function RecordsScreen() {
   const router = useRouter();
   const { records, pendingCount, syncedCount } = useRecords();
+  const { status } = useAccount();
+  const { syncNow, running, message } = useSync();
   // Records the server turned down are still pending, but they won't go up by waiting for signal.
   const problemCount = records.filter((record) => record.uploadProblem).length;
   const [filter, setFilter] = useState<Filter>('all');
@@ -43,7 +47,15 @@ export default function RecordsScreen() {
       subtitle={`${plural(records.length, 'record')} on this phone`}
       header={
         <>
-          <SyncBanner waiting={pendingCount - problemCount} problems={problemCount} />
+          <SyncBanner
+            waiting={pendingCount - problemCount}
+            problems={problemCount}
+            signedIn={status === 'signed-in'}
+            syncing={running}
+            message={message}
+            onSync={syncNow}
+            onSignIn={() => router.navigate('/profile')}
+          />
 
           <ChipRow label="Filter records">
             {FILTERS.map((option) => (

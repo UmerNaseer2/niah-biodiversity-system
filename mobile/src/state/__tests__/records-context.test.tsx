@@ -1,11 +1,4 @@
-import {
-  act,
-  fireEvent,
-  render,
-  renderHook,
-  screen,
-  waitFor,
-} from '@testing-library/react-native';
+import { act, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react-native';
 import { randomUUID } from 'expo-crypto';
 import * as splash from 'expo-router/build/utils/splash';
 import * as SQLite from 'expo-sqlite';
@@ -42,7 +35,7 @@ async function renderRecords() {
   return hook;
 }
 
-/** What's in the database on the phone, read the way the upload in item 10 will read it. */
+/** What's in the database on the phone, read the way the upload reads it. */
 async function savedOnPhone() {
   const store = await openRecordsStore();
   try {
@@ -415,5 +408,77 @@ describe('useRecords', () => {
       'useRecords has to be used inside RecordsProvider.',
     );
     logError.mockRestore();
+  });
+});
+
+describe('waitingCount', () => {
+  it('counts saved records still to go up, and not samples or ones with a problem', async () => {
+    const first = await renderRecords();
+    expect(first.result.current.waitingCount).toBe(0);
+    let saved: PlantRecord;
+    await act(async () => {
+      saved = await first.result.current.addRecord(draft);
+    });
+    expect(first.result.current.waitingCount).toBe(1);
+    first.unmount();
+
+    const store = await openRecordsStore();
+    await store.saveUploadOutcome(saved!.id, { kind: 'problem', problem: 'rejected' });
+    await store.close();
+    const second = await renderRecords();
+    expect(second.result.current.waitingCount).toBe(0);
+  });
+});
+
+describe('notUploadedCount', () => {
+  it('counts saved records that are not on the server, problems too, and never samples', async () => {
+    const first = await renderRecords();
+    expect(first.result.current.notUploadedCount).toBe(0);
+    let saved: PlantRecord;
+    await act(async () => {
+      saved = await first.result.current.addRecord(draft);
+    });
+    expect(first.result.current.notUploadedCount).toBe(1);
+    first.unmount();
+
+    const store = await openRecordsStore();
+    await store.saveUploadOutcome(saved!.id, { kind: 'problem', problem: 'rejected' });
+    await store.close();
+    const second = await renderRecords();
+    expect(second.result.current.notUploadedCount).toBe(1);
+    second.unmount();
+
+    const again = await openRecordsStore();
+    await again.saveUploadOutcome(saved!.id, { kind: 'synced' });
+    await again.close();
+    const third = await renderRecords();
+    expect(third.result.current.notUploadedCount).toBe(0);
+  });
+});
+
+describe('renewTag', () => {
+  it('gives a record with a tag clash a new ID and tag code that go together', async () => {
+    const first = await renderRecords();
+    let saved: PlantRecord;
+    await act(async () => {
+      saved = await first.result.current.addRecord(draft);
+    });
+    first.unmount();
+    const store = await openRecordsStore();
+    await store.saveUploadOutcome(saved!.id, { kind: 'problem', problem: 'tag-clash' });
+    await store.close();
+
+    const { result } = await renderRecords();
+    let newId = '';
+    await act(async () => {
+      newId = await result.current.renewTag(saved!.id);
+    });
+    expect(newId).not.toBe(saved!.id);
+    expect(result.current.getRecord(saved!.id)).toBeUndefined();
+    const renewed = result.current.getRecord(newId);
+    expect(renewed?.tagCode).toBe(tagCodeFor(newId));
+    expect(renewed?.uploadProblem).toBeUndefined();
+    expect(renewed?.speciesName).toBe(draft.speciesName);
+    expect((await savedOnPhone()).find((record) => record.id === newId)).toEqual(renewed);
   });
 });

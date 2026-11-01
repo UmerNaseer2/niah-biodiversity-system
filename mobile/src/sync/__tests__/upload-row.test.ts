@@ -6,6 +6,8 @@ import {
   type UploadError,
   type UploadOutcome,
   type UploadRow,
+  isNoSignal,
+  isSessionRefused,
 } from '@/sync/upload-row';
 import { UPLOAD_PROBLEMS, type PlantRecord, type UploadProblem } from '@/types/plant-record';
 
@@ -160,11 +162,39 @@ describe('classifyUpload', () => {
   });
 });
 
+describe('isNoSignal', () => {
+  it('goes by the request never getting an answer', () => {
+    expect(isNoSignal({ message: 'TypeError: Network request failed', code: '' }, 0)).toBe(true);
+    expect(isNoSignal({ message: 'TypeError: Network request failed' }, 0)).toBe(true);
+    // Some proxies answer with a status but nothing from the database.
+    expect(isNoSignal({ message: 'Bad gateway' }, 502)).toBe(true);
+  });
+
+  it("doesn't count an answer from the database, or no error at all", () => {
+    expect(isNoSignal({ code: '42501', message: 'nope' }, 403)).toBe(false);
+    expect(isNoSignal({ code: '23505', message: 'taken' }, 409)).toBe(false);
+    expect(isNoSignal(null, 201)).toBe(false);
+  });
+});
+
+describe('isSessionRefused', () => {
+  it('spots the server turning the token down', () => {
+    expect(isSessionRefused({ code: 'PGRST301', message: 'JWT expired' })).toBe(true);
+    expect(isSessionRefused({ code: 'PGRST303', message: 'JWT expired' })).toBe(true);
+  });
+
+  it("doesn't count anything else", () => {
+    expect(isSessionRefused({ code: '42501', message: 'nope' })).toBe(false);
+    expect(isSessionRefused({ code: 'PGRST116', message: 'no rows' })).toBe(false);
+    expect(isSessionRefused(null)).toBe(false);
+  });
+});
+
 describe('uploadProblemMessage', () => {
   it('tells the person syncing what to do next', () => {
     expect(uploadProblemMessage('tag-clash')).toBe(
-      'Another record on the server has the same tag code. Ask an officer to sort it out ' +
-        "before you print this plant's tag.",
+      'Another record on the server already has this tag code, so this one needs a new tag. If ' +
+        'you already put a tag on the plant, it has to be swapped for the new one.',
     );
     expect(uploadProblemMessage('not-allowed')).toBe(
       "Your account can't upload records yet. Ask an admin to give you the botanist role, then " +

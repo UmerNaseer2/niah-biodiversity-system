@@ -11,6 +11,7 @@ import type { RecordsStore } from './records-store';
 export async function openRecordsStore(): Promise<RecordsStore> {
   const saved: PlantRecord[] = [];
   let species: SpeciesOption[] = [];
+  let lastSynced: string | null = null;
 
   return {
     async loadRecords() {
@@ -51,6 +52,36 @@ export async function openRecordsStore(): Promise<RecordsStore> {
         throw new Error('Only a record an officer deleted on the website can be removed.');
       }
       saved.splice(index, 1);
+    },
+    async loadSyncedIds() {
+      return saved.filter((record) => record.syncStatus === 'synced').map((record) => record.id);
+    },
+    async saveReviews(reviews) {
+      for (const review of reviews) {
+        const index = saved.findIndex((record) => record.id === review.id);
+        if (index !== -1) {
+          saved[index] = {
+            ...saved[index],
+            reviewStatus: review.status,
+            reviewNotes: review.notes ?? undefined,
+          };
+        }
+      }
+    },
+    async renewTag(id, newId, newTagCode) {
+      const index = saved.findIndex(
+        (record) => record.id === id && record.uploadProblem === 'tag-clash',
+      );
+      if (index === -1) {
+        throw new Error('Only a record whose tag code was taken can get a new one.');
+      }
+      saved[index] = { ...saved[index], id: newId, tagCode: newTagCode, uploadProblem: undefined };
+    },
+    async loadLastSynced() {
+      return lastSynced;
+    },
+    async saveLastSynced(finishedAt) {
+      lastSynced = finishedAt;
     },
     async loadSpecies() {
       return [...species];

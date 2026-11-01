@@ -13,7 +13,7 @@ export const BUSY_TIMEOUT_MS = 5000;
  */
 export const MIGRATIONS: readonly string[] = [
   // Version 1: plant records. The CHECK rules match the record types, so a bug in the app can't
-  // save a record the upload in item 10 would choke on. A location is all four parts or none.
+  // save a record the upload would choke on. A location is all four parts or none.
   `CREATE TABLE plant_records (
     id TEXT PRIMARY KEY NOT NULL,
     tag_code TEXT NOT NULL UNIQUE,
@@ -38,7 +38,7 @@ export const MIGRATIONS: readonly string[] = [
   ) STRICT;
   CREATE INDEX plant_records_recorded_at ON plant_records (recorded_at);`,
 
-  // Version 2: the species list downloaded from Supabase when the phone syncs (item 10), so the
+  // Version 2: the species list downloaded from Supabase when the phone syncs, so the
   // New Record form can suggest species added on the website without an app update. It stays
   // empty until the first download, and the form uses the list that comes with the app until
   // then. Names only, like the list in the app. The common names are a JSON array of text,
@@ -99,6 +99,18 @@ export const MIGRATIONS: readonly string[] = [
   DROP TABLE plant_records;
   ALTER TABLE plant_records_new RENAME TO plant_records;
   CREATE INDEX plant_records_recorded_at ON plant_records (recorded_at);`,
+
+  // Version 5: what an officer decided about a record once it's on the server, read back when the
+  // phone syncs, so a ranger can see why a record was rejected even with no signal. Null means the
+  // phone hasn't heard yet. sync_meta holds small things about syncing, like when it last worked.
+  `ALTER TABLE plant_records ADD COLUMN review_status TEXT CHECK (
+    review_status IS NULL OR review_status IN ('waiting', 'published', 'rejected')
+  );
+  ALTER TABLE plant_records ADD COLUMN review_notes TEXT;
+  CREATE TABLE sync_meta (
+    key TEXT PRIMARY KEY NOT NULL,
+    value TEXT NOT NULL
+  ) STRICT;`,
 ];
 
 /**

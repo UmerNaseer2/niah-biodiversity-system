@@ -155,8 +155,9 @@ npm test
   website does (item 14), `tests/photos.test.js` checks 009 and saving photos the way the
   website does (item 18), `tests/report-counts.test.js` checks 012 (item 21),
   `tests/history.test.js` checks 013 (items 17 and 18), `tests/photo-folder.test.js` checks
-  014 (item 18), and `tests/iot.test.js` checks 016, 017 and the node simulator (items 28, 29 and
-  31).
+  014 (item 18), `tests/downloads.test.js` checks 011, `tests/species-rough.test.js` checks 015
+  (item 19), `tests/phone-reads.test.js` checks what the phone reads back when it syncs (item 10),
+  and `tests/iot.test.js` checks 016, 017 and the node simulator (items 28, 29 and 31).
 - `tests/stand-in.js` is a stand-in for our Supabase project that runs on your computer, for
   trying the website without a real project. The
   [web README](../web/README.md#trying-sign-in-without-a-supabase-project) says how, and

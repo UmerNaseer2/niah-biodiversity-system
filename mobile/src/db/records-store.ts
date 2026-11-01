@@ -1,8 +1,15 @@
 import type { SpeciesOption } from '@/data/species-list';
 import type { UploadOutcome } from '@/sync/upload-row';
-import type { PlantRecord, UploadProblem } from '@/types/plant-record';
+import type { PlantRecord, ReviewStatus, UploadProblem } from '@/types/plant-record';
 
 import { BUSY_TIMEOUT_MS, openDatabase } from './database';
+
+/** What an officer decided about one record, read back from the server. */
+export type RecordReview = {
+  id: string;
+  status: ReviewStatus;
+  notes: string | null;
+};
 
 /** The records saved on this phone, and the species list downloaded with them. */
 export type RecordsStore = {
@@ -27,6 +34,18 @@ export type RecordsStore = {
    * take it again. Fails for any other record, so nothing that still has to go up is lost.
    */
   removeDeleted: (id: string) => Promise<void>;
+  /** The IDs of the records that are on the server, so the phone can ask what became of them. */
+  loadSyncedIds: () => Promise<string[]>;
+  /** Saves what officers decided, all or nothing. IDs not on this phone are ignored. */
+  saveReviews: (reviews: RecordReview[]) => Promise<void>;
+  /**
+   * Gives a record whose tag code was already taken on the server a new ID and tag code, so it can
+   * go up. Fails for any other record, because the ID of a record on the server can't change.
+   */
+  renewTag: (id: string, newId: string, newTagCode: string) => Promise<void>;
+  /** When the phone last finished a whole sync (ISO 8601), or null if it never has. */
+  loadLastSynced: () => Promise<string | null>;
+  saveLastSynced: (finishedAt: string) => Promise<void>;
   /** The species from the last download, in the same order. Empty if there hasn't been one. */
   loadSpecies: () => Promise<SpeciesOption[]>;
   /**
@@ -38,6 +57,7 @@ export type RecordsStore = {
 };
 
 export const NOT_DELETED = 'Only a record an officer deleted on the website can be removed.';
+export const NOT_TAG_CLASH = 'Only a record whose tag code was taken can get a new one.';
 
 // Row level security on Supabase hands back no rows instead of an error when the account can't
 // read a table, so an empty download is much more likely to be that than every species being gone.
@@ -72,6 +92,8 @@ type RecordRow = {
   recorded_at: string;
   sync_status: PlantRecord['syncStatus'];
   upload_problem: UploadProblem | null;
+  review_status: ReviewStatus | null;
+  review_notes: string | null;
 };
 
 /** One row of species. The common names are a JSON array. */
@@ -101,6 +123,8 @@ function toRecord(row: RecordRow): PlantRecord {
     recordedAt: row.recorded_at,
     syncStatus: row.sync_status,
     uploadProblem: row.upload_problem ?? undefined,
+    reviewStatus: row.review_status ?? undefined,
+    reviewNotes: row.review_notes ?? undefined,
   };
 }
 
@@ -191,6 +215,52 @@ export async function openRecordsStore(): Promise<RecordsStore> {
       if (changes === 0) {
         throw new Error(NOT_DELETED);
       }
+    },
+
+    async loadSyncedIds() {
+      const rows = await db.getAllAsync<{ id: string }>(
+        "SELECT id FROM plant_records WHERE sync_status = 'synced'",
+      );
+      return rows.map((row) => row.id);
+    },
+
+    async saveReviews(reviews) {
+      // No transaction, because rolling one back could also undo a record being saved at the same
+      // time. Each update stands alone and the next sync repeats it, and only rows that changed
+      // get written, so a sync with no news costs next to nothing.
+      for (const review of reviews) {
+        await db.runAsync(
+          `UPDATE plant_records SET review_status = $status, review_notes = $notes
+          WHERE id = $id AND (review_status IS NOT $status OR review_notes IS NOT $notes)`,
+          { $id: review.id, $status: review.status, $notes: review.notes },
+        );
+      }
+    },
+
+    async renewTag(id, newId, newTagCode) {
+      const { changes } = await db.runAsync(
+        `UPDATE plant_records SET id = $newId, tag_code = $newTagCode, upload_problem = NULL
+        WHERE id = $id AND upload_problem = 'tag-clash'`,
+        { $id: id, $newId: newId, $newTagCode: newTagCode },
+      );
+      if (changes === 0) {
+        throw new Error(NOT_TAG_CLASH);
+      }
+    },
+
+    async loadLastSynced() {
+      const row = await db.getFirstAsync<{ value: string }>(
+        "SELECT value FROM sync_meta WHERE key = 'last_synced'",
+      );
+      return row?.value ?? null;
+    },
+
+    async saveLastSynced(finishedAt) {
+      await db.runAsync(
+        `INSERT INTO sync_meta (key, value) VALUES ('last_synced', $value)
+        ON CONFLICT (key) DO UPDATE SET value = excluded.value`,
+        { $value: finishedAt },
+      );
     },
 
     async loadSpecies() {

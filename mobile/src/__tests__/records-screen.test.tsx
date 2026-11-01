@@ -1,5 +1,5 @@
 import { Stack } from 'expo-router';
-import { act, fireEvent, renderRouter, screen, within } from 'expo-router/testing-library';
+import { act, fireEvent, renderRouter, screen, waitFor, within } from 'expo-router/testing-library';
 import { deleteDatabaseAsync, SQLiteDatabase } from 'expo-sqlite';
 import { AccessibilityInfo } from 'react-native';
 
@@ -8,15 +8,22 @@ import RecordScreen from '@/app/record/[id]';
 import { MOCK_RECORDS } from '@/data/mock-records';
 import { DATABASE_NAME } from '@/db/database';
 import { openRecordsStore } from '@/db/records-store';
+import { tagCodeFor } from '@/lib/id';
+import { AccountProvider } from '@/state/account-context';
 import { RecordsProvider } from '@/state/records-context';
+import { SyncProvider } from '@/state/sync-context';
 import { uploadProblemMessage } from '@/sync/upload-row';
 import { UPLOAD_PROBLEMS, type PlantRecord, type UploadProblem } from '@/types/plant-record';
 
 function TestLayout() {
   return (
-    <RecordsProvider>
-      <Stack />
-    </RecordsProvider>
+    <AccountProvider>
+      <RecordsProvider>
+        <SyncProvider>
+          <Stack />
+        </SyncProvider>
+      </RecordsProvider>
+    </AccountProvider>
   );
 }
 
@@ -189,5 +196,79 @@ describe('My records', () => {
     expect(await screen.findByText(`Tag ${stuck.tagCode}`)).toBeVisible();
     expect(screen.getByRole('heading', { name: "Couldn't upload" })).toBeVisible();
     expect(screen.getByText(uploadProblemMessage('tag-clash'))).toBeVisible();
+  });
+});
+
+describe('sync in the records list', () => {
+  it('offers signing in when nobody is signed in, since this build has no server', async () => {
+    await renderList();
+    expect(await screen.findByRole('button', { name: 'Sign in to sync' })).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Sync now' })).toBeNull();
+  });
+});
+
+describe('a record with a tag clash', () => {
+  async function openClash() {
+    await openWith('tag-clash');
+  }
+
+  it('asks first, and says the old tag has to be swapped', async () => {
+    await openClash();
+    fireEvent.press(screen.getByRole('button', { name: 'Get a new tag' }));
+    expect(
+      await screen.findByText(
+        'This gives the record a new tag code. If you already put the old tag on the plant, it ' +
+          'has to be swapped for the new one. Get a new tag?',
+      ),
+    ).toBeVisible();
+    fireEvent.press(screen.getByRole('button', { name: 'Not now' }));
+    expect(screen.queryByText(/This gives the record a new tag code/)).toBeNull();
+    expect(screen.getByText(`Tag ${stuck.tagCode}`)).toBeVisible();
+  });
+
+  it('gives it a new tag and stays on the record, with the problem gone', async () => {
+    await openClash();
+    fireEvent.press(screen.getByRole('button', { name: 'Get a new tag' }));
+    fireEvent.press(await screen.findByRole('button', { name: 'Get a new tag' }));
+    await waitFor(() => expect(screen.queryByText(`Tag ${stuck.tagCode}`)).toBeNull());
+    expect(screen.getByRole('heading', { name: stuck.speciesName })).toBeVisible();
+    expect(screen.queryByText(uploadProblemMessage('tag-clash'))).toBeNull();
+    const store = await openRecordsStore();
+    const [saved] = await store.loadRecords();
+    await store.close();
+    expect(saved.tagCode).not.toBe(stuck.tagCode);
+    expect(saved.tagCode).toBe(tagCodeFor(saved.id));
+    expect(saved.uploadProblem).toBeUndefined();
+  });
+});
+
+describe('what an officer decided', () => {
+  async function openDecided(status: 'published' | 'rejected' | 'waiting', notes: string | null) {
+    const store = await openRecordsStore();
+    await store.saveUploadOutcome(stuck.id, { kind: 'synced' });
+    await store.saveReviews([{ id: stuck.id, status, notes }]);
+    await store.close();
+    await renderList();
+    fireEvent.press(screen.getByRole('link', { name: /^Ficus benjamina, Weeping fig/ }));
+  }
+
+  it('shows the reason for a rejection, and what to do about it', async () => {
+    await openDecided('rejected', 'That is a different fig');
+    expect(await screen.findByText('Rejected by an officer')).toBeVisible();
+    expect(screen.getByText('That is a different fig')).toBeVisible();
+    expect(screen.getByText(/It won't go on the public site/)).toBeVisible();
+    expect(screen.getByText('Rejected')).toBeVisible();
+  });
+
+  it('shows when it was approved, with no rejection card', async () => {
+    await openDecided('published', null);
+    expect(await screen.findByText('Approved')).toBeVisible();
+    expect(screen.queryByText('Rejected by an officer')).toBeNull();
+  });
+
+  it('stays at synced while an officer has not looked at it', async () => {
+    await openDecided('waiting', null);
+    expect(await screen.findByText('Synced')).toBeVisible();
+    expect(screen.queryByText('Rejected by an officer')).toBeNull();
   });
 });

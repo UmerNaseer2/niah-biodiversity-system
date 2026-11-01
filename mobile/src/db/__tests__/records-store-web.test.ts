@@ -1,5 +1,10 @@
 import type { SpeciesOption } from '@/data/species-list';
-import { EMPTY_SPECIES_LIST, NOT_DELETED, type RecordsStore } from '@/db/records-store';
+import {
+  EMPTY_SPECIES_LIST,
+  NOT_DELETED,
+  NOT_TAG_CLASH,
+  type RecordsStore,
+} from '@/db/records-store';
 import { openRecordsStore } from '@/db/records-store.web';
 import type { PlantRecord } from '@/types/plant-record';
 
@@ -178,5 +183,76 @@ describe('species list', () => {
     await store.replaceSpecies([belian]);
     await expect(store.replaceSpecies(list)).rejects.toThrow();
     expect(await store.loadSpecies()).toEqual([belian]);
+  });
+});
+
+describe('reading back what officers decided', () => {
+  const synced = onServer;
+
+  it('only lists the records that are on the server', async () => {
+    await store.saveRecord(older);
+    await store.saveRecord(synced);
+    expect(await store.loadSyncedIds()).toEqual([synced.id]);
+  });
+
+  it('saves the decision and the reason on the record', async () => {
+    await store.saveRecord(synced);
+    await store.saveReviews([{ id: synced.id, status: 'rejected', notes: 'Wrong plant' }]);
+    const [saved] = await store.loadRecords();
+    expect(saved.reviewStatus).toBe('rejected');
+    expect(saved.reviewNotes).toBe('Wrong plant');
+    expect(saved.syncStatus).toBe('synced');
+  });
+
+  it('clears the reason once an officer approves it after all', async () => {
+    await store.saveRecord(synced);
+    await store.saveReviews([{ id: synced.id, status: 'rejected', notes: 'Wrong plant' }]);
+    await store.saveReviews([{ id: synced.id, status: 'published', notes: null }]);
+    const [saved] = await store.loadRecords();
+    expect(saved.reviewStatus).toBe('published');
+    expect(saved.reviewNotes).toBeUndefined();
+  });
+
+  it('ignores a record that is no longer on the phone, and an empty list', async () => {
+    await store.saveRecord(synced);
+    await store.saveReviews([{ id: 'not-here', status: 'rejected', notes: 'Wrong plant' }]);
+    await store.saveReviews([]);
+    const [saved] = await store.loadRecords();
+    expect(saved.reviewStatus).toBeUndefined();
+  });
+});
+
+describe('getting a new tag', () => {
+  const NEW_ID = 'f0e1d2c3-b4a5-4968-8776-655443322110';
+
+  async function clashing() {
+    await store.saveRecord(older);
+    await store.saveUploadOutcome(older.id, { kind: 'problem', problem: 'tag-clash' });
+  }
+
+  it('swaps the ID and tag code, clears the problem and keeps everything else', async () => {
+    await clashing();
+    await store.renewTag(older.id, NEW_ID, 'NNP-F0E1D2');
+    const [saved] = await store.loadRecords();
+    expect(saved).toEqual({ ...older, id: NEW_ID, tagCode: 'NNP-F0E1D2' });
+  });
+
+  it('only does it for a record with a tag clash', async () => {
+    await store.saveRecord(older);
+    await expect(store.renewTag(older.id, NEW_ID, 'NNP-F0E1D2')).rejects.toThrow(NOT_TAG_CLASH);
+    await store.saveUploadOutcome(older.id, { kind: 'problem', problem: 'rejected' });
+    await expect(store.renewTag(older.id, NEW_ID, 'NNP-F0E1D2')).rejects.toThrow(NOT_TAG_CLASH);
+    await expect(store.renewTag('not-here', NEW_ID, 'NNP-F0E1D2')).rejects.toThrow(NOT_TAG_CLASH);
+    const [saved] = await store.loadRecords();
+    expect(saved.id).toBe(older.id);
+  });
+});
+
+describe('when the phone last synced', () => {
+  it('has no date until the first sync, then remembers the latest', async () => {
+    expect(await store.loadLastSynced()).toBeNull();
+    await store.saveLastSynced('2026-10-31T01:00:00.000Z');
+    await store.saveLastSynced('2026-10-31T02:00:00.000Z');
+    expect(await store.loadLastSynced()).toBe('2026-10-31T02:00:00.000Z');
   });
 });
