@@ -8,8 +8,8 @@ The original item 13 wireframe is still the visual baseline. Staff sign in, the 
 the dashboard (add, edit and delete) and the public pages (home, plant list, plant pages and tag
 pages) now use Supabase (items 14 to 16), and so do the dashboard records pages (item 17), the
 photos (item 18), the maps (item 20), reports (item 21), the review queue (item 19) and the
-overview's records and counts. The users page is real too (item 2). The sensors still use mock data, and
-refreshing them puts them back how they were.
+overview's records and counts. The users page is real too (item 2), and so are the sensor pages
+(items 28 to 31). `iot/README.md` covers the hardware and the simulator.
 
 | Side | Screens |
 | --- | --- |
@@ -107,10 +107,10 @@ src/
       review/           the review queue: approve or reject records from the mobile app, and send one back
       species/          the species table, new/ to add one, and [slug]/edit and [slug]/delete
       reports/          counts, charts and the print view, and csv/ for the download
-      sensors/          alerts, the sensor nodes and their map
+      sensors/          alerts, the sensor nodes and their history, and devices/ for tokens (admins)
       users/            who has an account and what each role can do
   components/           shared pieces: park map, tree tag, photo gallery, planned tape, icons...
-  data/                 mock species, records, people and sensors, plus the screen list
+  data/                 mock species and records, plus the screen list
   lib/                  Supabase and sign in, species and record form checks, photos, IUCN labels, the location grid, report counts and the CSV
 ```
 
@@ -124,8 +124,7 @@ planned for, so it's clear what's real during the demo. The item numbers match t
 | Item | What goes in | Where |
 | --- | --- | --- |
 | 12 | QR codes that really scan, printed for each tag | Scan a tag, tag pages |
-| 28, 29 | Live readings from the ESP32 sensor nodes | Sensors |
-| 30 to 32 | The monitoring dashboard, alerts sent to the patrol team and the sensor map | Sensors, overview |
+| 32 | Sensors on the map. Alerts only show on the dashboard for now, and nothing is sent to a patrol team. | Sensors, overview |
 
 ## Notes for the team
 

@@ -26,9 +26,11 @@ kept, and you can fix the problem and run it again.
 | `013_edit_history.sql` | Keeps a history of every change to a record or species, with who saved it and when, for the edit pages. Only officers and admins can read it, and nobody can change it. It never keeps a plant's map location, but text like notes is kept word for word | 17, 18 | Yes |
 | `014_photo_folder.sql` | Keeps the name of each record's photo folder, so the website can still show and delete a record's photos after the account that sent it is deleted | 18 | Yes |
 | `015_species_rough_area.sql` | Keeps rough area only on for every threatened or protected species, so the first save on the edit page doesn't write a false history line. The public sees the same as before | 17 | Yes |
+| `016_iot_readings.sql` | The edge devices and a hash of each one's token, which node sends through which device, the readings, and `iot_add_readings`, the one call a device can make | 28, 29 | Yes. The readings and tokens are kept |
+| `017_iot_alerts.sql` | The threat rules, which run when a reading arrives, the alerts, the limits the rules use, the check for nodes going quiet, and the `iot_node_status` view for the Sensors page | 31 | Yes. Any limits you've tuned are kept |
 
 As of 16 Oct 2026 the hosted project has 001 and 002. Run 003, 004, 005, 006, 007, 008, 009, 010,
-011, 012, 013, 014 and 015 next, one file at a time, in that order, and don't stop part way. The
+011, 012, 013, 014, 015, 016 and 017 next, one file at a time, in that order, and don't stop part way. The
 website's species pages (add, edit and delete) and its public pages need 007, and 007 stops on its
 first line if 006 isn't there. Until then the public pages say "This page didn't load". Without
 009 the plant pages show no photos. Without 010 a phone that hadn't synced a record can upload it
@@ -40,8 +42,17 @@ stops on its first line if 012 isn't there. Without 014 the website finds a reco
 `submitted_by`, so they're lost when the account that sent it is deleted. 014 stops on its first
 line if 013 isn't there. Without 015 the first save of a threatened or protected species can say
 its place on the public map changed when it didn't. 015 stops on its first line if 014 isn't there.
+Without 016 the Sensors page and the overview say the database hasn't been set up for sensors, and
+the staff menu has no badge, but the other pages aren't affected. 016 stops on its first line if
+015 isn't there. Without 017 the Devices page works and the Sensors page says the same. 017 stops
+on its first line if 016 isn't there.
 003 is fine to run even if it turns out to be there already. The history only starts once 013 is
 in, so changes made before that aren't in it.
+
+The sensor steps are 016 and 017, after 015. Then an admin opens **Sensors**, then **Devices**, adds
+each edge device, links its nodes and makes it a token. [`iot/README.md`](../iot/README.md) has the
+rest. The numbers in `iot_alert_limits` are starting values to tune, and nobody has tried them in
+the field.
 
 Before running 004, open the `profiles` table in the Table Editor and check every role there is
 one an admin gave on purpose. Set any you don't recognise back to `visitor`. If nobody needs to
@@ -145,7 +156,8 @@ npm test
   website does (item 18), `tests/report-counts.test.js` checks 012 (item 21),
   `tests/history.test.js` checks 013 (items 17 and 18), `tests/photo-folder.test.js` checks
   014 (item 18), `tests/downloads.test.js` checks 011, `tests/species-rough.test.js` checks 015
-  (item 19), and `tests/phone-reads.test.js` checks what the phone reads back when it syncs (item 10).
+  (item 19), `tests/phone-reads.test.js` checks what the phone reads back when it syncs (item 10),
+  and `tests/iot.test.js` checks 016, 017 and the node simulator (items 28, 29 and 31).
 - `tests/stand-in.js` is a stand-in for our Supabase project that runs on your computer, for
   trying the website without a real project. The
   [web README](../web/README.md#trying-sign-in-without-a-supabase-project) says how, and
@@ -157,8 +169,10 @@ npm test
   password is `TEST_PASSWORD` in `stand-in.js` and only works there. `STAND_IN_PORT` changes the
   port, `STAND_IN_TOKEN_SECONDS` makes a sign in run out sooner, to try refreshing, and
   `STAND_IN_MAX_ROWS` sends fewer rows per read than the usual 1000 (Max rows on Supabase), to
-  try the website reading a long list in pages. It only listens on 127.0.0.1, so other computers
-  can't reach it.
+  try the website reading a long list in pages. `STAND_IN_SQL_THROUGH=015` leaves out the SQL files
+  after 015, to try the website on a database that's behind. With 016 in, it also adds a made up
+  edge device, `NNP-EDGE-01`, with the three sample nodes on it, so the node simulator works with
+  nothing to set up. It only listens on 127.0.0.1, so other computers can't reach it.
 - `tests/stand-in.test.js` checks the stand-in answers like Supabase for the calls the website
   makes, so `npm test` runs it too.
 - PGlite runs Postgres 18.3 and Supabase projects run 15 or 17, so don't use anything newer than

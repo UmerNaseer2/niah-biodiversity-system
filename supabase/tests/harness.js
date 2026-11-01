@@ -25,6 +25,8 @@ export const SQL_FILES = [
   '013_edit_history.sql',
   '014_photo_folder.sql',
   '015_species_rough_area.sql',
+  '016_iot_readings.sql',
+  '017_iot_alerts.sql',
 ];
 
 export function readSql(file) {

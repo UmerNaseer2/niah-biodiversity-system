@@ -1,48 +1,158 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { Icon } from "@/components/icon";
-import type { SensorAlert } from "@/data/sensors";
 import { ALERT_LEVEL } from "@/lib/alert-level";
+import type { AlertSeverity, AlertStatus } from "@/lib/iot";
+import { acknowledgeAlert, resolveAlert, type SensorResult } from "./actions";
 
 export type AlertItem = {
-  id: string;
-  sensorId: string;
-  plot: string;
-  level: SensorAlert["level"];
+  id: number;
+  nodeId: string;
+  nodeName: string;
+  severity: AlertSeverity;
+  status: AlertStatus;
   title: string;
-  detail: string;
-  at: string;
+  means: string;
+  todo: string;
+  reading: string | null;
+  /** "Started 2 Oct, 2:14 am, last seen 5 minutes ago, 12 times" */
+  seen: string;
+  /** "Acknowledged by Aina Officer, 2 Oct, 2:20 am" */
+  handled: string | null;
 };
 
-export function AlertList({ alerts }: { alerts: AlertItem[] }) {
-  const [acknowledged, setAcknowledged] = useState<string[]>([]);
-  const [announcement, setAnnouncement] = useState("");
-  const [focusRequest, setFocusRequest] = useState<{ elementId: string } | null>(
-    null,
-  );
+function ask(request: Promise<SensorResult>): Promise<SensorResult> {
+  return request.catch(() => ({
+    ok: false,
+    message: "The server didn’t answer, so nothing changed. Check your connection and try again.",
+  }));
+}
 
-  useEffect(() => {
-    if (focusRequest) document.getElementById(focusRequest.elementId)?.focus();
-  }, [focusRequest]);
+function AlertRow({
+  alert,
+  onDone,
+}: {
+  alert: AlertItem;
+  onDone: (alert: AlertItem, resolved: boolean) => void;
+}) {
+  const [pending, startTransition] = useTransition();
+  const [problem, setProblem] = useState<string | null>(null);
 
-  const open = alerts.filter((a) => !acknowledged.includes(a.id));
-  const done = alerts.filter((a) => acknowledged.includes(a.id));
-
-  function acknowledge(alert: AlertItem) {
-    const index = open.findIndex((a) => a.id === alert.id);
-    const rest = open.filter((a) => a.id !== alert.id);
-    const next = rest[index] ?? rest[index - 1];
-
-    setAcknowledged((current) => [...current, alert.id]);
-    setAnnouncement(`Acknowledged: ${alert.title}.`);
-    setFocusRequest({ elementId: next ? `alert-${next.id}` : "alerts-clear" });
+  function run(request: () => Promise<SensorResult>, resolved: boolean) {
+    setProblem(null);
+    startTransition(async () => {
+      const result = await ask(request());
+      if (result.ok) onDone(alert, resolved);
+      else setProblem(result.message);
+    });
   }
 
-  function undo(alert: AlertItem) {
-    setAcknowledged((current) => current.filter((id) => id !== alert.id));
-    setAnnouncement(`${alert.title} is back in open alerts.`);
-    setFocusRequest({ elementId: `alert-${alert.id}` });
+  return (
+    <li
+      className={`flex flex-col gap-4 rounded-xl border border-l-4 border-line bg-sheet p-4 sm:flex-row sm:items-start sm:justify-between ${
+        alert.severity === "urgent" ? "border-l-bad" : "border-l-pencil"
+      }`}
+    >
+      <div className="min-w-0">
+        <p className="flex flex-wrap items-center gap-2 text-sm">
+          <span
+            className={`rounded-full px-2 py-px text-xs font-bold ${ALERT_LEVEL[alert.severity].badge}`}
+          >
+            {ALERT_LEVEL[alert.severity].label}
+          </span>
+          <span className="font-mono font-bold text-ink">{alert.nodeId}</span>
+          <span className="text-moss">{alert.nodeName}</span>
+        </p>
+        <h3 id={`alert-${alert.id}`} tabIndex={-1} className="mt-2 font-bold">
+          {alert.title}
+        </h3>
+        <p className="mt-1 max-w-2xl text-sm">{alert.means}</p>
+        {alert.reading && <p className="mt-1 text-sm font-bold">{alert.reading}</p>}
+        <p className="mt-2 max-w-2xl text-sm">
+          <span className="font-bold">What to do: </span>
+          {alert.todo}
+        </p>
+        <p className="mt-2 text-sm text-moss">{alert.seen}</p>
+        {alert.handled && (
+          <p className="mt-1 flex items-start gap-1.5 text-sm font-bold text-ok">
+            <Icon name="check" className="mt-0.5 size-4 shrink-0" />
+            {alert.handled}
+          </p>
+        )}
+        {problem && (
+          <p role="alert" className="mt-2 flex items-start gap-1.5 text-sm font-bold text-bad">
+            <Icon name="alert" className="mt-0.5 size-4 shrink-0" />
+            {problem}
+          </p>
+        )}
+      </div>
+
+      <div className="flex shrink-0 flex-wrap gap-2 sm:flex-col sm:items-stretch">
+        {alert.status === "open" && (
+          <button
+            type="button"
+            disabled={pending}
+            className="btn btn-secondary"
+            onClick={() => run(() => acknowledgeAlert(alert.id), false)}
+          >
+            <Icon name="check" className="size-4" />
+            {pending ? "Saving…" : "Acknowledge"}
+            <span className="sr-only">: {alert.title} on {alert.nodeId}</span>
+          </button>
+        )}
+        <button
+          type="button"
+          disabled={pending}
+          className="btn btn-secondary"
+          onClick={() => run(() => resolveAlert(alert.id), true)}
+        >
+          {pending ? "Saving…" : "Resolve"}
+          <span className="sr-only">: {alert.title} on {alert.nodeId}</span>
+        </button>
+      </div>
+    </li>
+  );
+}
+
+export function AlertList({ alerts }: { alerts: AlertItem[] }) {
+  const [announcement, setAnnouncement] = useState("");
+  // The new list can arrive from the server just after the button's answer, so this keeps trying on
+  // each draw until the place to move focus to is on the page.
+  const wantFocus = useRef<string | null>(null);
+  useEffect(() => {
+    const target = wantFocus.current && document.getElementById(wantFocus.current);
+    if (target) {
+      target.focus();
+      wantFocus.current = null;
+    }
+  });
+
+  // Reads out a new alert that comes in while someone has the page open with a screen reader. The
+  // timer redraws this list quietly, so nothing else would tell them.
+  const ids = alerts.map((alert) => alert.id).join(",");
+  const [seenIds, setSeenIds] = useState(ids);
+  if (ids !== seenIds) {
+    const before = new Set(seenIds.split(","));
+    const fresh = alerts.filter((alert) => !before.has(String(alert.id)));
+    setSeenIds(ids);
+    if (fresh.length > 0) {
+      setAnnouncement(
+        `New alert: ${fresh.map((alert) => `${alert.title} on ${alert.nodeId}, ${ALERT_LEVEL[alert.severity].label}`).join(". ")}`,
+      );
+    }
+  }
+
+  function onDone(alert: AlertItem, resolved: boolean) {
+    setAnnouncement(`${alert.title} on ${alert.nodeId} ${resolved ? "resolved" : "acknowledged"}.`);
+    if (!resolved) {
+      wantFocus.current = `alert-${alert.id}`;
+      return;
+    }
+    const left = alerts.filter((other) => other.id !== alert.id);
+    const index = alerts.findIndex((other) => other.id === alert.id);
+    const next = left[Math.min(index, left.length - 1)];
+    wantFocus.current = next ? `alert-${next.id}` : "alerts-clear";
   }
 
   return (
@@ -50,8 +160,7 @@ export function AlertList({ alerts }: { alerts: AlertItem[] }) {
       <p role="status" className="sr-only">
         {announcement}
       </p>
-
-      {open.length === 0 ? (
+      {alerts.length === 0 ? (
         <div className="card mt-4 flex items-center gap-4 p-5">
           <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-ok-soft text-ok">
             <Icon name="check" />
@@ -60,84 +169,15 @@ export function AlertList({ alerts }: { alerts: AlertItem[] }) {
             <h3 id="alerts-clear" tabIndex={-1} className="font-bold">
               No open alerts
             </h3>
-            <p className="text-sm text-moss">
-              New ones show up here and in the staff menu.
-            </p>
+            <p className="text-sm text-moss">New ones show up here and in the staff menu.</p>
           </div>
         </div>
       ) : (
         <ul className="mt-4 space-y-3">
-          {open.map((alert) => (
-            <li
-              key={alert.id}
-              className={`flex flex-col gap-4 rounded-xl border border-l-4 border-line bg-sheet p-4 sm:flex-row sm:items-start sm:p-5 ${
-                alert.level === "urgent" ? "border-l-bad" : "border-l-pencil"
-              }`}
-            >
-              <div className="min-w-0 flex-1">
-                <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-moss">
-                  <span
-                    className={`rounded-full px-2 py-px text-xs font-bold ${ALERT_LEVEL[alert.level].badge}`}
-                  >
-                    {ALERT_LEVEL[alert.level].label}
-                  </span>
-                  <span className="font-mono font-bold text-ink">{alert.sensorId}</span>
-                  <span>
-                    {alert.plot} · {alert.at}
-                  </span>
-                </p>
-                <h3
-                  id={`alert-${alert.id}`}
-                  tabIndex={-1}
-                  className="mt-2 font-bold"
-                >
-                  {alert.title}
-                </h3>
-                <p className="mt-1 max-w-2xl text-sm text-moss">{alert.detail}</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => acknowledge(alert)}
-                className="btn btn-secondary self-start"
-              >
-                <Icon name="check" className="size-4" />
-                Acknowledge
-                <span className="sr-only">: {alert.title}</span>
-              </button>
-            </li>
+          {alerts.map((alert) => (
+            <AlertRow key={alert.id} alert={alert} onDone={onDone} />
           ))}
         </ul>
-      )}
-
-      {done.length > 0 && (
-        <div className="mt-6">
-          <h3 className="text-sm font-bold text-moss">
-            Acknowledged in this session
-          </h3>
-          <ul className="mt-2 divide-y divide-line rounded-xl border border-line bg-sheet">
-            {done.map((alert) => (
-              <li
-                key={alert.id}
-                className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3"
-              >
-                <Icon name="check" className="size-4 text-ok" />
-                <p className="min-w-0 flex-1 text-sm">
-                  <span className="font-bold">{alert.title}</span>
-                  <span className="text-moss"> · {alert.at}</span>
-                </p>
-                <button
-                  type="button"
-                  onClick={() => undo(alert)}
-                  className="btn btn-secondary"
-                >
-                  <Icon name="undo" className="size-4" />
-                  Undo
-                  <span className="sr-only"> acknowledging {alert.title}</span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        </div>
       )}
     </>
   );

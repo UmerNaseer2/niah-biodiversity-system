@@ -57,6 +57,11 @@ export function parkNow() {
   return parkTime(new Date().toISOString());
 }
 
+/** The clock in milliseconds, for working out how long ago something was. Same rule as parkNow. */
+export function clockNow() {
+  return Date.now();
+}
+
 function parts(iso: string) {
   const match = /^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2}))?/.exec(iso);
   if (!match) throw new Error(`Not a date: ${iso}`);
@@ -88,6 +93,12 @@ export function formatTime(iso: string) {
   const { hour, minute } = parts(iso);
   const twelveHour = hour % 12 === 0 ? 12 : hour % 12;
   return `${twelveHour}:${String(minute).padStart(2, "0")} ${hour < 12 ? "am" : "pm"}`;
+}
+
+/** 2:14:05 am, from the clock in milliseconds */
+export function formatSeconds(ms: number) {
+  const iso = new Date(ms + PARK_OFFSET_MS).toISOString();
+  return formatTime(iso).replace(" ", `:${iso.slice(17, 19)} `);
 }
 
 /** 2 Oct, 2:14 am */

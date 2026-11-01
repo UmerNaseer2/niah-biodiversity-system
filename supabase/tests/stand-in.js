@@ -9,15 +9,22 @@
 //
 // Everything is in memory, so stopping it throws it all away. Never put real data in it.
 // web/README.md says how to run the website against it.
-import { createHmac, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
+import { createHash, createHmac, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import { createServer } from 'node:http';
 import { pathToFileURL } from 'node:url';
-import { asUser, newDatabase } from './harness.js';
+import { asUser, newDatabase, SQL_FILES } from './harness.js';
 
 /** The anon key the website uses with the stand-in. It only works here. */
 export const ANON_KEY = 'stand-in-anon-key';
 // Only the website's server has this one, for inviting and deactivating people through Supabase Auth
 export const SERVICE_KEY = 'stand-in-service-key';
+
+/**
+ * A made up edge device with the three sample nodes on it, so iot/node-simulator works with no
+ * setup. The token only works here. A real one comes from the Devices page.
+ */
+export const TEST_DEVICE_ID = 'NNP-EDGE-01';
+export const TEST_DEVICE_TOKEN = 'stand-in-device-token';
 
 /** Every test account uses this password. It only works on the stand-in. */
 export const TEST_PASSWORD = 'niah-stand-in';
@@ -137,9 +144,13 @@ export async function startStandIn({
   tokenSeconds = 3600,
   maxRows = 1000,
   log = console.log,
+  // The last SQL file to run, like '015', to try the website before the newer files are on hosted
+  sqlThrough = null,
 } = {}) {
-  const db = await newDatabase();
+  const sqlFiles = sqlThrough ? SQL_FILES.filter((file) => file.slice(0, 3) <= sqlThrough) : SQL_FILES;
+  const db = await newDatabase(sqlFiles);
   await addTestData(db);
+  if (sqlFiles.includes('016_iot_readings.sql')) await addTestDevice(db);
 
   // The API's schema cache: the columns of every table and view in public
   const columns = new Map();
@@ -202,6 +213,19 @@ export async function startStandIn({
       await db.close();
     },
   };
+}
+
+async function addTestDevice(db) {
+  await db.query('INSERT INTO public.iot_devices (device_id, name, zone) VALUES ($1, $2, $3)', [
+    TEST_DEVICE_ID,
+    'Stand-in edge device',
+    'Made up region',
+  ]);
+  await db.query('INSERT INTO public.iot_device_tokens (device_id, token_hash) VALUES ($1, $2)', [
+    TEST_DEVICE_ID,
+    createHash('sha256').update(TEST_DEVICE_TOKEN).digest(),
+  ]);
+  await db.query('UPDATE public.iot_nodes SET edge_device_id = $1', [TEST_DEVICE_ID]);
 }
 
 async function addTestData(db) {
@@ -1271,8 +1295,8 @@ async function signLinks(res, { bucket }, body, asker, ctx) {
 }
 
 // `npm run stand-in` runs this. STAND_IN_PORT changes the port, STAND_IN_TOKEN_SECONDS makes a
-// sign in run out sooner, to try refreshing, and STAND_IN_MAX_ROWS sends fewer rows per read, to
-// try reading a long list in pages.
+// sign in run out sooner, to try refreshing, STAND_IN_MAX_ROWS sends fewer rows per read, to try
+// reading a long list in pages, and STAND_IN_SQL_THROUGH=015 leaves out the SQL files after 015.
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const port = Number(process.env.STAND_IN_PORT || 54321);
   const tokenSeconds = Number(process.env.STAND_IN_TOKEN_SECONDS || 3600);
@@ -1285,7 +1309,8 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     );
     process.exit(1);
   }
-  const standIn = await startStandIn({ port, tokenSeconds, maxRows });
+  const sqlThrough = process.env.STAND_IN_SQL_THROUGH || null;
+  const standIn = await startStandIn({ port, tokenSeconds, maxRows, sqlThrough });
   console.log(`Supabase stand-in running on ${standIn.url}, with the anon key ${ANON_KEY}`);
   console.log('Test accounts (the password is TEST_PASSWORD in stand-in.js):');
   for (const user of TEST_USERS) console.log(`  ${user.email}  ${user.role ?? 'no profile'}`);
