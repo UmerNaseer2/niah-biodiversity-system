@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
-import { getSession } from "@/lib/auth";
+import { getSession, SERVICE_DOWN } from "@/lib/auth";
 import { DB_ROLE_LABEL, type DbRole } from "@/lib/roles";
 import { authWithServiceKey } from "@/lib/supabase/admin";
 import { authConfigured } from "@/lib/supabase/config";
@@ -15,6 +15,18 @@ import {
 } from "@/lib/users";
 
 export type UsersResult = { ok: boolean; message: string };
+
+/** Why the database refused a role change, or null if something else failed */
+function whyRoleRefused(error: { code?: string }) {
+  if (error.code === "42501") {
+    return "The database didn’t let your account change this role. Reload the page to check you’re still an administrator.";
+  }
+  // keep_one_admin, when another administrator took a role away at that moment
+  if (error.code === "P0001") {
+    return "That would leave nobody as an administrator, so nothing was changed.";
+  }
+  return null;
+}
 
 const TRY_AGAIN = "Nothing was changed. Try again, and if it keeps happening, check the server’s logs.";
 const NEEDS_KEY =
@@ -31,6 +43,7 @@ async function adminOnly(): Promise<{ id: string } | { message: string }> {
   if (session.status === "signed-out") {
     return { message: "You’re signed out. Sign in again, then try that again." };
   }
+  if (session.status === "unavailable") return { message: SERVICE_DOWN };
   if (session.status !== "ok" || session.role !== "admin") {
     return { message: "Only administrators can manage accounts." };
   }
@@ -67,7 +80,7 @@ export async function changeRole(input: unknown): Promise<UsersResult> {
   const checked = checkRoleChange(input);
   if (!checked.ok) return checked;
   const { id, from, to } = checked.value;
-  // There's always one administrator left, the one who's doing this
+  // The database makes sure one administrator is always left (supabase/021)
   if (id === admin.id) {
     return {
       ok: false,
@@ -84,12 +97,8 @@ export async function changeRole(input: unknown): Promise<UsersResult> {
     .select("id");
 
   if (error) {
-    if (error.code === "42501") {
-      return {
-        ok: false,
-        message: "The database didn’t let your account change this role. Reload the page to check you’re still an administrator.",
-      };
-    }
+    const refused = whyRoleRefused(error);
+    if (refused) return { ok: false, message: refused };
     console.error("Changing a role failed:", error.code, error.message);
     return { ok: false, message: TRY_AGAIN };
   }
@@ -188,6 +197,8 @@ export async function setAccountActive(input: unknown): Promise<UsersResult> {
     .eq("id", id)
     .select("id");
   if (demoted.error) {
+    const refused = whyRoleRefused(demoted.error);
+    if (refused) return { ok: false, message: refused };
     console.error("Removing a role failed:", demoted.error.code, demoted.error.message);
     return { ok: false, message: TRY_AGAIN };
   }

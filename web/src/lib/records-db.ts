@@ -140,6 +140,9 @@ export async function getRecentPublished(limit = 4): Promise<PublicRecord[]> {
     .select(COLUMNS)
     .eq("status", "published")
     .order("recorded_at", { ascending: false })
+    // Hidden plants all get midnight, so on a day this keeps them from
+    // following whatever order the database feels like
+    .order("id")
     .limit(limit);
   if (error) throw new Error(`Couldn't load the newest records: ${error.message}`);
   return data.map(fromRow);

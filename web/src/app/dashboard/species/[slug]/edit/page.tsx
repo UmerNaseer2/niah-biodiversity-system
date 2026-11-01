@@ -66,9 +66,6 @@ export default async function EditSpeciesPage({
   if (!data) notFound();
 
   const species = speciesFromRow(data);
-  // The about column on its own. Species falls back to the description when
-  // it's empty, and saving shouldn't copy that across.
-  const about = typeof data.about === "string" ? data.about : "";
   const name = species.commonNames[0] ?? species.scientificName;
   const history = await loadHistory(supabase, "species", slug);
 
@@ -83,7 +80,7 @@ export default async function EditSpeciesPage({
       <SpeciesForm
         mode="edit"
         slug={slug}
-        initial={valuesFromSpecies(species, about)}
+        initial={valuesFromSpecies(species)}
         photo={mainPhoto(species.photos)?.smallSrc ?? null}
         version={String(data.updated_at ?? "")}
       />

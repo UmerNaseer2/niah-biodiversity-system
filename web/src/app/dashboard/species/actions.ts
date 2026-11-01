@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import sharp from "sharp";
-import { getSession } from "@/lib/auth";
+import { getSession, SERVICE_DOWN } from "@/lib/auth";
 import {
   changedBeforeDelete,
   changedBySomeoneElse,
@@ -85,7 +85,8 @@ async function whyNotAllowed(doing: string) {
   if (session.status === "signed-out") {
     return `You’re signed out. Sign in again, then ${doing}.`;
   }
-  if (session.status === "no-access") {
+  if (session.status === "unavailable") return SERVICE_DOWN;
+  if (session.status !== "ok") {
     return "Only conservation officers and administrators can change species.";
   }
   return null;
@@ -229,12 +230,27 @@ export async function deleteSpecies(
   // Only the species the page showed is deleted. If someone saved it since,
   // the page may be out of date, so nothing is deleted.
   const supabase = await createClient();
+
+  // Its uploaded photos go first. A public link works until its file is gone,
+  // so a file that won't delete stops this while it can still be tried again.
+  let shown = supabase.from("species").select("photos").eq("id", slug);
+  if (version) {
+    const { from, to } = versionRange(version);
+    shown = shown.gte("updated_at", from).lt("updated_at", to);
+  }
+  const before = await shown.maybeSingle();
+  if (before.error) {
+    return { status: "error", message: messageFor(before.error.code, before.error.message, "delete species") };
+  }
+  const notDeleted = await deleteFiles(supabase, slug, uploadedPaths(before.data?.photos, slug));
+  if (notDeleted) return { status: "error", message: notDeleted };
+
   let query = supabase.from("species").delete().eq("id", slug);
   if (version) {
     const { from, to } = versionRange(version);
     query = query.gte("updated_at", from).lt("updated_at", to);
   }
-  const { data, error } = await query.select("scientific_name, photos");
+  const { data, error } = await query.select("scientific_name");
 
   if (error) {
     return { status: "error", message: messageFor(error.code, error.message, "delete species") };
@@ -248,16 +264,6 @@ export async function deleteSpecies(
     };
   }
 
-  // Its uploaded photos go too. The species is already gone, so a file that
-  // won't delete only gets logged.
-  const paths = uploadedPaths(data[0].photos, slug);
-  if (paths.length > 0) {
-    const removed = await supabase.storage.from(PHOTO_BUCKET).remove(paths);
-    if (removed.error) {
-      console.error("Couldn't delete a deleted species' photos:", slug, removed.error.message);
-    }
-  }
-
   refreshSpeciesPages();
   // Back to the list, which says what was deleted
   redirect(
@@ -269,6 +275,36 @@ export async function deleteSpecies(
 function uploadedPaths(photos: unknown, slug: string) {
   if (!Array.isArray(photos)) return [];
   return photos.flatMap((photo) => storedFiles(photo, slug));
+}
+
+/**
+ * Deletes a species' files from the public bucket. Gives a message if any are
+ * still there, or null when they're gone. Storage gives no error when a policy
+ * stops a delete, only a shorter list, and a file can also have gone in an
+ * earlier try. So a short list is checked against what's in the folder.
+ */
+async function deleteFiles(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  slug: string,
+  paths: string[],
+) {
+  if (paths.length === 0) return null;
+  const removed = await supabase.storage.from(PHOTO_BUCKET).remove(paths);
+  if (!removed.error && removed.data.length === paths.length) return null;
+
+  const listed = await supabase.storage
+    .from(PHOTO_BUCKET)
+    .list(`species/${slug}`, { limit: 1000 });
+  const names = new Set(listed.data?.map((file) => file.name));
+  if (!listed.error && !paths.some((path) => names.has(path.split("/").pop() ?? ""))) {
+    return null;
+  }
+  console.error(
+    "Couldn't delete a photo's files:",
+    paths[0],
+    removed.error?.message ?? listed.error?.message ?? "still in the folder",
+  );
+  return "The photo’s file couldn’t be deleted, so nothing was changed and its public link still works. Try again in a minute.";
 }
 
 /**
@@ -510,6 +546,13 @@ export async function managePhoto(
     return failed("That photo isn’t there any more. Someone may have removed it. Reload the page.");
   }
 
+  // The file goes before the list changes. Its public link works until it's
+  // gone, so nobody hears the photo was removed while it's still out there.
+  if (intent === "remove") {
+    const notDeleted = await deleteFiles(supabase, slug, uploadedPaths([before[index]], slug));
+    if (notDeleted) return failed(notDeleted);
+  }
+
   const after =
     intent === "main"
       ? before.map((photo, i) => ({ ...(photo as object), isPrimary: i === index }))
@@ -520,18 +563,6 @@ export async function managePhoto(
         : before.filter((_, i) => i !== index);
   const problem = await savePhotos(supabase, slug, before, after, doing.what);
   if (problem) return failed(problem);
-
-  if (intent === "remove") {
-    // The page doesn't show it any more either way, so a file that won't
-    // delete only gets logged
-    const paths = uploadedPaths([before[index]], slug);
-    if (paths.length > 0) {
-      const removed = await supabase.storage.from(PHOTO_BUCKET).remove(paths);
-      if (removed.error) {
-        console.error("Couldn't delete a removed photo's file:", paths[0], removed.error.message);
-      }
-    }
-  }
 
   refreshSpeciesPages();
   return { status: "done", message: doing.done, done: `${intent}-${key}-${Date.now()}` };

@@ -2,12 +2,18 @@ import type { Metadata } from "next";
 import { Icon } from "@/components/icon";
 import { PageHeader } from "@/components/page-header";
 import { requireStaff } from "@/lib/auth";
-import { formatDateTime } from "@/lib/format";
+import { formatDateTime, parkTime } from "@/lib/format";
+import { sqlIsMissing } from "@/lib/iot-db";
 import { DB_ROLE_LABEL, type DbRole } from "@/lib/roles";
 import { adminConfigured, authWithServiceKey } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { accountState } from "@/lib/users";
 import { People, type Person } from "./people";
+import {
+  ROLE_CHANGES_SHOWN,
+  RoleChanges,
+  type RoleChangeList,
+} from "./role-changes";
 
 export const metadata: Metadata = { title: "Users and roles" };
 
@@ -103,14 +109,43 @@ async function loadPeople(you: string) {
   return { people, accountsKnown: accounts !== null };
 }
 
+/** The newest role changes, read as the admin signed in (supabase/021) */
+async function loadRoleChanges(): Promise<RoleChangeList> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("role_changes")
+    .select("id, changed_at, user_name, user_email, old_role, new_role, changed_by_name")
+    .order("changed_at", { ascending: false })
+    .order("id", { ascending: false })
+    .limit(ROLE_CHANGES_SHOWN);
+  if (sqlIsMissing(error)) return { status: "not-set-up" };
+  if (error) {
+    console.error("Loading the role changes failed:", error.message);
+    return { status: "failed" };
+  }
+  return {
+    status: "ok",
+    changes: data.map((row) => ({
+      id: Number(row.id),
+      changedAt: parkTime(String(row.changed_at)),
+      userName: String(row.user_name),
+      userEmail: String(row.user_email),
+      oldRole: String(row.old_role),
+      newRole: row.new_role ? String(row.new_role) : null,
+      changedBy: row.changed_by_name ? String(row.changed_by_name) : null,
+    })),
+  };
+}
+
 export default async function UsersPage() {
   const session = await requireStaff();
   if (!session) return null;
 
   const isAdmin = session.role === "admin";
-  const { people, accountsKnown } = isAdmin
-    ? await loadPeople(session.id)
-    : { people: null, accountsKnown: false };
+  const [{ people, accountsKnown }, roleChanges] = await Promise.all([
+    isAdmin ? loadPeople(session.id) : { people: null, accountsKnown: false },
+    isAdmin ? loadRoleChanges() : null,
+  ]);
 
   return (
     <div className="space-y-12">
@@ -140,6 +175,8 @@ export default async function UsersPage() {
             happening, check the database is up to date (supabase/README.md).
           </p>
         ))}
+
+      {roleChanges && <RoleChanges list={roleChanges} />}
 
       <section aria-labelledby="roles-heading">
         <h2 id="roles-heading" className="text-xl font-bold tracking-tight">

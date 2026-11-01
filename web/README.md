@@ -133,15 +133,17 @@ planned for, so it's clear what's real during the demo. The item numbers match t
   data, screenshots or anything public.
 - Public pages query the `species_public` and `records_public` views, never the tables.
   `records_public` only gives the exact spot of a plant whose species is LC or NT, isn't protected
-  in Sarawak and isn't marked rough area only. Every other plant, including one the field team
-  hasn't matched to a species yet, only gets the middle of its grid square (007). Keep the exact
+  in Sarawak and isn't marked rough area only, and whose name matches the species it's linked to.
+  Every other plant, including one the field team hasn't matched to a species yet, only gets the
+  middle of its grid square and the day it was recorded, not the time (007, 019). Keep the exact
   spots of threatened and protected plants in server-only staff workflows, and never select them
   into a public page response.
 - The pages use the same rule, `showsExactSpot()` in `src/lib/iucn.ts` (through `hidesLocation()`
-  in `src/data/species.ts`), so a plant the view hides is never drawn as an exact dot. For those
-  plants the server snaps the point to a 0.004 degree grid square (about 440 m at Niah) in
-  `src/lib/geo.ts` before it sends the page, so the exact point never reaches the browser, even
-  with the sample data. Keep it that way on every public page.
+  and `recordHidesLocation()` in `src/data/species.ts`, which also checks the name), so a plant the
+  view hides is never drawn as an exact dot. For those plants the server snaps the point to a
+  0.004 degree grid square (about 440 m at Niah) in `src/lib/geo.ts` before it sends the page, so
+  the exact point never reaches the browser, even with the sample data. Keep it that way on every
+  public page.
 - Client components (files starting with `"use client"`) only import from `src/lib` and
   `src/components`, never from `src/data`, because anything they import gets sent to the browser.
   `import type` from `src/data` is fine since types disappear at build time. The map is a client
@@ -178,8 +180,9 @@ planned for, so it's clear what's real during the demo. The item numbers match t
   change once it's added, because its public page link and its records use it.
 - The record form checks live in `src/lib/record-form.ts` the same way, and follow the mobile app's
   rules for height and notes. Editing a record never changes its status, tag or who uploaded it, and
-  a published record stays published. Deleting one can't be undone and its tag stops working, and
-  a phone that hasn't synced the record yet uploads it again (`docs/sync-design.md`).
+  a published record stays published. Deleting one can't be undone on the website and its tag stops
+  working. A phone that hasn't synced the record yet can't bring it back, because the database turns
+  that upload down (010, `docs/sync-design.md`).
 - Species photos are uploaded on the species edit page (item 18) into the public `botanical-photos`
   bucket. The server action turns each one into a JPEG up to 1600 pixels across with `sharp` and
   leaves out the EXIF data, because a phone can save where a photo was taken in the file. It also
@@ -192,6 +195,9 @@ planned for, so it's clear what's real during the demo. The item numbers match t
   public page.
 - Photos are plain `<img>` tags, not `next/image`, because the image optimizer won't fetch from
   a local address like the stand-in's.
+- Login cookies are set in `src/lib/supabase/config.ts`. Page scripts can't read them, a production
+  build only sends them over https, and they last 12 hours from the last session refresh. Safari
+  won't keep them on `http://localhost` after `npm start`, so try a production build in Chrome.
 - Dates are formatted by hand in `src/lib/format.ts`, so the server and the browser print the same
   thing. Don't call `new Date()` or `Date.now()` while a page renders. In a client component it
   causes hydration errors, and in a server component that doesn't read the cookies the date gets

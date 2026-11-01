@@ -14,7 +14,7 @@ import {
 } from "@/components/plant-bits";
 import { PhotoGallery } from "@/components/photo-gallery";
 import { ParkMap } from "@/components/park-map";
-import { hidesLocation } from "@/data/species";
+import { hidesLocation, recordHidesLocation } from "@/data/species";
 import { formatDate, plural } from "@/lib/format";
 import { roughAreas } from "@/lib/geo";
 import { IUCN } from "@/lib/iucn";
@@ -56,11 +56,20 @@ export default async function PlantPage({
   const tagged = await getPublishedRecordsForSpecies(plant.slug);
 
   // For a hidden species records_public (and the sample data) only gives the
-  // middle of each grid square, and the map only gets the squares.
+  // middle of each grid square, and the map only gets the squares. A record
+  // whose name disagrees with this species gets the same treatment.
   const located = tagged.flatMap((r) =>
-    r.gps ? [{ id: r.tagCode, lat: r.gps.lat, lng: r.gps.lng }] : [],
+    r.gps
+      ? [{
+          id: r.tagCode,
+          lat: r.gps.lat,
+          lng: r.gps.lng,
+          rough: recordHidesLocation(r.speciesName, plant),
+        }]
+      : [],
   );
-  const areas = hidden ? roughAreas(located) : [];
+  const areas = roughAreas(located.filter((p) => p.rough));
+  const points = located.filter((p) => !p.rough);
 
   // A species added on the website has no habitat or uses yet (the form
   // doesn't ask for them), so a section with nothing in it is left out.
@@ -266,22 +275,20 @@ export default async function PlantPage({
                     id="species-map"
                     title={`Map of where ${name} has been tagged`}
                     description={
-                      !hidden
+                      points.length > 0
                         ? `A map of the park around park HQ with a dot for each tagged ${name}. Each dot is a link to its tag page.`
                         : areas.length === 1
                           ? `A map of the park around park HQ. The shaded square marks the rough area, about 440 m across, that holds the tagged ${name}. The exact spot is not shown.`
                           : `A map of the park around park HQ. The shaded squares mark the rough areas, each about 440 m across, that hold the tagged ${name}. The exact spots are not shown.`
                     }
                     areas={areas}
-                    points={
-                      hidden
-                        ? []
-                        : located.map((p) => ({
-                            ...p,
-                            label: p.id,
-                            link: { href: `/tag/${p.id}`, text: `Tag ${p.id}` },
-                          }))
-                    }
+                    points={points.map(({ id, lat, lng }) => ({
+                      id,
+                      lat,
+                      lng,
+                      label: id,
+                      link: { href: `/tag/${id}`, text: `Tag ${id}` },
+                    }))}
                     className="mt-8"
                   />
                 )}

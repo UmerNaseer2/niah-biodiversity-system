@@ -11,11 +11,14 @@ import {
 } from "react";
 import { Icon } from "@/components/icon";
 import { CONDITION_LABEL } from "@/lib/condition";
+import { versionFromFormData } from "@/lib/edit-version";
+import { NO_ANSWER, answerOnFailure } from "@/lib/keep-form";
 import {
   CONDITIONS,
   FIELD_ORDER,
   MAX,
   checkRecord,
+  valuesFromFormData,
   type Errors,
   type FieldId,
   type Values,
@@ -23,6 +26,18 @@ import {
 import { editRecord, type RecordFormState } from "./actions";
 
 const INITIAL: RecordFormState = { status: "idle" };
+
+// How the form saves with JavaScript, so a failed request keeps what was typed
+const sendRecord = answerOnFailure(
+  editRecord,
+  (formData): RecordFormState => ({
+    status: "error",
+    message: NO_ANSWER,
+    fieldErrors: {},
+    values: valuesFromFormData(formData),
+    version: versionFromFormData(formData),
+  }),
+);
 
 function FieldError({ id, message }: { id: string; message?: string }) {
   if (!message) return null;
@@ -49,7 +64,9 @@ const OPTIONAL = <span className="font-normal text-moss"> (optional)</span>;
 type Props = { id: string; tag: string; initial: Values; version: string };
 
 export function RecordForm({ id, tag, initial, version: loadedVersion }: Props) {
-  const [state, formAction, pending] = useActionState(editRecord, INITIAL);
+  const [posted, formAction] = useActionState(editRecord, INITIAL);
+  const [sent, sendAction, pending] = useActionState(sendRecord, INITIAL);
+  const state = sent === INITIAL ? posted : sent;
   // Without JavaScript the browser posts the form itself, and the page comes
   // back with the server's answer as the first state, so it starts from that
   const [values, setValues] = useState<Values>(() => {
@@ -119,7 +136,7 @@ export function RecordForm({ id, tag, initial, version: loadedVersion }: Props) 
       return;
     }
     const formData = new FormData(event.currentTarget);
-    startTransition(() => formAction(formData));
+    startTransition(() => sendAction(formData));
   }
 
   function jumpTo(event: MouseEvent<HTMLAnchorElement>, field: FieldId) {

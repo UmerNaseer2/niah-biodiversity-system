@@ -69,8 +69,9 @@ export function ReportBuilder({
                 Include exact spots of threatened and protected plants
               </label>
               <p id="include-exact-hint" className="text-sm text-moss">
-                Left off, those rows say Hidden and the coordinates are blank.
-                Plants not matched to a species yet stay hidden too.
+                Left off, those rows say Hidden, with no coordinates, notes or
+                time of day. Plants not matched to a species yet stay hidden
+                too.
               </p>
             </div>
           </div>

@@ -10,6 +10,7 @@ import {
   type MouseEvent,
 } from "react";
 import { Icon } from "@/components/icon";
+import { NO_ANSWER, answerOnFailure } from "@/lib/keep-form";
 import { tidy } from "@/lib/species-form";
 import {
   MAX_CAPTION,
@@ -26,6 +27,14 @@ import {
 import { managePhoto, uploadSpeciesPhoto, type PhotoState } from "../../actions";
 
 const INITIAL: PhotoState = { status: "idle" };
+const NOT_ANSWERED = (): PhotoState => ({
+  status: "error",
+  message: NO_ANSWER,
+  fieldErrors: {},
+});
+// How the forms save with JavaScript, so a failed request keeps what they had
+const sendUpload = answerOnFailure(uploadSpeciesPhoto, NOT_ANSWERED);
+const sendManage = answerOnFailure(managePhoto, NOT_ANSWERED);
 const FIELD_ORDER: PhotoFieldId[] = ["photo-file", "photo-caption", "photo-credit"];
 const LABEL = "font-bold";
 const HINT = "text-sm text-moss";
@@ -58,8 +67,12 @@ export function PhotoManager({
   name: string;
   photos: SpeciesPhoto[];
 }) {
-  const [upload, uploadAction, uploading] = useActionState(uploadSpeciesPhoto, INITIAL);
-  const [manage, manageAction, managing] = useActionState(managePhoto, INITIAL);
+  const [postedUpload, uploadAction] = useActionState(uploadSpeciesPhoto, INITIAL);
+  const [postedManage, manageAction] = useActionState(managePhoto, INITIAL);
+  const [sentUpload, sendUploadAction, uploading] = useActionState(sendUpload, INITIAL);
+  const [sentManage, sendManageAction, managing] = useActionState(sendManage, INITIAL);
+  const upload = sentUpload === INITIAL ? postedUpload : sentUpload;
+  const manage = sentManage === INITIAL ? postedManage : sentManage;
   const [errors, setErrors] = useState<PhotoErrors>(() =>
     upload.status === "error" ? upload.fieldErrors : {},
   );
@@ -176,7 +189,7 @@ export function PhotoManager({
       setFocusRequest({ elementId: "photo-error-summary" });
       return;
     }
-    startTransition(() => uploadAction(formData));
+    startTransition(() => sendUploadAction(formData));
   }
 
   function handleManage(event: FormEvent<HTMLFormElement>) {
@@ -185,7 +198,7 @@ export function PhotoManager({
     const formData = new FormData(event.currentTarget);
     setManageError(null);
     setNotice("");
-    startTransition(() => manageAction(formData));
+    startTransition(() => sendManageAction(formData));
   }
 
   function handleDetails(event: FormEvent<HTMLFormElement>, index: number) {
@@ -206,7 +219,7 @@ export function PhotoManager({
       return;
     }
     setDetailErrors(null);
-    startTransition(() => manageAction(formData));
+    startTransition(() => sendManageAction(formData));
   }
 
   function clearDetailError(index: number, id: PhotoFieldId) {

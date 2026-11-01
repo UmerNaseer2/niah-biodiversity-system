@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { getSession } from "@/lib/auth";
+import { getSession, SERVICE_DOWN } from "@/lib/auth";
 import { versionRange } from "@/lib/edit-version";
 import {
   checkReview,
@@ -29,7 +29,8 @@ async function whyNotAllowed() {
   if (session.status === "signed-out") {
     return "You’re signed out. Sign in again, then make your decision again.";
   }
-  if (session.status === "no-access") {
+  if (session.status === "unavailable") return SERVICE_DOWN;
+  if (session.status !== "ok") {
     return "Only conservation officers and administrators can review records.";
   }
   return null;

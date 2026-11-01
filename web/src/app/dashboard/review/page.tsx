@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Icon } from "@/components/icon";
 import { PageHeader } from "@/components/page-header";
-import { hidesLocation } from "@/data/species";
+import { recordHidesLocation } from "@/data/species";
 import { requireStaff } from "@/lib/auth";
 import { formatCoords, formatDateTime } from "@/lib/format";
 import type { IucnCode } from "@/lib/iucn";
@@ -91,7 +91,7 @@ export default async function ReviewPage() {
           : null,
       iucn: plant ? (plant.iucn as IucnCode) : null,
       // A plant with no species yet only shows a rough area to the public
-      hidesLocation: plant ? hidesLocation(plant) : true,
+      hidesLocation: recordHidesLocation(record.speciesName, plant),
       heightM: record.heightM,
       condition: record.condition,
       photoCount: record.photoCount,

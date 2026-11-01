@@ -165,12 +165,12 @@ export function checkDetails(values: Values) {
 }
 
 /** The form filled in with a species from the database, for editing it.
- *  about is the about column on its own. Species falls back to the
- *  description when about is empty, and saving shouldn't copy that across.
+ *  About shows what the public page shows, which can be the old description
+ *  column (lib/species-db.ts), so an officer can see it and clear it.
  *  A threatened or protected species starts on rough area only, so its exact
  *  spot stays hidden if the officer makes it Least Concern, until they choose
  *  to show it. */
-export function valuesFromSpecies(species: Species, about: string): Values {
+export function valuesFromSpecies(species: Species): Values {
   return {
     scientificName: species.scientificName,
     authority: species.authority,
@@ -183,7 +183,7 @@ export function valuesFromSpecies(species: Species, about: string): Values {
         ? "rough"
         : "exact",
     summary: species.summary,
-    about,
+    about: species.about,
   };
 }
 
@@ -202,6 +202,9 @@ export function rowFromValues(values: Values) {
       values.visibility === "rough",
     summary: tidy(values.summary),
     about: values.about.trim() || null,
+    // The public page falls back to description when about is empty, so
+    // clearing About has to clear that too or the old text stays up
+    ...(values.about.trim() ? {} : { description: null }),
   };
 }
 
