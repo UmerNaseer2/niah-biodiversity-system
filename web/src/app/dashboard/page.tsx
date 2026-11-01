@@ -4,9 +4,10 @@ import { Icon } from "@/components/icon";
 import { ConditionBadge, LatinName } from "@/components/plant-bits";
 import { ParkMap } from "@/components/park-map";
 import { requireStaff } from "@/lib/auth";
-import { sensorAlerts, sensors } from "@/data/sensors";
 import { ALERT_LEVEL } from "@/lib/alert-level";
-import { formatDateTime, formatLongDate, parkNow, plural } from "@/lib/format";
+import { formatDateTime, formatLongDate, parkNow, parkTime, plural } from "@/lib/format";
+import { ALERT_COLUMNS, ALERT_WORDS, alertFromRow, alertOrder } from "@/lib/iot";
+import { checkAlerts, sqlIsMissing } from "@/lib/iot-db";
 import { recordFromRow, type StaffRecord } from "@/lib/records-staff";
 import { readAll } from "@/lib/supabase/read-all";
 import { createClient } from "@/lib/supabase/server";
@@ -21,6 +22,9 @@ export const metadata: Metadata = {
 const LATEST = 8;
 
 const WAITING_HREF = "/dashboard/records?status=waiting";
+
+// How many sensor alerts the list shows. The sensors page has the rest.
+const ALERTS_SHOWN = 5;
 
 function greeting(hour: number) {
   if (hour < 12) return "Good morning";
@@ -49,7 +53,9 @@ export default async function OverviewPage() {
   // records_staff and species_staff only answer officers and admins
   // (supabase/006 and 007), the same people who can open this page
   const supabase = await createClient();
-  const [recordsResult, speciesResult] = await Promise.all([
+  // Before the reads, so a node that has just gone quiet is counted on this draw
+  await checkAlerts();
+  const [recordsResult, speciesResult, nodesResult, alertsResult] = await Promise.all([
     readAll((from, to) =>
       supabase
         .from("records_staff")
@@ -59,6 +65,9 @@ export default async function OverviewPage() {
         .range(from, to),
     ),
     supabase.from("species_staff").select("id", { count: "exact", head: true }),
+    // Only these columns, because this page has no use for the readings
+    supabase.from("iot_node_status").select("node_id, quiet, last_reading_at"),
+    supabase.from("iot_alerts").select(ALERT_COLUMNS).eq("status", "open"),
   ]);
   if (recordsResult.error) {
     console.error("Loading the records for the overview failed:", recordsResult.error.message);
@@ -66,12 +75,20 @@ export default async function OverviewPage() {
   if (speciesResult.error) {
     console.error("Counting the species failed:", speciesResult.error.message);
   }
+  const sensorsMissing = sqlIsMissing(nodesResult.error) || sqlIsMissing(alertsResult.error);
+  if (!sensorsMissing) {
+    if (nodesResult.error) console.error("Loading the sensor nodes failed:", nodesResult.error.code);
+    if (alertsResult.error) console.error("Loading the sensor alerts failed:", alertsResult.error.code);
+  }
   const recordsFailed = Boolean(recordsResult.error);
   const all = (recordsResult.data ?? []).map(recordFromRow);
   const waiting = all.filter((r) => r.status === "waiting");
   const published = all.filter((r) => r.status === "published");
   const latest = all.slice(0, LATEST);
-  const online = sensors.filter((s) => s.online).length;
+  const nodeRows = nodesResult.data ?? [];
+  const reporting = nodeRows.filter((n) => n.last_reading_at && !n.quiet).length;
+  const openAlerts = (alertsResult.data ?? []).map(alertFromRow).sort(alertOrder);
+  const shownAlerts = openAlerts.slice(0, ALERTS_SHOWN);
 
   // A rejected record isn't a plant we know is there, so the map leaves it off
   const mapped = all
@@ -104,7 +121,10 @@ export default async function OverviewPage() {
     },
     { label: "Public records", value: recordsFailed ? null : String(published.length) },
     { label: "Waiting for review", value: recordsFailed ? null : String(waiting.length) },
-    { label: "Sensors online", value: `${online} of ${sensors.length}` },
+    {
+      label: "Sensors reporting",
+      value: nodesResult.error ? null : `${reporting} of ${nodeRows.length}`,
+    },
   ];
 
   return (
@@ -115,8 +135,7 @@ export default async function OverviewPage() {
           {greeting(Number(now.slice(11, 13)))}, {firstName}
         </h1>
         <p className="mt-1 text-moss">
-          Here’s what needs you today. The records and counts come from the
-          database. The sensors and their alerts are still made up.
+          Here’s what needs you today, from the plant records and the sensors.
         </p>
         {recordsFailed && (
           <p
@@ -160,31 +179,65 @@ export default async function OverviewPage() {
               )}
             </li>
           )}
-          {sensorAlerts.map((alert) => (
+          {sensorsMissing ? (
+            <li className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:gap-5 sm:p-5">
+              <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-paper text-moss">
+                <Icon name="info" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="font-bold">Sensors aren’t set up in this database yet</p>
+                <p className="text-sm text-moss">
+                  There’s nothing to show about them until an administrator runs the
+                  sensor steps in supabase/README.md.
+                </p>
+              </div>
+            </li>
+          ) : alertsResult.error ? (
+            <li className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:gap-5 sm:p-5">
+              <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-bad-soft text-bad">
+                <Icon name="alert" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="font-bold">The sensor alerts didn’t load</p>
+                <p className="text-sm text-moss">
+                  There could be open alerts you can’t see. Refresh the page, or look
+                  on the sensors page.
+                </p>
+              </div>
+              <Link
+                href="/dashboard/sensors"
+                className="btn btn-secondary self-start sm:self-auto"
+              >
+                See sensors
+              </Link>
+            </li>
+          ) : null}
+          {shownAlerts.map((alert) => (
             <li
               key={alert.id}
               className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:gap-5 sm:p-5"
             >
               <span
                 className={`flex size-10 shrink-0 items-center justify-center rounded-full ${
-                  alert.level === "urgent"
+                  alert.severity === "urgent"
                     ? "bg-bad-soft text-bad"
                     : "bg-paper text-moss"
                 }`}
               >
-                <Icon name={alert.level === "urgent" ? "alert" : "sensor"} />
+                <Icon name={alert.severity === "urgent" ? "alert" : "sensor"} />
               </span>
               <div className="min-w-0 flex-1">
                 <p className="flex flex-wrap items-center gap-x-2 gap-y-1 font-bold">
                   <span
-                    className={`rounded-full px-2 py-px text-xs font-bold ${ALERT_LEVEL[alert.level].badge}`}
+                    className={`rounded-full px-2 py-px text-xs font-bold ${ALERT_LEVEL[alert.severity].badge}`}
                   >
-                    {ALERT_LEVEL[alert.level].label}
+                    {ALERT_LEVEL[alert.severity].label}
                   </span>
-                  {alert.title}
+                  {ALERT_WORDS[alert.kind].title}
                 </p>
                 <p className="text-sm text-moss">
-                  {formatDateTime(alert.at)} · {alert.detail}
+                  {alert.nodeId}, {alert.nodeName}. Last seen{" "}
+                  {formatDateTime(parkTime(alert.lastSeenAt))}.
                 </p>
               </div>
               <Link
@@ -195,6 +248,18 @@ export default async function OverviewPage() {
               </Link>
             </li>
           ))}
+          {openAlerts.length > shownAlerts.length && (
+            <li className="p-4 text-sm sm:px-5">
+              And {plural(openAlerts.length - shownAlerts.length, "more alert")} on the{" "}
+              <Link
+                href="/dashboard/sensors"
+                className="font-bold underline decoration-line underline-offset-4 hover:decoration-ink"
+              >
+                sensors page
+              </Link>
+              .
+            </li>
+          )}
         </ul>
       </section>
 
@@ -308,28 +373,20 @@ export default async function OverviewPage() {
 
       <section aria-labelledby="map-heading">
         <h2 id="map-heading" className="text-xl font-bold tracking-tight">
-          Plants and sensors
+          Where the plants are
         </h2>
         <p className="max-w-2xl text-moss">
           Every plant record that hasn’t been rejected, at its exact spot,
-          threatened plants included. The plants come from the database. The
-          sensors are still made up.
+          threatened plants included. Sensor nodes join this map with item 32.
         </p>
         <ParkMap
           id="overview-map"
-          title="Map of tagged plants and sensors around park HQ"
+          title="Map of tagged plants around park HQ"
           description={`A map of the park around park HQ with ${plural(
             mapped.length,
             "tagged plant",
-          )} and ${plural(sensors.length, "sensor")}. Sensors with an alert are circled. Each plant’s dot is a link to its record.`}
+          )}. Each plant’s dot is a link to its record.`}
           points={mapped}
-          sensors={sensors.map((s) => ({
-            id: s.id,
-            lat: s.position.lat,
-            lng: s.position.lng,
-            online: s.online,
-            alert: sensorAlerts.some((a) => a.sensorId === s.id),
-          }))}
           planned={[32]}
           className="mt-8"
         />

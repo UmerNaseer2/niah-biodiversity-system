@@ -5,9 +5,10 @@ import type { ReactNode } from "react";
 import { Icon } from "@/components/icon";
 import { LogoMark } from "@/components/logo";
 import { DB_ROLE_LABEL, getSession, type DbRole } from "@/lib/auth";
-import { sensorAlerts } from "@/data/sensors";
+import { checkAlerts } from "@/lib/iot-db";
 import { createClient } from "@/lib/supabase/server";
 import { signOut } from "../(public)/login/actions";
+import { AlertWatcher } from "./alert-watcher";
 import { StaffNav } from "./staff-nav";
 
 export const metadata: Metadata = {
@@ -35,7 +36,10 @@ export default async function DashboardLayout({
     .eq("status", "waiting");
   if (error) console.error("Counting the waiting records failed:", error.message);
   const waiting = count ?? 0;
-  const urgent = sensorAlerts.filter((a) => a.level === "urgent").length;
+  // Same idea for the sensors. Before 016 and 017 are in the database this gives null, and the badge
+  // and its timer are left off.
+  const alertCounts = await checkAlerts();
+  const urgent = alertCounts?.urgent ?? 0;
 
   return (
     <div className="flex flex-1 flex-col lg:flex-row">
@@ -63,6 +67,7 @@ export default async function DashboardLayout({
 
           <div className="relative">
             <StaffNav waiting={waiting} urgent={urgent} />
+            {alertCounts && <AlertWatcher urgent={urgent} />}
             {/* hints that the nav scrolls sideways on small screens */}
             <div
               aria-hidden="true"
