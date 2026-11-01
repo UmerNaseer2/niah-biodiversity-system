@@ -2,8 +2,9 @@ import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 
 /**
- * True when the error means 016 and 017 aren't in this database yet, rather than something going
- * wrong today. The pages say something different for each.
+ * True when the error means newer SQL (016 and 017 here, 021 for the users page)
+ * isn't in this database yet, rather than something going wrong today. The pages
+ * say something different for each.
  */
 export function sqlIsMissing(error: { code?: string } | null) {
   return ["PGRST202", "PGRST205", "42P01", "42883"].includes(error?.code ?? "");
