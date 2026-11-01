@@ -19,6 +19,7 @@ const WORKS_NOW = [
   "The reports page counts the real plant records and prints or saves as a PDF. The server builds its CSV download after checking the role, and hidden spots stay blank unless an officer asks for them.",
   "Threatened and protected plants only show a rough area on public pages. Their exact points never leave the server.",
   "Staff sign in with Supabase, and only conservation officers and administrators can open the dashboard. Every staff page checks that on the server.",
+  "Administrators can invite people, change their roles and deactivate accounts on the users page.",
   "Officers can add, edit and delete species on the dashboard.",
   "The home page, plant list, plant pages and tag pages read species and approved records from Supabase, or from the sample data when it isn’t set up.",
   "The overview counts and lists the real plant records, and the badge in the staff menu counts the ones waiting for review.",
@@ -26,8 +27,8 @@ const WORKS_NOW = [
 ];
 
 const NOT_REAL_YET = [
-  "Staff accounts are made by hand in Supabase. Inviting people and changing roles on the website are item 2.",
-  "Apart from species, record edits and photos, nothing is saved yet. Refreshing a page puts it back how it was.",
+  "No sensor is in the park yet, so readings come from the simulator in iot/ until real nodes are flashed.",
+  "Alerts only show on the dashboard. Nothing sends an email or a push message yet.",
   "The squares on the tags don’t scan yet (item 12).",
   "The phone doesn’t send photos yet (item 11), so the only plant photos are the ones officers upload on the website.",
 ];

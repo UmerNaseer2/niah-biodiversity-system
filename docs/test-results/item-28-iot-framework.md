@@ -51,7 +51,7 @@ Run on Umer's Mac on 31 Oct 2026 after the last code change.
 
 | Check | Command | Result |
 | --- | --- | --- |
-| Database tests | `cd supabase/tests && npm test` | Pass, 352 of 352 in 63 suites. 103 are new in `iot.test.js`: 94 on the SQL and through the stand-in, 9 on the simulator |
+| Database tests | `cd supabase/tests && npm test` | Pass, 362 of 362 in 66 suites. 104 are in `iot.test.js`: 95 on the SQL and through the stand-in, 9 on the simulator |
 | Website lint | `cd web && npm run lint` | Pass |
 | Types | `cd web && npx tsc --noEmit` | Pass |
 | Production build | `cd web && npm run build` | Pass, with no environment variables and with a made up https address |

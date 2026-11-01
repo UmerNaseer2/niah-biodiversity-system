@@ -55,7 +55,7 @@ Run on Umer's Mac on 31 Oct 2026 after the last code change.
 | Types | `cd web && npx tsc --noEmit` | Pass |
 | Production build, no environment variables | `cd web && npm run build` | Pass. Two Turbopack font warnings that aren't from this work |
 | Production build, made up https address and key | The same, with `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` set | Pass, and the dashboard pages are all dynamic |
-| Database tests | `cd supabase/tests && npm test` | Pass, 352 of 352 in 63 suites |
+| Database tests | `cd supabase/tests && npm test` | Pass, 362 of 362 in 66 suites |
 
 The website has no tests of its own for these pages, so the results below are what checks them.
 

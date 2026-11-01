@@ -51,7 +51,7 @@ Run on Umer's Mac on 31 Oct 2026 after the last code change.
 
 | Check | Command | Result |
 | --- | --- | --- |
-| Database tests | `cd supabase/tests && npm test` | Pass, 352 of 352 in 63 suites. 103 are new in `iot.test.js` |
+| Database tests | `cd supabase/tests && npm test` | Pass, 362 of 362 in 66 suites. 104 are in `iot.test.js` |
 | Website lint | `cd web && npm run lint` | Pass |
 | Types | `cd web && npx tsc --noEmit` | Pass |
 | Production build | `cd web && npm run build` | Pass |
@@ -98,6 +98,10 @@ sending with it, with an old token, while turned off and for another device's no
 - **The edge device's buffer is in RAM.** It holds 180 readings, which is 3 nodes for an hour, and
   the oldest goes first when it's full. A power cut loses what hasn't been sent.
 - **A node doesn't keep a reading it can't deliver.** It tries 3 times, then it's lost.
+- **A node can't watch for knocks while it's stuck sending.** With the edge device out of reach,
+  `sendReading()` holds things up for about 21 seconds (3 tries of 5 seconds, 2 seconds apart), and
+  the 20 ms check for a shock doesn't run in that time, so a knock then isn't seen. Tilt still shows
+  in the next reading if the node stays tilted.
 - **The edge device does one thing at a time.** A node that sends during a slow HTTPS call has to
   try again.
 - **`recorded_at` is when the edge device got the reading.** That's within a second or two of when

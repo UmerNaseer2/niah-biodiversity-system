@@ -619,9 +619,14 @@ export default async function SensorsPage() {
               <li>These are starting values. Nobody has tried them in the field yet, so expect them to change.</li>
               <li>A problem that keeps going stays as one alert, and counts how many times it’s been seen.</li>
               <li>
-                After you resolve an alert, that kind of alert stays silent on that node for{" "}
+                After you resolve a routine alert, that kind of alert stays silent on that node for{" "}
                 {plural(limits.reraiseMinutes, "minute")}, even if it happens again. If you’re not sure
                 it’s over, acknowledge it instead.
+              </li>
+              <li>
+                An urgent alert doesn’t wait. If it happens again after you resolve it, it comes
+                straight back, so a node that’s still tilted keeps coming back until someone sets it
+                straight.
               </li>
             </ul>
           </>

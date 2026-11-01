@@ -59,7 +59,7 @@ Run on Umer's Mac on 31 Oct 2026 after the last code change.
 
 | Check | Command | Result |
 | --- | --- | --- |
-| Database tests | `cd supabase/tests && npm test` | Pass, 352 of 352 in 63 suites. 103 are new in `iot.test.js` |
+| Database tests | `cd supabase/tests && npm test` | Pass, 362 of 362 in 66 suites. 104 are in `iot.test.js` |
 | Website lint | `cd web && npm run lint` | Pass |
 | Types | `cd web && npx tsc --noEmit` | Pass |
 | Production build | `cd web && npm run build` | Pass |
@@ -68,7 +68,7 @@ The tests for this item in `supabase/tests/iot.test.js`:
 
 | Group | What it checks |
 | --- | --- |
-| Threat rules | Each limit raises the right alert past it and nothing at it. A calm reading raises nothing. 50 readings of one problem are one alert with a count of 50. Different problems and different nodes get their own. A problem that carries on after it's resolved waits, then makes a new alert |
+| Threat rules | Each limit raises the right alert past it and nothing at it. A calm reading raises nothing. 50 readings of one problem are one alert with a count of 50. Different problems and different nodes get their own. A routine problem that carries on after it's resolved waits, then makes a new alert, and a new knock straight after a resolve makes a new alert |
 | The limits the rules use | Officers and admins read them, only admins change them and the rules follow straight away, and there's only ever one row |
 | Acknowledging and resolving | Both say who and when, an alert can be resolved without being acknowledged, doing it twice keeps the first person, and anyone else is turned down |
 | Nodes going quiet | One alert however often it's checked, nothing under the limit, resolving it doesn't bring it back in the same silence, a new reading closes it and a later silence makes a new one, an old reading doesn't close it, routine if the battery was low, and the count for the staff menu |
@@ -82,7 +82,8 @@ The tests for this item in `supabase/tests/iot.test.js`:
 | The status line says "New alert: Possible disturbance on NNP-IOT-01, Urgent" | Pass |
 | Acknowledge: the badge clears, the alert says "Acknowledged by Aina Officer, 1 Nov, 7:49 am", the status line says so, and focus moves to the alert's heading | Pass |
 | Resolve: the alert leaves the list, the status line says "Possible disturbance on NNP-IOT-01 resolved.", focus moves to "No open alerts", and it's under "Recently resolved" | Pass |
-| Disturbance again straight after a resolve: no new alert and no badge, because of the 60 minute wait | Pass |
+| Disturbance again straight after a resolve: a new urgent alert, and the badge comes back | Pass |
+| `dry` again straight after resolving a dry soil alert: no new alert, because of the 60 minute wait | Pass |
 | Motion: a new routine alert is announced, and the badge doesn't change because it's routine | Pass |
 | Quiet, on a fresh stand-in: an urgent "Node has gone quiet" alert with "Quiet for 20 minutes when this came up (limit 15 minutes)" | Pass |
 | A calm reading from that node: the alert closes by itself and the badge clears | Pass |

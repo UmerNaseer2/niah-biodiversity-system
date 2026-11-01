@@ -33,7 +33,7 @@ export const metadata: Metadata = {
     template: "%s · Niah Plant Records",
   },
   description:
-    "Look up the plants of Niah National Park and scan a plant's tag. A COS30049 student project, so some screens still show sample data.",
+    "Look up the plants of Niah National Park and scan a plant's tag. A COS30049 student project, so all the plant data is made up for testing.",
 };
 
 export const viewport: Viewport = {
@@ -58,7 +58,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             COS30049 student project
             <span aria-hidden="true"> · </span>
             <span className="sr-only">. </span>
-            Some staff screens still show sample data
+            All the plant data is made up for testing
             <span aria-hidden="true"> · </span>
             <span className="sr-only">. </span>
             <Link
