@@ -48,12 +48,12 @@ L1 to L12 labels.
 | 2 | L2 Paper records lost before entry | High | The only copy, and the trip may not be repeatable | Offline save built, simulator and browser only |
 | 3 | L7 Wrong names, no clear check | High | It hurts everyone downstream, and it also feeds L9 | Review queue built, stand-in only. The reviewer sees a photo, not the plant |
 | 4 | L1 Locations with unknown accuracy | High | A record that can't be found again loses most of its value | GPS capture built, iOS simulator only |
-| 5 | L6 No signal in the field | High, if our assumption holds | Rules out any tool that needs a connection, but it's unmeasured | Offline first. Upload is partly built |
-| 6 | L11 Nothing watching between visits | Medium to high | Damage goes unseen, but our answer is the least proven | Proposed. Dashboard numbers are made up, no link from sensor to plant |
+| 5 | L6 No signal in the field | High, if our assumption holds | Rules out any tool that needs a connection, but it's unmeasured | Offline first. Upload built (item 10), simulator only |
+| 6 | L11 Nothing watching between visits | Medium to high | Damage goes unseen, but our answer is the least proven | Dashboards built (items 28 to 31), simulated sensors only, no link from sensor to plant |
 | 7 | L10 Tags and hardware mark the plant | Medium | Only hits some plants, but our own design adds to it | Not answered |
-| 8 | L4 Tags not tied to a record | Medium | Costs time on revisits, and can usually be recovered | Scanner built, printing being built |
-| 9 | L3 Double handling, inconsistent records | Medium | Wastes time and adds errors, but is mostly fixable later | Form with checks built, upload being built |
-| 10 | L5 Long gap before data is usable | Medium | Causes delay rather than loss. We don't know how long the gap is | Being built |
+| 8 | L4 Tags not tied to a record | Medium | Costs time on revisits, and can usually be recovered | Scanner and printing built, printed tags not tried outdoors |
+| 9 | L3 Double handling, inconsistent records | Medium | Wastes time and adds errors, but is mostly fixable later | Form with checks and upload built, simulator only |
+| 10 | L5 Long gap before data is usable | Medium | Causes delay rather than loss. We don't know how long the gap is | Built (items 10 and 19), simulator and stand-in only |
 | 11 | L8 No clear trail of who checked what | Medium | Lowers trust, but doesn't lose the data itself | Stamps and edit history built, stand-in only |
 | 12 | L12 Labour, training and upkeep | Medium, unknown | We have no cost data, yet this could decide if SFC adopts it | Not answered |
 
@@ -95,7 +95,8 @@ fixed afterwards.
   ([item 9](../test-results/item-9-offline-storage.md)). That's been tested on the iOS simulator and
   a browser only.
 - **Still open:** we swap losing a sheet for losing a phone. A phone that breaks before upload loses
-  what's on it. Encrypting the phone's data (item 22) isn't merged yet. We haven't tested rain, heat
+  what's on it. Item 22 encrypts the records file, tested on a simulator only. We haven't tested
+  rain, heat
   or battery life.
 
 ### L3. Double handling and inconsistent records (Medium, rank 9)
@@ -111,8 +112,8 @@ fixed afterwards.
 - **Our answer:** the form has species suggestions and checks
   ([item 7](../test-results/item-7-record-form.md)). The record is typed once. The upload rules mean
   sending a record twice doesn't create a second copy ([sync design](../sync-design.md)).
-- **Still open:** the phone side of upload is being built (item 10). After first upload the phone
-  can't edit a record, so fixes go through an officer.
+- **Still open:** the phone side of upload (item 10) has only run on a simulator. After first upload
+  the phone can't edit a record, so fixes go through an officer.
 
 ### L4. Physical tags not tied to a record (Medium, rank 8)
 
@@ -124,8 +125,8 @@ fixed afterwards.
   tags, and has teams leave nails long so a growing tree doesn't swallow the tag (Phillips et al.,
   2018, pp. 6, 15). Those are Amazon tree plots, so small plants like orchids may differ.
 - **Our answer:** the scanner reads a tag and opens the record with no signal, and the code can be
-  typed if the tag won't scan ([item 6](../test-results/item-6-qr-scanner.md)). Printing is item 12,
-  being built.
+  typed if the tag won't scan ([item 6](../test-results/item-6-qr-scanner.md)). Making and printing
+  the tag came with [item 12](../test-results/item-12-qr.md).
 - **Still open:** a scan only finds records on that phone. Real scan timing and dirty, wet or curved
   tags haven't been tested, because the simulator has no camera. A QR tag can fall off too.
 
@@ -139,7 +140,7 @@ fixed afterwards.
 - **Evidence:** only the Scope and our Solution Direction. We don't know how long the gap is at SFC.
   It could be days or months, and that changes how much this matters.
 - **Our answer:** the phone uploads once it has signal, and the website reads from the same database.
-  The server side is done (item 3) and the phone side is being built (item 10).
+  Both sides are built (items 3 and 10), but only tried on a simulator and the stand-in.
 - **Still open:** part of the wait moves to the review queue. If officers are busy, records still sit.
 
 ### L6. No signal, so live sending isn't an option (High if our assumption holds, rank 5)
@@ -150,8 +151,8 @@ fixed afterwards.
   would know.
 - **Our answer:** the form, GPS, scanner and local save are built to work with no signal. The tag code
   is made on the phone. None of this has been tried somewhere that really has no signal.
-- **Still open:** phone sign in comes with item 10, and we need to check how it behaves on a phone
-  that's left signal. The species list only changes with an app update until item 10 lands.
+- **Still open:** phone sign in and the species list download came with item 10, and on a simulator
+  they cope with no signal. We still need to check them on a real phone that's left signal.
 
 ## D. Verification and trust
 
@@ -238,8 +239,9 @@ fixed afterwards.
   Marrocco, 2022, a poplar wood in Italy, with a drone above and a person below). In a tropical study,
   tree canopy was where the free space path loss model stopped fitting (Ansah et al., 2020).
 - **Our answer:** the proposal has ESP32 sensor nodes reporting to a dashboard, for monitoring only.
-  The dashboards are being built (items 28 to 31). Every sensor number on main is made up, and the
-  team's sensor work so far is bench tests of single parts.
+  The dashboards and alerts are built (items 28 to 31). Every sensor number so far comes from a
+  simulator, because nothing has been flashed to a real node, and the team's sensor work so far is
+  bench tests of single parts.
 - **Still open:** this is our least proven answer. The node table has no link to a plant, so an alert
   can't name one. Nobody gets notified in the field, and we have no ranger role. Sensors can only ever
   cover selected plants.
@@ -265,8 +267,8 @@ Some of these came up above. They're together here because they shouldn't get lo
 
 - **Never used in the forest.** Results so far come from simulators, a browser and a local stand-in
   database. GPS has never run under real canopy or next to karst cliffs.
-- **Half the phone flow is still being built.** That's sign in, upload, photos and printing (items
-  10, 11, 12).
+- **The phone flow has only run on a simulator.** That includes sign in, upload, photos and printing
+  (items 10, 11, 12).
 - **Tags are printed after the code exists.** The code is made when a record is saved in the forest,
   but nobody can print out there. Item 39 deals with this gap.
 - **Tag codes can clash.** A code is `NNP-` plus 6 hex digits, about 16 million codes, so a clash

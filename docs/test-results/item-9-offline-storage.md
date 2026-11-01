@@ -394,7 +394,7 @@ since then. They come from three advisories: `decode-uri-component` and `zod` (h
 what the SQL does. The species list is names only, never locations.
 
 **What's on the phone.** Same as round 1: the database wasn't encrypted on top of the phone's own
-encryption yet (**fixed on 1 Nov**, [item 22](item-22-encryption.md)), so don't share the database file or screenshots of real records
-anywhere public.
+encryption yet (**fixed on 1 Nov**, [item 22](item-22-encryption.md)), so don't share the database
+file or screenshots of real records anywhere public.
 
 Don't run `npm audit fix --force`. It would drop Expo down to an old SDK and break the app.

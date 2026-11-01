@@ -4,7 +4,7 @@ Item 39. This is our proposed way of doing ground-truthing at Niah. Each change 
 limitation (L1 to L12) from [the analysis](ground-truthing-limitations.md).
 
 **Status: this is a design.** Some steps are built and tested on simulators, a browser and a local
-stand-in database. Some are being built (items 10, 11, 12 and 28 to 31). Some are new work for item
+stand-in database. That now includes items 10, 11, 12, 22 and 28 to 31. Some are new work for item
 40. We have no field results, and every target below is not yet measured in the field.
 
 ## Current and proposed, step by step
@@ -14,15 +14,15 @@ silent, we say so.
 
 | # | Step | Current | Proposed | Answers | Status |
 | --- | --- | --- | --- | --- | --- |
-| 1 | Prepare | The Scope doesn't describe this | Sign in and get the latest species list while there's still signal | L6 | Being built (item 10) |
-| 2 | Identify | Plant gets identified. The Scope doesn't say how | Pick from the species list with suggestions and take photos. A name not on the list is allowed, and stays hidden from the public by default | L3, L7, L9 | Form built (item 7), photos being built (item 11) |
+| 1 | Prepare | The Scope doesn't describe this | Sign in and get the latest species list while there's still signal | L6 | Built (item 10), simulator only |
+| 2 | Identify | Plant gets identified. The Scope doesn't say how | Pick from the species list with suggestions and take photos. A name not on the list is allowed, and stays hidden from the public by default | L3, L7, L9 | Form built (item 7), photos built (item 11), simulator only |
 | 3 | Record | Written on paper | Saved on the phone, no signal needed | L2, L3, L6 | Built (item 9), simulator and browser only |
 | 4 | Location | The Scope doesn't say how | GPS with accuracy saved. A record can't be saved without it | L1 | Built (item 8), iOS simulator only |
-| 5 | Mark the plant | Physical label | QR tag tied to the record's ID. Protected plants get a code only tag or no tag, SFC decides | L4, L10 | Scanner built (item 6), printing being built (item 12), tag choice is new work |
-| 6 | Get the data in | Typed into a database later | Phone uploads when it has signal. Retrying can't create a duplicate | L3, L5, L6 | Server built (item 3), phone being built (item 10) |
-| 7 | Check | The Scope doesn't describe this | Officer approves, or rejects with a reason that goes back to the phone | L7, L8 | Built (item 19), stand-in only. Reason reaching the phone needs item 10 |
+| 5 | Mark the plant | Physical label | QR tag tied to the record's ID. Protected plants get a code only tag or no tag, SFC decides | L4, L10 | Scanner built (item 6), printing built (item 12), printed tags not tried outdoors, tag choice is new work |
+| 6 | Get the data in | Typed into a database later | Phone uploads when it has signal. Retrying can't create a duplicate | L3, L5, L6 | Built (items 3 and 10), simulator and stand-in only |
+| 7 | Check | The Scope doesn't describe this | Officer approves, or rejects with a reason that goes back to the phone | L7, L8 | Built (items 10 and 19), simulator and stand-in only |
 | 8 | Publish | The Scope says access to up to date information is limited | Only approved records go public. Threatened, protected and unknown plants get a rough area automatically | L5, L9 | Built, stand-in only |
-| 9 | Between visits | The Scope doesn't describe this | Sensors near selected plants. An alert names the plant and someone goes to check | L11 | Dashboards being built (items 28 to 31). Link to a plant and notification are new work |
+| 9 | Between visits | The Scope doesn't describe this | Sensors near selected plants. An alert names the plant and someone goes to check | L11 | Dashboards built (items 28 to 31), simulated sensors only. Link to a plant and notification are new work |
 | 10 | Revisit | The Scope doesn't describe this | Scan the tag, see the plant's history with no signal, add a new visit record instead of overwriting | L4, L8, L11 | Scan built. History and visit records are new work |
 
 ### Current workflow
@@ -37,7 +37,7 @@ flowchart LR
 
 ### Proposed workflow
 
-Read it from the top. Dashed arrows are new work for item 40. Solid arrows are built or being built,
+Read it from the top. Dashed arrows are new work for item 40. Solid arrows are built,
 apart from "later", which just marks time passing.
 
 ```mermaid
@@ -96,7 +96,8 @@ flowchart TD
 ## A gap we found: printing tags
 
 The phone makes the tag code when a record is saved, but printing is a later step (item 12), and
-nobody can print in the forest. So there's a real order problem in our own design.
+nobody can print in the forest. Item 12 built printing as a button on the record, after saving. So
+there's a real order problem in our own design.
 
 | Option | Good | Bad |
 | --- | --- | --- |
@@ -104,7 +105,7 @@ nobody can print in the forest. So there's a real order problem in our own desig
 | Pre-print tags, and the phone takes its ID from the tag scanned at registration | Tag goes on during the same visit. Clashes get checked before printing | New work, because the tag code is generated from the record's ID today. Someone has to manage the batches |
 | Carry a portable printer | Tag made on the spot | Weight, battery, weather and cost. We have no data on any of them |
 
-We'd try pre-printed tags first, but it needs deciding in item 12 or item 40. Without one of these,
+We'd try pre-printed tags first, but it needs deciding in item 40. Without one of these,
 step 5 doesn't work as drawn.
 
 ## How each change traces back
@@ -112,7 +113,7 @@ step 5 doesn't work as drawn.
 | Limitation | What changes | What's left |
 | --- | --- | --- |
 | L1 Unknown accuracy | Accuracy is required and stored, and the officer sees it | Doesn't make a poor fix better. Untested under canopy |
-| L2 Paper lost | Saved to the phone straight away | Phone loss before upload. Encryption (item 22) not merged |
+| L2 Paper lost | Saved to the phone straight away | Phone loss before upload, with the records file encrypted since item 22 and only tested on a simulator |
 | L3 Double handling | Typed once, with checks, and no duplicates on retry | Phone can't edit after upload |
 | L4 Tags not tied to a record | Tag code comes from the record's ID, and a scan opens it offline | Scan only finds records on that phone. Tag life unknown |
 | L5 Long gap | Upload on signal, then the website | The wait may move to the review queue |

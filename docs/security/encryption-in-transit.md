@@ -45,10 +45,29 @@ that https works, because that depends on the host.
 1. Every response had `X-Powered-By: Next.js`, which tells anyone what we run. Setting
    `poweredByHeader: false` in `web/next.config.ts` turns it off.
 
+## The live site, 1 Nov 2026
+
+Read only checks with `curl` on https://niah-biodiversity-system.vercel.app/, from Umer's Mac.
+Nothing was signed in to or changed.
+
+| What we checked | Result |
+| --- | --- |
+| http://…/login | Sends you to https with a 308 |
+| `strict-transport-security` | `max-age=63072000` |
+| TLS version | TLS 1.3 by default, and TLS 1.0 and 1.1 are refused |
+| Certificate | `*.vercel.app` from Google Trust Services, valid until 29 Jan 2027, verifies |
+| `/dashboard` signed out | Sends you to `/login` |
+| Other headers | CSP, Permissions-Policy, Referrer-Policy, nosniff and `X-Frame-Options: DENY` are sent |
+
+The live build is older than `main`. `/welcome` is a 404 and the two cross origin headers from 31
+Oct aren't there, so the site needs redeploying, after Umer runs the SQL on the hosted project. These
+checks cover Vercel's HTTPS, which doesn't change with a redeploy, but they don't replace SSL Labs,
+which we haven't run.
+
 ## Not tested yet
 
 | What | Why | Next step |
 | --- | --- | --- |
-| HTTPS on the real site | The website isn't deployed yet | Once it is, check http sends you to https, and run the site through SSL Labs |
+| SSL Labs on the real site | Not run. It's a public scan, and it's best done on the redeployed site | Redeploy, then run the site through SSL Labs and write the grade here |
 | HSTS preload | It needs `includeSubDomains` and `preload`, and only makes sense on a domain we own | Leave it until SFC gives us a domain |
 | Phone and ESP32 links against the hosted project | The hosted project is behind on the SQL files | Try them once Umer has run the SQL. See [item 25 to 27 results](../test-results/item-25-27-security.md) |

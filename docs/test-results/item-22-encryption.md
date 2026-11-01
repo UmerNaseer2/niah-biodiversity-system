@@ -113,20 +113,21 @@ not real encryption. The rounds below are what prove the real thing.
 - Real phones of any kind.
 - A release build. The test for a build with no SQLCipher is a unit test.
 - A real update from an installed older version. Tests 5 and 6 copied a plain file in by hand.
-- How long saving takes with SQLCipher on. The proposal's target is under 1 s, and it needs timing on
-  a real phone.
+- How long saving takes with SQLCipher on. The proposal's target is under 1 s, and it needs timing
+  on a real phone.
 - Jason hasn't reviewed the changes yet.
 
 ### Known limits
 
 - Photos aren't in the database, so SQLCipher doesn't cover them. They're plain JPEG files in the
   app's own folder, with the GPS block taken out. The phone's own encryption is what protects them.
-- This protects a copy of the file, like one from a backup. Someone who can unlock the phone and open
-  the app can still see the records, so phones still need a passcode.
+- This protects a copy of the file, like one from a backup. Someone who can unlock the phone and
+  open the app can still see the records, so phones still need a passcode.
 - A plain file from before the update is deleted after encrypting, but flash storage can keep old
   bytes until they get reused. That only affects a phone that had a plain file.
 - A phone restored from a backup, or a new phone, can't open the records, because the key stays on
-  the old phone. Anything that hadn't uploaded is lost that way unless the old phone is still around.
+  the old phone. Anything that hadn't uploaded is lost that way unless the old phone is still
+  around.
 - Real use now needs a development or store build. Expo Go files are plain, and it's only for trying
   things with made up data. Expo Go with `--no-dev` won't open the records, because of the rule for
   release builds.
