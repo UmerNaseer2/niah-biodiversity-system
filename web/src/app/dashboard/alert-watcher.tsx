@@ -4,8 +4,9 @@ import { usePathname } from "next/navigation";
 import { useVisibleTimer } from "@/lib/use-visible-timer";
 import { checkUrgentCount } from "./sensors/actions";
 
-// Edge devices send every 10 seconds, so 20 here still fits the 30 second goal in the proposal
-const WATCH_MS = 20000;
+// Edge devices send every 10 seconds, so 15 here leaves room inside the 30 second goal in the
+// proposal, the same as the sensors page
+const WATCH_MS = 15000;
 
 /**
  * Keeps the red badge in the staff menu right on every dashboard page. It only asks for the count,
