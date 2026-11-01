@@ -762,6 +762,23 @@ describe('threat rules', () => {
     assert.equal(alerts[1].repeat_count, 1);
   });
 
+  test('a knock straight after a resolve makes a new alert, because someone could be back', async () => {
+    const node = await newNode();
+    await sendFrom(node, { tilt_degrees: 80 });
+    const [first] = await alertsFor(node);
+    await call(officer, 'public.iot_resolve_alert($1)', [first.id]);
+
+    // A reading from before they resolved it is not news, even for an urgent one
+    await sendFrom(node, { shock_g: 9, recorded_at: minutesAgo(5) });
+    assert.equal((await alertsFor(node)).length, 1);
+
+    await sendFrom(node, { shock_g: 9 });
+    const alerts = await alertsFor(node);
+    assert.equal(alerts.length, 2);
+    assert.equal(alerts[1].status, 'open');
+    assert.equal(alerts[1].severity, 'urgent');
+  });
+
   test('a reading on an acknowledged alert counts on the same alert and stays acknowledged', async () => {
     const node = await newNode();
     await sendFrom(node, { tilt_degrees: 80 });

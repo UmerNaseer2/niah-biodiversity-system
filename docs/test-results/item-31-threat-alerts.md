@@ -41,7 +41,8 @@ the rules.
 | A reading the server refuses raises nothing, and sending a reading again doesn't count twice | A resend after a dropped connection can't make it look worse |
 | A sensor the node doesn't have raises nothing | A missing value isn't a problem |
 | A tilt, a knock and a distance change on one reading are counted once | They're one event, and it should say so |
-| After someone resolves an alert, the same problem on the same node waits 60 minutes (`reraise_minutes`) before it makes a new alert | A soil probe that stays dry shouldn't come straight back after someone resolves it |
+| After someone resolves a routine alert, the same problem on the same node waits 60 minutes (`reraise_minutes`) before it makes a new alert | A soil probe that stays dry shouldn't come straight back after someone resolves it |
+| An urgent alert doesn't wait. A new knock right after a resolve makes a new alert, and a node that's still tilted comes straight back | Someone could be back at the plant, and missing that is worse than one more alert. There's still only one unresolved alert at a time |
 | An old reading from a buffer widens the alert's times but keeps the newest value | A catch-up after an outage shouldn't change what the alert says now |
 | An old reading from a buffer doesn't close a quiet alert. A new one does | The node may still be quiet now |
 | One silence makes one quiet alert, even if someone resolves it | It shouldn't come back every time someone opens the page |
@@ -107,9 +108,6 @@ It now counts once, and there's a test for it. The running website showed this u
 - **The limits are starting values**, as above.
 - **Nothing is sent to anyone.** Alerts only show on the dashboard, and there's no email or push to a
   patrol team. Someone has to be looking.
-- **A second knock within 60 minutes of a resolve makes no new alert.** It's the same rule that stops
-  a dry soil probe coming straight back, but for a disturbance it might be the wrong call, so it's
-  worth a talk with the team when tuning.
 - **Quiet alerts need something to ask.** If every device has stopped and no staff page is open, a
   quiet alert only comes up when someone opens one. A scheduler such as pg_cron would fix that.
 - **There's no form for the limits.** An admin changes them in the `iot_alert_limits` table.

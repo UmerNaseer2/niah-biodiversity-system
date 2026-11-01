@@ -35,8 +35,9 @@ CREATE TABLE IF NOT EXISTS public.iot_alert_limits (
   battery_min_percent numeric NOT NULL DEFAULT 20 CHECK (battery_min_percent >= 0),
   -- No reading for this long means the node has gone quiet
   quiet_minutes integer NOT NULL DEFAULT 15 CHECK (quiet_minutes > 0),
-  -- After someone resolves an alert, the same problem on the same node waits this long before it
-  -- makes a new alert, so a soil probe that stays dry doesn't come straight back
+  -- After someone resolves a routine alert, the same problem on the same node waits this long
+  -- before it makes a new alert, so a soil probe that stays dry doesn't come straight back.
+  -- Urgent alerts don't wait, because someone could be back at the plant.
   reraise_minutes integer NOT NULL DEFAULT 60 CHECK (reraise_minutes >= 0),
   CHECK (soil_moisture_min < soil_moisture_max),
   CHECK (temperature_min_c < temperature_max_c)
@@ -155,13 +156,16 @@ BEGIN
     RETURN;
   END IF;
 
+  -- Either way, a reading from before someone resolved it isn't news.
   IF EXISTS (
     SELECT 1
     FROM public.iot_alerts AS a
     WHERE a.node_id = node
       AND a.kind = alert_kind
       AND a.status = 'resolved'
-      AND a.resolved_at > seen_at - make_interval(mins => reraise_minutes)
+      AND a.resolved_at > seen_at - make_interval(
+        mins => CASE WHEN alert_severity = 'urgent' THEN 0 ELSE reraise_minutes END
+      )
   ) THEN
     RETURN;
   END IF;
