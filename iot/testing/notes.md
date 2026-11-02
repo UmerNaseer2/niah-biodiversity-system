@@ -1,3 +1,5 @@
+testing: not used in production, only for debugging purpose
+
 ESP32
 
 Arduino IDE
