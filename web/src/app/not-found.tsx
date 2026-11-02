@@ -25,9 +25,6 @@ export default function NotFound() {
         <Link href="/" className="btn btn-primary">
           Go to the home page
         </Link>
-        <Link href="/screens" className="btn btn-secondary">
-          See every screen
-        </Link>
       </div>
     </main>
   );

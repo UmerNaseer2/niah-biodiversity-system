@@ -61,14 +61,6 @@ export default function PublicLayout({ children }: { children: ReactNode }) {
           </div>
           <ul className="flex flex-wrap gap-x-5 gap-y-2">
             <li>
-              <Link
-                href="/screens"
-                className="font-bold text-ink underline decoration-line underline-offset-4 hover:decoration-ink"
-              >
-                Every screen
-              </Link>
-            </li>
-            <li>
               <a
                 href="https://github.com/UmerNaseer2/niah-biodiversity-system"
                 className="inline-flex items-center gap-1 font-bold text-ink underline decoration-line underline-offset-4 hover:decoration-ink"

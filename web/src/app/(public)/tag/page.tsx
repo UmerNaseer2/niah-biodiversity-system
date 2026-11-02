@@ -1,6 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import { Icon } from "@/components/icon";
 import { PageHeader } from "@/components/page-header";
 import { TreeTag } from "@/components/tree-tag";
 import { TagLookup } from "./tag-lookup";
@@ -10,12 +8,6 @@ export const metadata: Metadata = {
   description:
     "Type the code from a plant tag at Niah National Park to see what the plant is.",
 };
-
-const EXAMPLES = [
-  { code: "NNP-3F2A9C", note: "Belian, location hidden" },
-  { code: "NNP-B17D03", note: "Tapang, protected in Sarawak" },
-  { code: "NNP-D4B86E", note: "Not public yet, so there’s no page" },
-];
 
 export default function TagPage() {
   return (
@@ -27,31 +19,6 @@ export default function TagPage() {
           description="Point your phone’s camera at the QR code on the tag and the plant’s page opens. If it won’t scan, type the code that’s stamped under it."
         />
         <TagLookup />
-
-        <section aria-labelledby="examples-heading" className="mt-12">
-          <h2 id="examples-heading" className="font-bold">
-            No tag nearby? Try one of these
-          </h2>
-          <ul className="mt-3 divide-y divide-line border-y border-line">
-            {EXAMPLES.map((example) => (
-              <li key={example.code}>
-                <Link
-                  href={`/tag/${example.code}`}
-                  className="group flex items-center gap-4 py-3"
-                >
-                  <span className="shrink-0 font-mono font-bold group-hover:underline">
-                    {example.code}
-                  </span>
-                  <span className="text-sm text-moss">{example.note}</span>
-                  <Icon
-                    name="chevron-right"
-                    className="ml-auto size-4 text-moss"
-                  />
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </section>
       </div>
 
       <aside className="self-start">

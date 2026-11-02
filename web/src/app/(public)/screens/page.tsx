@@ -2,34 +2,12 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Icon } from "@/components/icon";
 import { PageHeader } from "@/components/page-header";
-import { PlannedTape } from "@/components/tape";
 import { publicScreens, staffScreens, type Screen } from "@/data/screens";
-import { releaseItem } from "@/lib/release";
 
 export const metadata: Metadata = {
   title: "Every screen",
-  description:
-    "Every screen on the Niah Plant Records website, in the order we demo them.",
+  description: "Every screen on the Niah Plant Records website.",
 };
-
-const WORKS_NOW = [
-  "Every page is clickable and links to the others.",
-  "Plant search, the tag lookup and the review queue all respond as you use them.",
-  "The sensors page shows real readings and threat alerts from Supabase, and checks again every 15 seconds while it’s open. Officers and admins can acknowledge and resolve alerts. The simulator in iot/ can send readings with no hardware.",
-  "The reports page counts the real plant records and prints or saves as a PDF. The server builds its CSV download after checking the role, and hidden spots stay blank unless an officer asks for them.",
-  "Threatened and protected plants only show a rough area on public pages. Their exact points never leave the server.",
-  "Staff sign in with Supabase, and only conservation officers and administrators can open the dashboard. Every staff page checks that on the server.",
-  "Administrators can invite people, change their roles and deactivate accounts on the users page.",
-  "Officers can add, edit and delete species on the dashboard.",
-  "The home page, plant list, plant pages and tag pages read species and approved records from Supabase, or from the sample data when it isn’t set up.",
-  "The overview counts and lists the real plant records, and the badge in the staff menu counts the ones waiting for review.",
-  "Maps are OpenStreetMap maps. Public maps only show a rough square for threatened and protected plants, and the overview map gives officers the exact spot of every record.",
-];
-
-const NOT_REAL_YET = [
-  "No sensor is in the park yet, so readings come from the simulator in iot/ until real nodes are flashed.",
-  "Alerts only show on the dashboard. Nothing sends an email or a push message yet.",
-];
 
 function ScreenList({ screens, start }: { screens: Screen[]; start: number }) {
   return (
@@ -61,27 +39,6 @@ function ScreenList({ screens, start }: { screens: Screen[]; start: number }) {
               </code>
             </div>
             <p className="mt-1">{screen.works}</p>
-            <ul aria-label="Release items" className="mt-3 flex flex-wrap gap-2">
-              {screen.items.map((item) => {
-                const { name, sprint } = releaseItem(item);
-                return (
-                  <li
-                    key={item}
-                    className="inline-flex items-center gap-1.5 rounded-md border border-line bg-paper py-0.5 pl-0.5 pr-2 text-xs"
-                  >
-                    <span className="rounded-[0.3rem] bg-ink px-1.5 py-px font-mono font-bold text-paper">
-                      <span className="sr-only">Item </span>
-                      {item}
-                    </span>
-                    <span className="font-bold">{name}</span>
-                    <span className="text-moss">
-                      <span className="sr-only">, </span>
-                      {sprint}
-                    </span>
-                  </li>
-                );
-              })}
-            </ul>
           </div>
         </li>
       ))}
@@ -93,18 +50,9 @@ export default function ScreensPage() {
   return (
     <div className="mx-auto w-full max-w-5xl px-4 py-10 sm:px-6">
       <PageHeader
-        eyebrow="Demo running order"
         title="Every screen"
-        description="All the pages on the site, in the order we’d walk through them. The chips under each one are its release items from our project plan."
+        description="All the pages on the site."
       />
-
-      <div className="mt-8 flex flex-col gap-3 rounded-xl border border-line bg-sheet p-4 sm:flex-row sm:items-center sm:gap-5">
-        <PlannedTape items={[30]} className="-rotate-1 self-start sm:self-auto" />
-        <p className="text-sm text-moss">
-          Pink tape marks anything that isn’t built yet. It says which release
-          item it belongs to and the sprint it’s planned for.
-        </p>
-      </div>
 
       <section aria-labelledby="public-heading" className="mt-12">
         <h2 id="public-heading" className="text-xl font-bold tracking-tight">
@@ -126,56 +74,6 @@ export default function ScreensPage() {
         </p>
         <ScreenList screens={staffScreens} start={publicScreens.length + 1} />
       </section>
-
-      <div className="mt-14 grid gap-6 md:grid-cols-2">
-        <section aria-labelledby="works-heading" className="card p-5 sm:p-6">
-          <h2
-            id="works-heading"
-            className="flex items-center gap-2 text-lg font-bold"
-          >
-            <span className="flex size-7 items-center justify-center rounded-full bg-ok-soft text-ok">
-              <Icon name="check" className="size-4" />
-            </span>
-            What works now
-          </h2>
-          <ul className="mt-4 space-y-3">
-            {WORKS_NOW.map((line) => (
-              <li key={line} className="flex gap-3">
-                <span
-                  aria-hidden="true"
-                  className="mt-2.5 size-1.5 shrink-0 rounded-full bg-ok"
-                />
-                {line}
-              </li>
-            ))}
-          </ul>
-        </section>
-        <section
-          aria-labelledby="not-real-heading"
-          className="card p-5 sm:p-6"
-        >
-          <h2
-            id="not-real-heading"
-            className="flex items-center gap-2 text-lg font-bold"
-          >
-            <span className="flex size-7 items-center justify-center rounded-full bg-paper text-moss">
-              <Icon name="clock" className="size-4" />
-            </span>
-            What isn’t real yet
-          </h2>
-          <ul className="mt-4 space-y-3">
-            {NOT_REAL_YET.map((line) => (
-              <li key={line} className="flex gap-3">
-                <span
-                  aria-hidden="true"
-                  className="mt-2.5 size-1.5 shrink-0 rounded-full bg-pencil"
-                />
-                {line}
-              </li>
-            ))}
-          </ul>
-        </section>
-      </div>
     </div>
   );
 }

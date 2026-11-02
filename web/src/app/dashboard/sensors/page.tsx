@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Icon } from "@/components/icon";
 import { PageHeader } from "@/components/page-header";
-import { Planned } from "@/components/tape";
 import { requireStaff } from "@/lib/auth";
 import {
   clockNow,
@@ -616,7 +615,6 @@ export default async function SensorsPage() {
               </table>
             </div>
             <ul className="mt-3 max-w-2xl list-disc space-y-1 pl-5 text-sm text-moss">
-              <li>These are starting values. Nobody has tried them in the field yet, so expect them to change.</li>
               <li>A problem that keeps going stays as one alert, and counts how many times it’s been seen.</li>
               <li>
                 After you resolve a routine alert, that kind of alert stays silent on that node for{" "}
@@ -666,11 +664,6 @@ export default async function SensorsPage() {
           </details>
         </section>
       )}
-
-      <Planned items={[32]} title="Sensors on the map">
-        Nodes don’t have positions yet, because we don’t have a GPS part. They’ll join the map with
-        item 32. Nothing here makes up a spot for them.
-      </Planned>
     </div>
   );
 }

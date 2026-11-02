@@ -236,8 +236,7 @@ export function SpeciesForm(props: Props) {
         <p className="mt-2 text-moss">
           {adding
             ? "The mobile app picks it up once the phone downloads the species list when it syncs."
-            : "The mobile app gets the changes once the phone downloads the species list when it syncs."}{" "}
-          That comes with item 10 in Sprint 2.
+            : "The mobile app gets the changes once the phone downloads the species list when it syncs."}
         </p>
         <div className="mt-5 flex flex-wrap gap-2">
           <Link href={`/plants/${saved.slug}`} className="btn btn-primary">

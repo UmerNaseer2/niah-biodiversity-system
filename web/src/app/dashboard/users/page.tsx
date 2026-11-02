@@ -185,8 +185,7 @@ export default async function UsersPage() {
         <p className="max-w-2xl text-moss">
           Visitors without an account only get the public site, where
           threatened and protected plants show as a rough area. Researchers
-          see the same as the public for now, until SFC decides what else
-          they can see.
+          see the same as the public.
         </p>
         <div
           role="region"

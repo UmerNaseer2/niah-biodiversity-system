@@ -6,10 +6,9 @@ import {
   IucnChip,
   LatinName,
 } from "@/components/plant-bits";
-import { PlannedTape } from "@/components/tape";
 import { TrunkWithTag } from "@/components/tree-tag";
 import { recordHidesLocation } from "@/data/species";
-import { formatDate, itemsLabel } from "@/lib/format";
+import { formatDate } from "@/lib/format";
 import { getRecentPublished } from "@/lib/records-db";
 import { getSpeciesList } from "@/lib/species-db";
 
@@ -19,25 +18,21 @@ const STEPS = [
     title: "A ranger tags it",
     text: "They nail a tag to the plant, scan it with our app and fill in the species, height, condition and GPS point.",
     where: "Mobile app",
-    items: [5, 6, 7, 8],
   },
   {
     title: "The phone sends it in",
     text: "There’s often no signal in the forest, so records are saved on the phone and upload once it’s back.",
     where: "Mobile app",
-    items: [9, 10],
   },
   {
     title: "An officer checks it",
     text: "A conservation officer looks over each new record and approves it, or sends it back with a reason.",
     where: "Staff dashboard",
-    items: [19],
   },
   {
     title: "It shows up here",
     text: "Approved plants get a public page. Threatened and protected ones only show a rough area, never the exact spot.",
     where: "This website",
-    items: [16],
   },
 ];
 
@@ -195,8 +190,7 @@ export default async function HomePage() {
           How a plant gets on this site
         </h2>
         <p className="mt-1 max-w-2xl text-moss">
-          Four steps from the forest to this page. The item numbers are the
-          release items from our project plan.
+          Four steps from the forest to this page.
         </p>
         <ol className="mt-8 grid gap-x-6 gap-y-8 sm:grid-cols-2 lg:grid-cols-4">
           {STEPS.map((step, index) => (
@@ -210,30 +204,11 @@ export default async function HomePage() {
               <h3 className="mt-3 text-lg font-bold">{step.title}</h3>
               <p className="mt-1 text-moss">{step.text}</p>
               <p className="mt-3 font-mono text-xs font-bold uppercase tracking-[0.08em] text-moss">
-                {step.where} · {itemsLabel(step.items)}
+                {step.where}
               </p>
             </li>
           ))}
         </ol>
-      </section>
-
-      <section className="mx-auto w-full max-w-6xl px-4 pb-16 sm:px-6">
-        <div className="card flex flex-col items-start gap-5 p-6 sm:flex-row sm:items-center sm:justify-between sm:p-8">
-          <div>
-            <PlannedTape items={[30]} className="-rotate-1" />
-            <h2 className="mt-4 text-xl font-bold">Pink tape means planned</h2>
-            <p className="mt-1 max-w-2xl text-moss">
-              Field teams tie pink flagging tape on trees they still need to
-              come back to. We use it the same way: anything taped isn’t built
-              yet, and the tape says which release item and sprint it belongs
-              to.
-            </p>
-          </div>
-          <Link href="/screens" className="btn btn-secondary shrink-0">
-            See every screen
-            <Icon name="arrow-right" className="size-4" />
-          </Link>
-        </div>
       </section>
     </>
   );

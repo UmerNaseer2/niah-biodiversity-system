@@ -338,8 +338,7 @@ export function StaticMap({
       </div>
 
       {/* Both notes go in a strip under the map rather than on it, so they
-          can't cover a label, and at the bottom since the planned tape is on
-          top */}
+          can't cover a label */}
       <div className="flex flex-wrap justify-between gap-x-3 border-t border-line px-2 py-1 text-xs text-moss">
         <p>Turn JavaScript on to zoom and move the map.</p>
         <p>

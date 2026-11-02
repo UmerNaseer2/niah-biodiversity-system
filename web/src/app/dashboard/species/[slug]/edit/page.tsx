@@ -75,7 +75,7 @@ export default async function EditSpeciesPage({
       <PageHeader
         eyebrow="Plant database"
         title={`Edit ${name}`}
-        description="Changes show on the public site as soon as you save. Field teams get them in the mobile app once the phone downloads the species list, which comes with item 10 in Sprint 2. If the IUCN status is changing, check it on the Red List first."
+        description="Changes show on the public site as soon as you save. Field teams get them in the mobile app once the phone downloads the species list. If the IUCN status is changing, check it on the Red List first."
       />
       <SpeciesForm
         mode="edit"

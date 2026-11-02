@@ -59,9 +59,10 @@ Nothing was signed in to or changed.
 | `/dashboard` signed out | Sends you to `/login` |
 | Other headers | CSP, Permissions-Policy, Referrer-Policy, nosniff and `X-Frame-Options: DENY` are sent |
 
-The live build is older than `main`. `/welcome` is a 404 and the two cross origin headers from 31
-Oct aren't there, so the site needs redeploying, after Umer runs the SQL on the hosted project. These
-checks cover Vercel's HTTPS, which doesn't change with a redeploy.
+When we first ran these, `/welcome` was a 404 and the two cross origin headers from 31 Oct weren't
+there. Later the same day both were live, so the site had been redeployed. These checks can't show
+whether the SQL has been run on the hosted project. They cover Vercel's HTTPS, which doesn't change
+with a redeploy.
 
 ### SSL Labs
 

@@ -178,8 +178,8 @@ export default async function TagResultPage({
               </span>
               <p className="text-moss">
                 The field team took {plural(record.photoCount, "photo")} of
-                this plant. They stay with park staff for now, because a photo
-                can show where a plant grows.
+                this plant. They stay with park staff, because a photo can show
+                where a plant grows.
               </p>
             </div>
           )}
