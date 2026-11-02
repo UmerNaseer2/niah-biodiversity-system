@@ -377,7 +377,7 @@ export default async function OverviewPage() {
         </h2>
         <p className="max-w-2xl text-moss">
           Every plant record that hasn’t been rejected, at its exact spot,
-          threatened plants included. Sensor nodes join this map with item 32.
+          threatened plants included.
         </p>
         <ParkMap
           id="overview-map"
@@ -387,7 +387,6 @@ export default async function OverviewPage() {
             "tagged plant",
           )}. Each plant’s dot is a link to its record.`}
           points={mapped}
-          planned={[32]}
           className="mt-8"
         />
       </section>

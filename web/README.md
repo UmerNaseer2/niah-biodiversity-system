@@ -46,8 +46,8 @@ page that was built without them keeps the sample data. If Supabase doesn't answ
 pages say "This page didn't load" instead of falling back to the sample data, so a problem can't
 hide behind made up plants. Without the values they show the sample data in `src/data`.
 
-For the demo, start at http://localhost:3000/screens. It lists every screen in the order we show
-them, with what works on each one. The pink strip at the top of every page links there too.
+For the demo, start at http://localhost:3000/screens. It lists every screen with what each one
+does. Nothing on the site links to it, so type the address.
 
 ## Trying sign in without a Supabase project
 
@@ -100,15 +100,15 @@ to try that with the sample records.
 ```
 src/
   app/
-    layout.tsx          fonts, the pink wireframe strip and the skip link
-    globals.css         colours, fonts and the shared classes (card, btn, field, tape...)
+    layout.tsx          fonts and the skip link
+    globals.css         colours, fonts and the shared classes (card, btn, field...)
     not-found.tsx       the 404 page
     (public)/           the public site. The brackets keep the folder name out of the URL
       error.tsx         what a public page shows when its data doesn't load
       plants/           plant list with search, and [slug] for one plant
       tag/              type in a tag code, and [code] for the page a QR tag opens
       login/            staff sign in and sign out, with Supabase Auth
-      screens/          every screen in demo order
+      screens/          every screen, only reached by typing the address
     dashboard/          the staff side, with the sidebar in layout.tsx
       records/          the records table, and [id]/edit and [id]/delete
       review/           the review queue: approve or reject records from the mobile app, and send one back
@@ -116,21 +116,17 @@ src/
       reports/          counts, charts and the print view, and csv/ for the download
       sensors/          alerts, the sensor nodes and their history, and devices/ for tokens (admins)
       users/            who has an account and what each role can do
-  components/           shared pieces: park map, tree tag, photo gallery, planned tape, icons...
+  components/           shared pieces: park map, tree tag, photo gallery, icons...
   data/                 mock species and records, plus the screen list
   lib/                  Supabase and sign in, species and record form checks, photos, IUCN labels, the location grid, report counts and the CSV
 ```
 
 ## Planned features
 
-Anything that isn't built yet has a strip of pink flagging tape on it, like the tape field teams tie
-on trees they need to come back to. The tape says which item it belongs to and which sprint it's
-planned for, so it's clear what's real during the demo. The item numbers match the proposal and
-`docs/sprint-1.md`, and they're listed in `src/lib/release.ts`.
+Still to build on the website. The item numbers match the proposal and `docs/sprint-1.md`.
 
 | Item | What goes in | Where |
 | --- | --- | --- |
-| 12 | QR codes that really scan, printed for each tag | Scan a tag, tag pages |
 | 32 | Sensors on the map. Alerts only show on the dashboard for now, and nothing is sent to a patrol team. | Sensors, overview |
 
 ## Notes for the team

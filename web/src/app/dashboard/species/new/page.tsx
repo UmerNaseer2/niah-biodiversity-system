@@ -39,7 +39,7 @@ export default async function NewSpeciesPage() {
       <PageHeader
         eyebrow="Plant database"
         title="Add a species"
-        description="Once it’s saved it gets its own page on the public site. Field teams can pick it in the mobile app once the phone downloads the species list, which comes with item 10 in Sprint 2. Check the IUCN status on the Red List before you add it."
+        description="Once it’s saved it gets its own page on the public site. Field teams can pick it in the mobile app once the phone downloads the species list. Check the IUCN status on the Red List before you add it."
       />
       <SpeciesForm mode="add" existingNames={existingNames} />
     </div>

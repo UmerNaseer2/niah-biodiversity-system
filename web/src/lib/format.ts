@@ -115,13 +115,3 @@ export function formatCoords(lat: number, lng: number) {
 export function plural(count: number, one: string, many = `${one}s`) {
   return `${count} ${count === 1 ? one : many}`;
 }
-
-/** [30, 31, 32] becomes "Items 30 to 32", [16, 18] becomes "Items 16 and 18" */
-export function itemsLabel(items: number[]) {
-  if (items.length === 1) return `Item ${items[0]}`;
-  const inOrder = items.every((n, i) => i === 0 || n === items[i - 1] + 1);
-  if (inOrder && items.length > 2) {
-    return `Items ${items[0]} to ${items[items.length - 1]}`;
-  }
-  return `Items ${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`;
-}

@@ -4,7 +4,6 @@ import {
   Atkinson_Hyperlegible_Next,
   Newsreader,
 } from "next/font/google";
-import Link from "next/link";
 import "./globals.css";
 
 // Atkinson Hyperlegible was made by the Braille Institute to be easy to read,
@@ -33,7 +32,7 @@ export const metadata: Metadata = {
     template: "%s · Niah Plant Records",
   },
   description:
-    "Look up the plants of Niah National Park and scan a plant's tag. A COS30049 student project, so all the plant data is made up for testing.",
+    "Look up the plants of Niah National Park and scan a plant's tag.",
 };
 
 export const viewport: Viewport = {
@@ -53,22 +52,6 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         >
           Skip to content
         </a>
-        <div className="bg-tape px-4 py-1.5 print:hidden text-center font-mono text-[0.6875rem] font-bold uppercase leading-snug tracking-[0.08em] text-tape-ink">
-          <p>
-            COS30049 student project
-            <span aria-hidden="true"> · </span>
-            <span className="sr-only">. </span>
-            All the plant data is made up for testing
-            <span aria-hidden="true"> · </span>
-            <span className="sr-only">. </span>
-            <Link
-              href="/screens"
-              className="underline decoration-2 underline-offset-2 hover:no-underline"
-            >
-              See every screen
-            </Link>
-          </p>
-        </div>
         {children}
       </body>
     </html>

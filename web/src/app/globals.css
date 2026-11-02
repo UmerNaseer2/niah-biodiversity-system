@@ -2,9 +2,7 @@
 
 /*
   Colours come from the mobile app (mobile/src/constants/theme.ts) so both
-  apps feel like the same system. The pink is flagging tape: field teams tie
-  it around trees they still need to come back to, and on this site it marks
-  every part that is planned but not built yet.
+  apps feel like the same system.
 */
 @theme {
   --color-paper: #f5f7f2;
@@ -16,8 +14,6 @@
   --color-forest: #1f6b3a;
   --color-forest-deep: #17522c;
   --color-forest-soft: #e2f0e5;
-  --color-tape: #ff4d8d;
-  --color-tape-ink: #3b0a1e;
   --color-ok: #1d7340;
   --color-ok-soft: #ddf3e4;
   --color-warn: #8f5700;
@@ -95,8 +91,8 @@
   }
 
   ::selection {
-    background-color: var(--color-tape);
-    color: var(--color-tape-ink);
+    background-color: var(--color-forest-soft);
+    color: var(--color-ink);
   }
 }
 
@@ -111,25 +107,7 @@
   }
 }
 
-/* A strip of flagging tape with a notched end */
-@utility tape {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5em;
-  padding: 0.35em 1.3em 0.35em 0.75em;
-  background-color: var(--color-tape);
-  color: var(--color-tape-ink);
-  font-family: var(--font-mono);
-  font-size: 0.6875rem;
-  font-weight: 700;
-  line-height: 1.2;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  white-space: nowrap;
-  clip-path: polygon(0 0, 100% 0, calc(100% - 0.7em) 50%, 100% 100%, 0 100%);
-}
-
-/* Pencil hatching, the usual wireframe sign for "a picture goes here" */
+/* Pencil hatching, the usual sign for "a picture goes here" */
 @utility hatch {
   background-color: var(--color-sheet);
   background-image: repeating-linear-gradient(

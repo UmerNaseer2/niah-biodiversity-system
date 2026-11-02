@@ -1,6 +1,5 @@
 import { LeafletMap, type MapArea, type MapPoint, type MapSensor } from "./leaflet-map";
 import { StaticMap } from "./static-map";
-import { PlannedTape } from "./tape";
 
 export type { MapArea, MapPoint, MapSensor };
 
@@ -17,7 +16,6 @@ export function ParkMap({
   points = [],
   areas = [],
   sensors = [],
-  planned,
   className = "",
 }: {
   id: string;
@@ -26,7 +24,6 @@ export function ParkMap({
   points?: MapPoint[];
   areas?: MapArea[];
   sensors?: MapSensor[];
-  planned?: number[];
   className?: string;
 }) {
   return (
@@ -42,12 +39,6 @@ export function ParkMap({
         <noscript>
           <StaticMap points={points} areas={areas} sensors={sensors} />
         </noscript>
-        {planned && (
-          <PlannedTape
-            items={planned}
-            className="absolute left-3 top-0 z-20 -translate-y-1/2 -rotate-1"
-          />
-        )}
       </div>
       <p id={`${id}-desc`} className="sr-only">
         {description}
