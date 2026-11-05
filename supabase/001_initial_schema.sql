@@ -119,30 +119,11 @@ SELECT
 FROM public.records;
 
 -- ------------------------------------------------------------------------------
--- 4. IoT Sensor Nodes & Telemetry Table
--- ------------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS public.iot_nodes (
-    node_id TEXT PRIMARY KEY,
-    name TEXT NOT NULL,
-    zone TEXT NOT NULL,
-    status TEXT NOT NULL DEFAULT 'online' CHECK (status IN ('online', 'warning', 'threat_triggered', 'offline')),
-    battery_percent INTEGER DEFAULT 100,
-    last_heartbeat TIMESTAMPTZ DEFAULT NOW(),
-    temperature_c NUMERIC(5, 2),
-    humidity_percent NUMERIC(5, 2),
-    soil_moisture_percent NUMERIC(5, 2),
-    pir_movement_detected BOOLEAN DEFAULT FALSE,
-    tilt_alert BOOLEAN DEFAULT FALSE,
-    threat_details TEXT
-);
-
--- ------------------------------------------------------------------------------
 -- 5. Row-Level Security (RLS) Policies
 -- ------------------------------------------------------------------------------
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.species ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.records ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.iot_nodes ENABLE ROW LEVEL SECURITY;
 
 -- Species Policies:
 -- Anyone (Public visitors and authenticated staff) can read species catalog
@@ -181,18 +162,6 @@ CREATE POLICY "Officers can review records"
     TO authenticated
     USING (true);
 
--- IoT Nodes Policies:
--- Anyone can view sensor node telemetry in public dashboards
-CREATE POLICY "Allow read access to IoT telemetry"
-    ON public.iot_nodes FOR SELECT
-    USING (true);
-
--- Authenticated devices/staff can insert/update telemetry
-CREATE POLICY "Allow update access to IoT nodes"
-    ON public.iot_nodes FOR ALL
-    TO authenticated
-    USING (true)
-    WITH CHECK (true);
 
 -- ------------------------------------------------------------------------------
 -- 6. Trigger to automatically create profile on Supabase auth signup
