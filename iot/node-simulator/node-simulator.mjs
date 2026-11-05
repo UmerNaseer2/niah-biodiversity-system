@@ -1,3 +1,5 @@
+// OBSOLETE, refer edge-device as newest implementation
+
 #!/usr/bin/env node
 // Pretends to be an edge device, so the dashboard and the threat rules can be tried with no
 // hardware. It sends made up readings through iot_add_readings, the same call the real edge device
