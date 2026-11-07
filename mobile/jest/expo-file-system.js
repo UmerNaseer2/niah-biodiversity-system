@@ -56,6 +56,11 @@ class File {
     }
     return content.buffer.slice(content.byteOffset, content.byteOffset + content.byteLength);
   }
+
+  // No test should go online, so a test that downloads a file swaps this out with jest.spyOn.
+  static async downloadFileAsync() {
+    throw new Error("Downloads aren't set up in the Jest stand-in.");
+  }
 }
 
 class Directory {

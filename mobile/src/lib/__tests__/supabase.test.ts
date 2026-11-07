@@ -42,6 +42,38 @@ describe('getSupabase', () => {
         autoRefreshToken: true,
         detectSessionInUrl: false,
       },
+      global: { fetch: expect.any(Function) },
     });
+  });
+
+  it('gives the client a fetch that stops a request with no answer', async () => {
+    jest.useFakeTimers();
+    const realFetch = globalThis.fetch;
+    let sentSignal: AbortSignal | undefined;
+    globalThis.fetch = jest.fn(
+      (_input: RequestInfo | URL, init?: RequestInit) =>
+        new Promise<Response>((_resolve, reject) => {
+          sentSignal = init?.signal ?? undefined;
+          sentSignal?.addEventListener('abort', () => reject(new Error('Stopped.')));
+        }),
+    );
+    try {
+      const { getSupabase, createClient } = loadWith({
+        EXPO_PUBLIC_SUPABASE_URL: 'http://127.0.0.1:1',
+        EXPO_PUBLIC_SUPABASE_ANON_KEY: 'made-up-key',
+      });
+      getSupabase();
+      const options = (createClient.mock.calls[0] as unknown[])[2] as {
+        global: { fetch: typeof fetch };
+      };
+      const request = options.global.fetch('http://127.0.0.1:1/rest/v1/species_public');
+      const failure = expect(request).rejects.toMatchObject({ name: 'AbortError' });
+      await jest.advanceTimersByTimeAsync(30_000);
+      await failure;
+      expect(sentSignal?.aborted).toBe(true);
+    } finally {
+      globalThis.fetch = realFetch;
+      jest.useRealTimers();
+    }
   });
 });

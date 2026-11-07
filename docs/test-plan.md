@@ -29,7 +29,7 @@ The targets are the ones in the proposal's Quality Management section.
 | --- | --- | --- | --- |
 | Usability | 90% of tasks completed, SUS score of 70 or above | Not run. Planned for Week 10 with real users, see [below](#usability-test-for-week-10) | None yet |
 | Performance | Saving on the phone under 1 s, submitting under 3 s on 4G, web search under 2 s | Web search took 0.59 s on a dev server, measured once. The other two haven't been timed on a real phone. Load testing is item 37 | [Item 16](test-results/item-16-plant-search.md) |
-| Security | All critical and high findings fixed and retested by Week 9 | No criticals. Both highs fixed in our code and retested locally. The hosted project doesn't have the fixes until 003 to 021 are run, and OWASP ZAP hasn't been run | [Items 25 to 27](test-results/item-25-27-security.md) |
+| Security | All critical and high findings fixed and retested by Week 9 | No criticals. Both highs fixed in our code and retested locally. The hosted project doesn't have the fixes until 003 to 021 are run, and OWASP ZAP has only run signed out on a local build | [Items 25 to 27](test-results/item-25-27-security.md) |
 | Privacy of locations | 0 public pages or responses show an exact point of an endangered plant | 0 on a local production build, signed out and as each role. Not checked on the hosted project | [Items 25 to 27](test-results/item-25-27-security.md) |
 | Functional correctness | 95% of required fields captured and shown correctly | Each field has test cases that pass, but we haven't worked out one percentage across both platforms. The mapping is [below](#scope-to-test-results) | Below |
 | GPS accuracy | Every synced record has a point and an accuracy, 90% within 10 m of a reference point | The first part is in the form and the upload. The reference point walk needs real phones outdoors and hasn't been done | [Item 8](test-results/item-8-gps.md) |
@@ -88,7 +88,7 @@ The Basic Functionalities in the Scope, and where each one is tested.
 | Field app | Record the GPS location | [Item 8](test-results/item-8-gps.md) |
 | Field app | Sync with the central database | [Item 10](test-results/item-10-sync.md) |
 | Field app | Generate a QR code for each record | [Item 12](test-results/item-12-qr.md) |
-| Field app | Scan QR tags, and collect data offline | [Item 6](test-results/item-6-qr-scanner.md), [Item 9](test-results/item-9-offline-storage.md) |
+| Field app | Scan QR tags, and collect data offline | [Item 6](test-results/item-6-qr-scanner.md), [Item 9](test-results/item-9-offline-storage.md), [Visitor offline](test-results/visitor-offline.md) |
 | Website | Add, edit and delete species | [Item 14](test-results/item-14-plant-schema.md), [Item 17](test-results/item-17-plant-edit-delete.md) |
 | Website | Upload photographs and supporting information | [Item 18](test-results/item-18-photo-gallery.md) |
 | Website | Review and approve observations | [Item 19](test-results/item-19-observation-approval.md) |

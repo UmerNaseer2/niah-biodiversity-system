@@ -3,6 +3,7 @@ import {
   conditionLabel,
   formatCoords,
   formatHeight,
+  formatParkDate,
   formatRecordedAt,
   formatTime,
   isToday,
@@ -105,5 +106,23 @@ describe('conditionLabel', () => {
   it('capitalises the condition for the screen', () => {
     expect(conditionLabel('healthy')).toBe('Healthy');
     expect(conditionLabel('dead')).toBe('Dead');
+  });
+});
+
+describe('formatParkDate', () => {
+  // The park is 8 hours ahead of UTC, so its day starts at 4 pm UTC the day before.
+  it('gives the day at the park, whatever time zone the phone is set to', () => {
+    expect(formatParkDate('2026-10-01T15:59:59.000Z')).toBe('1 Oct 2026');
+    expect(formatParkDate('2026-10-01T16:00:00.000Z')).toBe('2 Oct 2026');
+  });
+
+  it('reads a time with an offset on the end the same way', () => {
+    expect(formatParkDate('2026-10-01T16:00:00+00:00')).toBe('2 Oct 2026');
+    expect(formatParkDate('2026-10-02T00:00:00+08:00')).toBe('2 Oct 2026');
+  });
+
+  it('moves on to the next year at midnight park time', () => {
+    expect(formatParkDate('2025-12-31T15:59:59.000Z')).toBe('31 Dec 2025');
+    expect(formatParkDate('2025-12-31T16:30:00.000Z')).toBe('1 Jan 2026');
   });
 });

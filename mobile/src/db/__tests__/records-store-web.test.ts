@@ -304,3 +304,19 @@ describe('when the phone last synced', () => {
     expect(await store.loadLastSynced()).toBe('2026-10-31T02:00:00.000Z');
   });
 });
+
+describe('who uses this phone', () => {
+  it('is nobody until someone picks, then remembers the last pick', async () => {
+    expect(await store.loadMode()).toBeNull();
+    await store.saveMode('visitor');
+    await store.saveMode('staff');
+    expect(await store.loadMode()).toBe('staff');
+  });
+
+  it('keeps the pick apart from when the phone last synced', async () => {
+    await store.saveLastSynced('2026-10-31T01:00:00.000Z');
+    await store.saveMode('visitor');
+    expect(await store.loadLastSynced()).toBe('2026-10-31T01:00:00.000Z');
+    expect(await store.loadMode()).toBe('visitor');
+  });
+});

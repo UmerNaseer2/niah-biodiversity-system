@@ -274,3 +274,19 @@ describe('the sync card', () => {
     expect(screen.getByText('9')).toBeVisible();
   });
 });
+
+describe('switching to the visitor pages', () => {
+  it('only offers it once staff have signed out', async () => {
+    fakeClient();
+    renderProfile();
+    expect(await screen.findByText('Visiting the park?')).toBeVisible();
+
+    // Sign out is where the app warns about records that haven't gone up, so it comes first.
+    await signIn();
+    expect(await screen.findByText('Rina')).toBeVisible();
+    expect(screen.queryByText('Visiting the park?')).toBeNull();
+
+    fireEvent.press(screen.getByRole('button', { name: 'Sign out' }));
+    expect(await screen.findByText('Visiting the park?')).toBeVisible();
+  });
+});

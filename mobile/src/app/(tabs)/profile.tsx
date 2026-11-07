@@ -1,7 +1,7 @@
-import Constants from 'expo-constants';
 import { useRef, useState } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
+import { AboutCard } from '@/components/about-card';
 import { Screen } from '@/components/screen';
 import { ThemedText } from '@/components/themed-text';
 import { Button } from '@/components/ui/button';
@@ -9,7 +9,9 @@ import { Card } from '@/components/ui/card';
 import { Field } from '@/components/ui/field';
 import { Icon } from '@/components/ui/icon';
 import { InfoRow } from '@/components/ui/info-row';
+import { VisitorSettings } from '@/components/visitor/visitor-settings';
 import { Spacing } from '@/constants/theme';
+import { useSwitchMode } from '@/hooks/use-switch-mode';
 import { useTheme } from '@/hooks/use-theme';
 import { canUpload, roleLabel } from '@/lib/account';
 import { announce } from '@/lib/announce';
@@ -219,11 +221,42 @@ function AccountCard() {
   return status === 'signed-in' ? <SignedIn /> : <SignInForm />;
 }
 
+/** Lets a signed out staff phone switch to the visitor pages. */
+function VisitingCard() {
+  const { switchTo, switching, error } = useSwitchMode();
+
+  return (
+    <Card title="Visiting the park?" icon="visitor">
+      <ThemedText type="small" themeColor="textSecondary">
+        Read about plants by scanning their tags, with no sign in. Records on this phone stay here,
+        and you can switch back any time in Settings.
+      </ThemedText>
+      {error ? (
+        <ThemedText type="small" themeColor="danger" role="alert">
+          {error}
+        </ThemedText>
+      ) : null}
+      <Button
+        label="I'm visiting the park"
+        icon="visitor"
+        variant="outline"
+        disabled={switching}
+        onPress={() => switchTo('visitor')}
+      />
+    </Card>
+  );
+}
+
+// Visitors have no account, so this tab shows their settings instead of a profile.
 export default function ProfileScreen() {
+  const { mode } = useRecords();
+  return mode === 'visitor' ? <VisitorSettings /> : <StaffProfile />;
+}
+
+function StaffProfile() {
   const { records, pendingCount, syncedCount, waitingPhotoCount } = useRecords();
   const { status } = useAccount();
   const { syncNow, running, message, lastSyncedAt } = useSync();
-  const version = Constants.expoConfig?.version ?? '1.0.0';
 
   return (
     <Screen title="Profile" hasInputs>
@@ -256,13 +289,11 @@ export default function ProfileScreen() {
         ) : null}
       </Card>
 
-      <Card title="About" icon="info">
-        <InfoRow label="App" value="Niah Ground-Truthing" />
-        <InfoRow label="Version" value={version} />
-        <ThemedText type="small" themeColor="textSecondary">
-          COS30049 student project for Sarawak Forestry Corporation and NeuonAI.
-        </ThemedText>
-      </Card>
+      {/* Staff sign out first, because sign out is where the app warns about records that
+          haven't gone up yet. */}
+      {status === 'signed-out' ? <VisitingCard /> : null}
+
+      <AboutCard />
     </Screen>
   );
 }

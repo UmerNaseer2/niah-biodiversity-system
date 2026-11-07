@@ -7,12 +7,19 @@ import { ThemedText } from '@/components/themed-text';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { SyncBadge } from '@/components/ui/sync-badge';
+import { VisitorHome } from '@/components/visitor/visitor-home';
 import { Spacing } from '@/constants/theme';
 import { useNow } from '@/hooks/use-now';
 import { isToday } from '@/lib/format';
 import { useRecords } from '@/state/records-context';
 
+// Visitors and staff share this tab, but each gets their own page on it.
 export default function HomeScreen() {
+  const { mode } = useRecords();
+  return mode === 'visitor' ? <VisitorHome /> : <StaffHome />;
+}
+
+function StaffHome() {
   const router = useRouter();
   const { records, pendingCount, waitingPhotoCount, photoProblemCount } = useRecords();
   // Changes when the app comes back to the front, which also redraws the "Today" and "Yesterday"

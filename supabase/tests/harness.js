@@ -30,6 +30,7 @@ export const SQL_FILES = [
   '019_public_record_details.sql',
   '020_record_photo_access.sql',
   '021_role_changes.sql',
+  '022_iot_reading_limit.sql',
 ];
 
 export function readSql(file) {

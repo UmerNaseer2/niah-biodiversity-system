@@ -2,6 +2,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { AppState } from 'react-native';
 
 import { secureStorage } from './secure-storage';
+import { withTimeLimit } from './time-limit';
 
 /** Where Supabase keeps the session in secure storage. */
 export const SESSION_STORAGE_KEY = 'niah-session';
@@ -25,6 +26,8 @@ export function getSupabase() {
         autoRefreshToken: true,
         detectSessionInUrl: false,
       },
+      // Auth, the database and Storage all send their requests through this fetch.
+      global: { fetch: withTimeLimit(fetch) },
     });
     const { auth } = client;
     // Only refresh the token while the app is open, as the Supabase guide for Expo says to.

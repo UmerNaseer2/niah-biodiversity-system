@@ -178,6 +178,14 @@ Still to build on the website. The item numbers match the proposal and `docs/spr
 - Sign in and the species forms post to server actions, so nothing anyone types ends up in the
   address bar. The other wireframe forms don't have `name` attributes and never submit anywhere.
   The plant search keeps `?q=` in the URL on purpose, so a search can be shared.
+- Sign in has a limit of its own in `src/lib/rate-limit.ts`, as well as the one Supabase Auth has.
+  After 5 wrong tries for one email, or 20 from one address, in 15 minutes, `/login` says "Too
+  many tries" and doesn't send the sign in to Supabase until the oldest of those tries is 15
+  minutes old. Signing in starts that email's count again. The counts are kept in the server's
+  memory, so each copy of the server has its own and a restart clears them. Wrong tries count
+  against an email whoever makes them, which is why the wait is minutes and not hours. The
+  address is the first one in `x-forwarded-for`, or `x-real-ip`, as the host in front of the
+  server passes it on.
 - The species form checks live in `src/lib/species-form.ts`, so the page runs them before it sends
   the form and the server action runs them again before it saves. A species' scientific name can't
   change once it's added, because its public page link and its records use it.
@@ -223,15 +231,18 @@ Still to build on the website. The item numbers match the proposal and `docs/spr
 
 ```bash
 npm run lint
+npm test
 npm run build
 ```
 
-Both should pass with no errors. The build prints two warnings about font fallbacks for Atkinson
-Hyperlegible ("Failed to find font override values"). They're harmless. They only mean Next can't
-make a size matched backup font while the real one loads.
+All three should pass with no errors. The build prints two warnings about font fallbacks for
+Atkinson Hyperlegible ("Failed to find font override values"). They're harmless. They only mean
+Next can't make a size matched backup font while the real one loads.
 
-There are no unit tests for the website yet. Click through the pages you changed, including at
-375 px wide in the browser's dev tools, and check nothing scrolls sideways. GitHub runs lint and the
-build again on every pull request and every push to `main`.
+`npm test` runs the unit tests (`src/**/*.test.mjs`) with Node's own test runner, which can load
+the TypeScript files they test. So far only the sign in limit has them
+(`src/lib/rate-limit.test.mjs`). For the rest, click through the pages you changed, including at
+375 px wide in the browser's dev tools, and check nothing scrolls sideways. GitHub runs lint, the
+unit tests and the build again on every pull request and every push to `main`.
 
 Manual test results go in `docs/test-results/`. See the item 13 one for the website.

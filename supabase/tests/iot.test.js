@@ -476,6 +476,7 @@ describe('adding readings', () => {
       iot_check_alerts: 'authenticated',
       iot_check_reading: null,
       iot_device_heard: null,
+      iot_limit_readings: null,
       iot_make_device_token: 'authenticated',
       iot_raise_alert: null,
       iot_raise_quiet_alerts: null,

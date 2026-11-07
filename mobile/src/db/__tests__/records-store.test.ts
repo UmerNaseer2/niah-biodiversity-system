@@ -1,7 +1,7 @@
 import { deleteDatabaseAsync, SQLiteDatabase } from 'expo-sqlite';
 
 import type { SpeciesOption } from '@/data/species-list';
-import { DATABASE_NAME } from '@/db/database';
+import { DATABASE_NAME, openDatabase } from '@/db/database';
 import {
   EMPTY_SPECIES_LIST,
   NOT_DELETED,
@@ -567,5 +567,34 @@ describe('species list', () => {
 
     store = await openRecordsStore();
     expect(await store.loadSpecies()).toEqual([fig, belian]);
+  });
+});
+
+describe('who uses this phone', () => {
+  it('is nobody until someone picks', async () => {
+    expect(await store.loadMode()).toBeNull();
+  });
+
+  it('remembers the last pick after the app opens again', async () => {
+    await store.saveMode('visitor');
+    await store.saveMode('staff');
+    await store.close();
+
+    store = await openRecordsStore();
+    expect(await store.loadMode()).toBe('staff');
+  });
+
+  it('counts anything else saved there as nobody', async () => {
+    const db = await openDatabase();
+    await db.runAsync("INSERT INTO sync_meta (key, value) VALUES ('app_mode', 'ranger')");
+    await db.closeAsync();
+    expect(await store.loadMode()).toBeNull();
+  });
+
+  it('keeps the pick apart from when the phone last synced', async () => {
+    await store.saveLastSynced('2026-10-31T01:00:00.000Z');
+    await store.saveMode('visitor');
+    expect(await store.loadLastSynced()).toBe('2026-10-31T01:00:00.000Z');
+    expect(await store.loadMode()).toBe('visitor');
   });
 });

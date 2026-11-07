@@ -1,4 +1,4 @@
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useFocusEffect, useRouter, type Href } from 'expo-router';
 import { useCallback, useRef, useState } from 'react';
 import { AccessibilityInfo, Platform } from 'react-native';
 
@@ -10,19 +10,22 @@ import { Field } from '@/components/ui/field';
 import { isNewScan, parseTagQr } from '@/lib/qr';
 import { useRecords } from '@/state/records-context';
 
+const SHOWS_LATER = "It'll show once this phone is online and the plant info updates.";
+
 export default function ScanScreen() {
   const router = useRouter();
-  const { findByTag } = useRecords();
+  const { findByTag, findPublicByTag, mode, saveScan } = useRecords();
+  const visitor = mode === 'visitor';
   const [code, setCode] = useState('');
   const [notFound, setNotFound] = useState(false);
   const [scanProblem, setScanProblem] = useState<string>();
   // When each QR code was last in view, so a code held in front of the camera only counts once.
   const seen = useRef(new Map<string, number>());
-  // The QR code that opened the record on top. While it's set every other code is ignored, so
-  // two quick scans can't open two records.
+  // The QR code that opened the page on top. While it's set every other code is ignored, so
+  // two quick scans can't open two pages.
   const opened = useRef<string | undefined>(undefined);
   // The same code after coming back. It's probably still in front of the camera, so it has to
-  // leave the view before it opens the record again.
+  // leave the view before it opens the page again.
   const held = useRef<string | undefined>(undefined);
 
   useFocusEffect(
@@ -37,8 +40,33 @@ export default function ScanScreen() {
     }, []),
   );
 
-  function openRecord(id: string) {
-    router.push({ pathname: '/record/[id]', params: { id } });
+  /**
+   * The page a tag opens, if there is one. Staff get their own record first and then the saved
+   * plant info, since they can scan a tag someone else recorded. Visitors only get the plant info.
+   */
+  function pageFor(input: string): Href | undefined {
+    const record = visitor ? undefined : findByTag(input);
+    if (record) {
+      return { pathname: '/record/[id]', params: { id: record.id } };
+    }
+    const plant = findPublicByTag(input);
+    return plant ? { pathname: '/plant/[tag]', params: { tag: plant.tagCode } } : undefined;
+  }
+
+  /**
+   * Puts a visitor's tag in History, even when there's no info for it yet, so they can look again
+   * after the plant info updates. A typed code with no plant is only kept when it's a whole tag
+   * code, so half a code doesn't end up there.
+   */
+  function remember(input: string) {
+    const tagCode = findPublicByTag(input)?.tagCode ?? parseTagQr(input);
+    if (!visitor || tagCode === undefined) {
+      return;
+    }
+    // The visitor can still read about the plant if this fails, so it's only logged.
+    saveScan(tagCode).catch((error: unknown) => {
+      console.warn("Couldn't save the scan to History.", error);
+    });
   }
 
   function handleCameraReady() {
@@ -67,28 +95,38 @@ export default function ScanScreen() {
       showProblem("That QR code isn't a Niah plant tag.");
       return;
     }
-    const record = findByTag(tag);
-    if (!record) {
-      showProblem(`No record with tag ${tag} on this phone.`);
+    remember(tag);
+    const page = pageFor(tag);
+    if (!page) {
+      showProblem(
+        visitor
+          ? `No plant info for tag ${tag} yet. ${SHOWS_LATER}`
+          : `No record with tag ${tag} on this phone.`,
+      );
       return;
     }
     opened.current = data;
     setScanProblem(undefined);
-    openRecord(record.id);
+    router.push(page);
   }
 
   function lookUp() {
     if (code.trim() === '') {
       return;
     }
-    const record = findByTag(code);
-    if (!record) {
+    remember(code);
+    const page = pageFor(code);
+    if (!page) {
       setNotFound(true);
       return;
     }
     setCode('');
-    openRecord(record.id);
+    router.push(page);
   }
+
+  const notFoundMessage = visitor
+    ? `No plant info for that tag yet. ${SHOWS_LATER}`
+    : 'No record with that tag on this phone.';
 
   return (
     <Screen hasInputs title="Scan a tag" subtitle="Point the camera at the QR tag on the plant.">
@@ -108,10 +146,10 @@ export default function ScanScreen() {
           returnKeyType="search"
           onSubmitEditing={lookUp}
           hint="Use this if the tag is dirty, wet or won't scan."
-          error={notFound ? 'No record with that tag on this phone.' : undefined}
+          error={notFound ? notFoundMessage : undefined}
         />
         <Button
-          label="Find record"
+          label={visitor ? 'Find plant' : 'Find record'}
           icon="search"
           variant="outline"
           onPress={lookUp}

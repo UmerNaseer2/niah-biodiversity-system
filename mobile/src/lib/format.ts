@@ -77,3 +77,13 @@ export function plural(count: number, word: string) {
 export function conditionLabel(condition: PlantCondition) {
   return condition.charAt(0).toUpperCase() + condition.slice(1);
 }
+
+// Records are dated in park time on the website, so the phone works the day out the same way
+// whatever time zone it's set to.
+const PARK_OFFSET_MS = 8 * 60 * 60 * 1000;
+
+/** "2 Oct 2026", the day at the park (Sarawak, UTC+8) when this happened. */
+export function formatParkDate(iso: string) {
+  const date = new Date(Date.parse(iso) + PARK_OFFSET_MS);
+  return `${date.getUTCDate()} ${MONTHS[date.getUTCMonth()]} ${date.getUTCFullYear()}`;
+}

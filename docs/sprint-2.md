@@ -40,15 +40,20 @@ Notes:
 ## Security (items 25 to 27)
 
 - [x] 25. Initial Security Penetration Testing. Done 31 Oct on Umer's Mac against a local production
-  build and the stand-in, see [test results](test-results/item-25-27-security.md). OWASP ZAP and
-  Security Advisor didn't run. SSL Labs ran on 1 Nov with item 23.
+  build and the stand-in, and Jason ran a ZAP scan of a signed out local production build on 6 Nov,
+  see [test results](test-results/item-25-27-security.md). The hosted Security Advisor hasn't been
+  checked. SSL Labs ran on 1 Nov with item 23.
 - [x] 26. Vulnerability Remediation & Fixes. Both highs, all 7 mediums and 5 of 14 lows are fixed in
   our code, with SQL 019 to 021. The phone's records file (item 22) is only fixed in development and
-  store builds, and has only been tested on the simulator. The hosted project doesn't have the rest
-  until Umer runs 003 to 021 and the site is redeployed.
+  store builds, and has only been tested on the simulator. ZAP's scan on 6 Nov found no high or
+  critical alerts, and its medium suggestions for the Content Security Policy are open for the team
+  to look at. The hosted project doesn't have the rest until Umer runs 003 to 021 and the site is
+  redeployed.
 - [ ] 27. Security Reassessment & Verification. Partly done. Everything from item 25 that ran was run
-  again on the fixed code and compared, and nothing widened. ZAP and a reassessment on the hosted
-  project are still to do.
+  again on the fixed code and compared, and nothing widened. On 6 Nov Jason ran the database, phone
+  and website checks again, plus ZAP, which found no high or critical alerts. Staff pages that need
+  sign in, the hosted website and Supabase, and the Content Security Policy suggestions are still
+  to do.
 
 ## IoT and monitoring (items 28 to 31)
 

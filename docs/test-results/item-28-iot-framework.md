@@ -133,8 +133,10 @@ has finished.
   for the region, and someone on that WiFi could read it. Only the edge device to Supabase part is
   HTTPS.
 - **A new token means flashing the edge device again.** There's no way to send one over the air.
-- **Nothing limits how often someone can call `iot_add_readings`.** A token is too long and random
-  to guess by trying, but item 25 should look at this.
+- **Nothing limited how often someone could call `iot_add_readings`.** A token is too long and
+  random to guess by trying, but item 25 should look at this. Since 5 Nov 2026, 022 limits each
+  edge device to 3,600 readings an hour (`supabase/README.md`). A call with a wrong token is still
+  turned away before anything is added.
 - **WiFi, not Zigbee or LoRaWAN.** The proposal prefers those for the field and allows WiFi for the
   prototype, which is what we have parts for.
 - **No GPS code.** We don't have a GPS part yet. `iot_add_readings` already takes a latitude and

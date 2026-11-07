@@ -128,6 +128,57 @@ export const MIGRATIONS: readonly string[] = [
     upload_problem TEXT CHECK (upload_problem IS NULL OR upload_problem IN ('missing', 'rejected')),
     PRIMARY KEY (record_id, position)
   ) STRICT;`,
+
+  // Version 7: a copy of what the public website shows about tagged plants, so a visitor can scan
+  // a tag with no signal. It's kept apart from the staff tables, and each download swaps the whole
+  // copy in one go. It has no location columns, because the plant page doesn't show where a plant
+  // is. A species' slug is its ID on the server, the same as in species, and a record's
+  // species_slug points to it. Condition can be empty so a record with a value this app doesn't
+  // know still comes down. scan_history is the tags this phone scanned, one row per tag, and it
+  // never leaves the phone.
+  `CREATE TABLE public_species (
+    slug TEXT PRIMARY KEY NOT NULL CHECK (slug <> ''),
+    scientific_name TEXT NOT NULL CHECK (scientific_name <> ''),
+    authority TEXT NOT NULL DEFAULT '',
+    family TEXT NOT NULL DEFAULT '',
+    common_names TEXT NOT NULL DEFAULT '[]'
+      CHECK (json_valid(common_names) AND json_type(common_names) = 'array'),
+    iucn_code TEXT NOT NULL CHECK (iucn_code IN ('LC', 'NT', 'VU', 'EN', 'CR', 'DD', 'NE')),
+    sarawak_protected INTEGER NOT NULL CHECK (sarawak_protected IN (0, 1)),
+    newer_name TEXT,
+    summary TEXT NOT NULL DEFAULT '',
+    about TEXT NOT NULL DEFAULT '',
+    habitat TEXT NOT NULL DEFAULT '',
+    uses TEXT NOT NULL DEFAULT ''
+  ) STRICT;
+  CREATE TABLE public_records (
+    id TEXT PRIMARY KEY NOT NULL,
+    tag_code TEXT NOT NULL CHECK (tag_code <> ''),
+    species_slug TEXT,
+    species_name TEXT NOT NULL CHECK (species_name <> ''),
+    common_name TEXT,
+    height_m REAL CHECK (height_m IS NULL OR height_m > 0),
+    condition TEXT
+      CHECK (condition IS NULL OR condition IN ('healthy', 'damaged', 'diseased', 'dead')),
+    recorded_at TEXT NOT NULL
+  ) STRICT;
+  CREATE TABLE scan_history (
+    tag_code TEXT PRIMARY KEY NOT NULL CHECK (tag_code <> ''),
+    scanned_at TEXT NOT NULL
+  ) STRICT;`,
+
+  // Version 8: the main photo of each species in the saved plant info, so a visitor can see it
+  // with no signal. url is where the photo is on the server, so a photo that changes there comes
+  // down again. file is the name of the copy in the species-photos folder, and stays empty until
+  // the photo has come down. No foreign key, for the same reason as record_photos, so the store
+  // swaps this table in the same transaction as the species.
+  `CREATE TABLE public_photos (
+    species_slug TEXT PRIMARY KEY NOT NULL CHECK (species_slug <> ''),
+    url TEXT NOT NULL CHECK (url <> ''),
+    caption TEXT NOT NULL DEFAULT '',
+    credit TEXT NOT NULL DEFAULT '',
+    file TEXT CHECK (file IS NULL OR file <> '')
+  ) STRICT;`,
 ];
 
 /**

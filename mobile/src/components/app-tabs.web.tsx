@@ -20,7 +20,10 @@ import { useRecords } from '@/state/records-context';
 // Native tabs don't run in the browser, so the web preview draws its own bottom bar that
 // looks close to the Android one. Keep the tabs in the same order as app-tabs.tsx.
 export default function AppTabs() {
-  const { pendingCount } = useRecords();
+  const { pendingCount, mode } = useRecords();
+  // Visitors only read about plants, so the tabs for making and sending records are left out,
+  // and only visitors get Plants and History.
+  const visitor = mode === 'visitor';
 
   return (
     <Tabs style={styles.fill}>
@@ -33,14 +36,32 @@ export default function AppTabs() {
           <TabTrigger name="scan" href="/scan" asChild>
             <TabButton icon="scan" label="Scan" />
           </TabTrigger>
-          <TabTrigger name="new-record" href="/new-record" asChild>
-            <TabButton icon="newRecord" label="New Record" />
-          </TabTrigger>
-          <TabTrigger name="records" href="/records" asChild>
-            <TabButton icon="records" label="My Records" badge={pendingCount} />
-          </TabTrigger>
+          {visitor ? null : (
+            <TabTrigger name="new-record" href="/new-record" asChild>
+              <TabButton icon="newRecord" label="New Record" />
+            </TabTrigger>
+          )}
+          {visitor ? null : (
+            <TabTrigger name="records" href="/records" asChild>
+              <TabButton icon="records" label="My Records" badge={pendingCount} />
+            </TabTrigger>
+          )}
+          {visitor ? (
+            <TabTrigger name="plants" href="/plants" asChild>
+              <TabButton icon="leaf" label="Plants" />
+            </TabTrigger>
+          ) : null}
+          {visitor ? (
+            <TabTrigger name="history" href="/history" asChild>
+              <TabButton icon="history" label="History" />
+            </TabTrigger>
+          ) : null}
+          {/* Visitors have no account, so the same tab holds their settings instead. */}
           <TabTrigger name="profile" href="/profile" asChild>
-            <TabButton icon="profile" label="Profile" />
+            <TabButton
+              icon={visitor ? 'settings' : 'profile'}
+              label={visitor ? 'Settings' : 'Profile'}
+            />
           </TabTrigger>
         </TabBar>
       </TabList>

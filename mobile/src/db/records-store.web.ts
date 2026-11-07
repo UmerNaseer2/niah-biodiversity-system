@@ -1,7 +1,21 @@
 import type { SpeciesOption } from '@/data/species-list';
-import type { PlantRecord, RecordPhoto } from '@/types/plant-record';
+import type { AppMode } from '@/types/app-mode';
+import { PLANT_CONDITIONS, type PlantRecord, type RecordPhoto } from '@/types/plant-record';
+import {
+  isIucnCode,
+  type PublicPhoto,
+  type PublicRecord,
+  type PublicSpecies,
+  type ScanEntry,
+} from '@/types/public-copy';
 
+import { keptPhotos } from './kept-photos';
 import type { RecordsStore } from './records-store';
+
+/** A copy that doesn't share its list of common names, so a screen can't change the saved one. */
+function copySpecies(item: PublicSpecies): PublicSpecies {
+  return { ...item, commonNames: [...item.commonNames] };
+}
 
 // The web build is only for looking at the screens on a computer, so it keeps records in memory
 // and they're gone when the page reloads. SQLite on the web is still in alpha with expo-sqlite,
@@ -13,6 +27,13 @@ export async function openRecordsStore(): Promise<RecordsStore> {
   const photos: RecordPhoto[] = [];
   let species: SpeciesOption[] = [];
   let lastSynced: string | null = null;
+  let mode: AppMode | null = null;
+  let publicSpecies: PublicSpecies[] = [];
+  let publicRecords: PublicRecord[] = [];
+  let publicCopyAt: string | null = null;
+  let publicPhotos: PublicPhoto[] = [];
+  // In the order the tags were first scanned, like rowid in scan_history.
+  const scans: ScanEntry[] = [];
 
   return {
     async loadRecords() {
@@ -135,6 +156,98 @@ export async function openRecordsStore(): Promise<RecordsStore> {
         throw new Error('A species in the list has no name or a repeated slug.');
       }
       species = [...list];
+    },
+    async loadPublicCopy() {
+      return {
+        species: publicSpecies.map(copySpecies),
+        records: publicRecords.map((record) => ({ ...record })),
+        downloadedAt: publicCopyAt,
+      };
+    },
+    async replacePublicCopy(newSpecies, newRecords, downloadedAt, newPhotos) {
+      if (newSpecies.length === 0) {
+        throw new Error('The plant info that came down had no species, so the old copy stays.');
+      }
+      const slugs = new Set(newSpecies.map((item) => item.slug));
+      if (
+        slugs.size < newSpecies.length ||
+        newSpecies.some(
+          (item) => item.slug === '' || item.scientificName === '' || !isIucnCode(item.iucnCode),
+        )
+      ) {
+        throw new Error(
+          'A species in the plant info has no name, a repeated slug or a bad IUCN code.',
+        );
+      }
+      const ids = new Set(newRecords.map((record) => record.id));
+      if (
+        ids.size < newRecords.length ||
+        newRecords.some(
+          (record) =>
+            record.tagCode === '' ||
+            record.speciesName === '' ||
+            (record.heightM !== undefined && !(record.heightM > 0)) ||
+            (record.condition !== undefined && !PLANT_CONDITIONS.includes(record.condition)),
+        )
+      ) {
+        throw new Error(
+          'A record in the plant info has no tag or name, a repeated ID, or a bad height or ' +
+            'condition.',
+        );
+      }
+      publicPhotos = keptPhotos(newPhotos, publicPhotos, slugs);
+      publicSpecies = newSpecies.map(copySpecies);
+      publicRecords = newRecords.map((record) => ({ ...record }));
+      publicCopyAt = downloadedAt;
+    },
+    async loadPublicPhotos() {
+      return publicPhotos.map((photo) => ({ ...photo }));
+    },
+    async savePublicPhotoFile(speciesSlug, url, file) {
+      if (file === '') {
+        throw new Error('A saved photo needs a file name.');
+      }
+      const photo = publicPhotos.find(
+        (one) => one.speciesSlug === speciesSlug && one.url === url && one.file === undefined,
+      );
+      if (!photo) {
+        return false;
+      }
+      photo.file = file;
+      return true;
+    },
+    async loadScans() {
+      // Latest first, and the tag first scanned later goes first when two have the same time, the
+      // same as ORDER BY scanned_at DESC, rowid DESC.
+      return scans
+        .map((scan, index) => ({ scan, index }))
+        .sort((a, b) => {
+          if (a.scan.scannedAt !== b.scan.scannedAt) {
+            return a.scan.scannedAt < b.scan.scannedAt ? 1 : -1;
+          }
+          return b.index - a.index;
+        })
+        .map(({ scan }) => ({ ...scan }));
+    },
+    async saveScan(tagCode, scannedAt) {
+      if (tagCode === '') {
+        throw new Error('A scan needs a tag code.');
+      }
+      const existing = scans.find((scan) => scan.tagCode === tagCode);
+      if (existing) {
+        existing.scannedAt = scannedAt;
+      } else {
+        scans.push({ tagCode, scannedAt });
+      }
+    },
+    async clearScans() {
+      scans.length = 0;
+    },
+    async loadMode() {
+      return mode;
+    },
+    async saveMode(newMode) {
+      mode = newMode;
     },
     async close() {},
   };

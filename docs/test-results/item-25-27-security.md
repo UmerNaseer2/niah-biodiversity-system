@@ -6,6 +6,9 @@ made up. The repo is public, so this page says what ran and whether it passed. W
 was stays in the private findings log, and a short summary goes in `docs/security/` once the hosted
 project has the fixes (step 5 of the [assessment plan](../security/vulnerability-assessment-plan.md)).
 
+Jason ran ZAP and the other checks again on Windows on 6 Nov, on a copy of the project. That
+round is in [ZAP scan, 6 Nov 2026](#zap-scan-6-nov-2026).
+
 **The hosted project doesn't have these fixes.** The SQL only reaches it once Umer runs 003 to 021
 in order. Everything below is the production build against the stand-in, not the hosted project.
 
@@ -162,11 +165,31 @@ the private findings log.
 | ASVS (authentication, sessions, access, validation, errors, data, communication, business logic, files, API, configuration) | Findings are in the private log. Parts that depend on hosted settings or a deployed site not checked |
 | MASVS (read only, no phone) | Session in the keychain for this device only, backups off, https only in the code, and the bundle has no secrets. Findings are in the private log. Record photo EXIF to check when item 11 lands, since it isn't on `main` yet. **Checked on 1 Nov 2026 with item 11:** the GPS block is gone from a saved library photo and the server's copy, on the iOS simulator. A real camera isn't checked, see [item 11](item-11-photos.md) |
 
+## ZAP scan, 6 Nov 2026
+
+Jason ran the checks again on Windows on 6 Nov, on a copy of the project without its `.git`
+folder, so the commit history couldn't be checked for secrets. The Android bundle export and the
+website's production build both worked. The bundle has no `zod` package and no service role key,
+and a scan of the files only found the placeholders in the docs and the stand-in's example key.
+
+| Check | Result |
+| --- | --- |
+| Database security tests | Pass, 411 of 411 in 76 suites |
+| Phone checks | Pass, 744 of 744 in 33 suites. Lint, typecheck and the Android JavaScript export pass |
+| Website checks | Pass, lint, typecheck and the webpack production build |
+| `npm audit --omit=dev` | Website 0 and database tests 0. Phone 17 (8 low, 7 moderate, 2 high). The 2 highs come from Expo's command line tools, and `zod` wasn't in the Android bundle |
+| ZAP 2.16.1 quick scan | Signed out, on a local production build only. No high or critical alerts, 4 medium and 6 informational alert types. 3 of the medium alerts are suggestions for the Content Security Policy. For the low confidence alert about a missing CSRF token, a sign in was sent from another origin, and Next.js refused it. Supabase wasn't set up, so nothing that needs sign in ran |
+
+The Content Security Policy suggestions are open for the team to look at, because the site still
+needs inline page content and plant photos from other https sites. This scan didn't touch the
+hosted website or the hosted Supabase project.
+
 ## Not tested yet
 
-- **OWASP ZAP didn't run.** Docker Desktop wouldn't start on the Mac, and the Mac has no Java, so
-  the image and the cross platform download both failed. No ZAP result exists, and the script above
-  doesn't replace it.
+- **Updated 6 Nov:** ZAP didn't run on the Mac on 31 Oct, because Docker Desktop wouldn't start
+  and the Mac has no Java. Jason's ZAP scan on 6 Nov is above, but it only saw signed out pages on
+  a local build. Staff pages that need sign in, the hosted website and the hosted Supabase project
+  still need their own reassessment.
 - Anything on the hosted project: Security Advisor, Auth settings and real sign in limits.
 - **Fixed on 1 Nov:** this line said HTTPS on a real host and SSL Labs weren't tested because
   nothing was deployed. The site is live but older than `main`, and both were checked on 1 Nov, see

@@ -31,10 +31,11 @@ kept, and you can fix the problem and run it again.
 | `019_public_record_details.sql` | Gives the public less about a plant whose spot is hidden: the day a record was made, not the time, and the spot stays hidden when a record's name disagrees with its species. The Reports counts follow the same rule | 26 | Yes |
 | `020_record_photo_access.sql` | Someone who loses their field staff role also loses their own record photos, and people who aren't signed in can't call the helper functions | 26 | Yes |
 | `021_role_changes.sql` | Keeps a list of every role change, with who made it and when, for the Users page, and makes sure administrators can't remove each other at the same moment and leave nobody. Only admins can read the list, and nobody can change it | 26 | Yes. The list is kept |
+| `022_iot_reading_limit.sql` | Limits each edge device to 3,600 readings an hour. A call that would go over is refused with HTTP 429 and none of it is kept, so the device sends it again later | 26 | Yes. To change the limit, change the number in it and run it again |
 
 As of 16 Oct 2026 the hosted project has 001 and 002. Run 003, 004, 005, 006, 007, 008, 009, 010,
-011, 012, 013, 014, 015, 016, 017, 019, 020 and 021 next, one file at a time, in that order, and
-don't stop part way. There's no 018 file: the number was held for the phone's photos, and they
+011, 012, 013, 014, 015, 016, 017, 019, 020, 021 and 022 next, one file at a time, in that order,
+and don't stop part way. There's no 018 file: the number was held for the phone's photos, and they
 didn't need one. The website's species pages (add, edit and delete) and its public pages need 007,
 and 007 stops on its first line if 006 isn't there. Until then the public pages say "This page
 didn't load". Without 009 the plant pages show no photos. Without 010 a phone that hadn't synced a
@@ -54,13 +55,15 @@ counts stay as 007 and 012 left them. 019 stops on its first line if 017 isn't t
 record photos and the helper functions keep the access the earlier files gave them. 020 stops on its
 first line if 019 isn't there. Without 021 role changes aren't written down and the Users page says
 so. Changing roles still works. 021 stops on its first line if 020 isn't there. The list only starts
-once 021 is in, so earlier changes aren't in it. 003 is fine to run even if it turns out to be there
-already. The history only starts once 013 is in, so changes made before that aren't in it.
+once 021 is in, so earlier changes aren't in it. Without 022 nothing limits how many readings an
+edge device can add. 022 stops on its first line if 021 isn't there. 003 is fine to run even if it
+turns out to be there already. The history only starts once 013 is in, so changes made before
+that aren't in it.
 
-The sensor steps are 016 and 017, after 015. Then an admin opens **Sensors**, then **Devices**, adds
-each edge device, links its nodes and makes it a token. [`iot/README.md`](../iot/README.md) has the
-rest. The numbers in `iot_alert_limits` are starting values to tune, and nobody has tried them in
-the field.
+The sensor steps are 016 and 017, after 015, and 022 at the end. Then an admin opens **Sensors**,
+then **Devices**, adds each edge device, links its nodes and makes it a token.
+[`iot/README.md`](../iot/README.md) has the rest. The numbers in `iot_alert_limits` are starting
+values to tune, and nobody has tried them in the field.
 
 Before running 004, open the `profiles` table in the Table Editor and check every role there is
 one an admin gave on purpose. Set any you don't recognise back to `visitor`. If nobody needs to
@@ -165,9 +168,10 @@ npm test
   `tests/history.test.js` checks 013 (items 17 and 18), `tests/photo-folder.test.js` checks
   014 (item 18), `tests/downloads.test.js` checks 011, `tests/species-rough.test.js` checks 015
   (item 19), `tests/phone-reads.test.js` checks what the phone reads back when it syncs (item 10),
-  `tests/iot.test.js` checks 016, 017 and the node simulator (items 28, 29 and 31), and
-  `tests/public-details.test.js` checks 019, `tests/record-photo-access.test.js` checks 020 and
-  `tests/role-changes.test.js` checks 021 (item 26).
+  `tests/visitor-reads.test.js` checks the plant info the phone downloads for visitors,
+  `tests/iot.test.js` checks 016, 017 and the node simulator (items 28, 29 and 31),
+  `tests/public-details.test.js` checks 019, `tests/record-photo-access.test.js` checks 020,
+  `tests/role-changes.test.js` checks 021 and `tests/iot-limit.test.js` checks 022 (item 26).
 - `tests/stand-in.js` is a stand-in for our Supabase project that runs on your computer, for
   trying the website without a real project. The
   [web README](../web/README.md#trying-sign-in-without-a-supabase-project) says how, and

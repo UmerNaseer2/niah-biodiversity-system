@@ -125,12 +125,15 @@ type ListScreenProps<T> = ScreenHeaderProps & {
   renderItem: (item: T) => ReactElement;
   /** Shown under the header when there's nothing in the list. */
   empty?: ReactNode;
+  /** Turn on when the header has a text box, so the focused box scrolls up above the keyboard. */
+  hasInputs?: boolean;
 };
 
 /**
  * A tab screen that's mostly one long list, like My records. It looks the same as Screen, but
  * only draws the rows near the screen, so it stays quick with a few thousand of them. A list
- * like that can't go inside Screen's ScrollView, so this scrolls by itself. No text boxes.
+ * like that can't go inside Screen's ScrollView, so this scrolls by itself. A text box can go
+ * in the header, with hasInputs turned on.
  */
 export function ListScreen<T>({
   title,
@@ -141,33 +144,46 @@ export function ListScreen<T>({
   keyExtractor,
   renderItem,
   empty,
+  hasInputs = false,
 }: ListScreenProps<T>) {
   const theme = useTheme();
   const padding = usePagePadding(true);
 
-  return (
-    <TabScreenFrame>
-      <FlatList
-        style={[styles.scroll, { backgroundColor: theme.background }]}
-        contentContainerStyle={[styles.content, padding]}
-        contentInsetAdjustmentBehavior="automatic"
-        keyboardShouldPersistTaps="handled"
-        data={data}
-        keyExtractor={keyExtractor}
-        // Each part sits in its own centred column, so the page lines up with the other tabs
-        // on a tablet.
-        ListHeaderComponent={
-          <View style={[styles.inner, styles.listHeader]}>
-            <ScreenHeader title={title} eyebrow={eyebrow} subtitle={subtitle} />
-            {header}
-          </View>
-        }
-        renderItem={({ item }) => <View style={styles.inner}>{renderItem(item)}</View>}
-        ItemSeparatorComponent={ListGap}
-        ListEmptyComponent={empty ? <View style={styles.inner}>{empty}</View> : null}
-      />
-    </TabScreenFrame>
+  const list = (
+    <FlatList
+      style={[styles.scroll, { backgroundColor: theme.background }]}
+      contentContainerStyle={[styles.content, padding]}
+      contentInsetAdjustmentBehavior="automatic"
+      // Only lists with a text box listen to the keyboard, for the same reason as in Screen.
+      automaticallyAdjustKeyboardInsets={hasInputs}
+      keyboardShouldPersistTaps="handled"
+      keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+      data={data}
+      keyExtractor={keyExtractor}
+      // Each part sits in its own centred column, so the page lines up with the other tabs
+      // on a tablet.
+      ListHeaderComponent={
+        <View style={[styles.inner, styles.listHeader]}>
+          <ScreenHeader title={title} eyebrow={eyebrow} subtitle={subtitle} />
+          {header}
+        </View>
+      }
+      renderItem={({ item }) => <View style={styles.inner}>{renderItem(item)}</View>}
+      ItemSeparatorComponent={ListGap}
+      ListEmptyComponent={empty ? <View style={styles.inner}>{empty}</View> : null}
+    />
   );
+
+  if (Platform.OS === 'android' && hasInputs) {
+    // The same as in Screen: the window doesn't shrink for the keyboard on Android any more.
+    return (
+      <KeyboardAvoidingView behavior="padding" style={styles.scroll}>
+        {list}
+      </KeyboardAvoidingView>
+    );
+  }
+
+  return <TabScreenFrame>{list}</TabScreenFrame>;
 }
 
 function ListGap() {

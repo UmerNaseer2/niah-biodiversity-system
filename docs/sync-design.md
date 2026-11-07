@@ -3,7 +3,8 @@
 Botanists record plants in the park with no signal, so every record is saved on the phone first
 (item 9) and goes up to Supabase later. Item 3 set up the server side of that and the rules the
 phone follows when it uploads. Item 10 (Sprint #2) added sign in, the "Sync now" button and the
-part that decides when to sync, and item 11 added the photos. This page says how it all works.
+part that decides when to sync, and item 11 added the photos. Visitors can also download the plant
+info to read with no signal. This page says how it all works.
 
 | Part | Where |
 | --- | --- |
@@ -14,7 +15,11 @@ part that decides when to sync, and item 11 added the photos. This page says how
 | The calls to Supabase | [`mobile/src/sync/supabase-api.ts`](../mobile/src/sync/supabase-api.ts) |
 | When the phone syncs | [`mobile/src/state/sync-context.tsx`](../mobile/src/state/sync-context.tsx) |
 | Who's signed in, and keeping the session | [`mobile/src/state/account-context.tsx`](../mobile/src/state/account-context.tsx), [`mobile/src/lib/chunked-storage.ts`](../mobile/src/lib/chunked-storage.ts) |
+| Downloading the plant info visitors read | [`mobile/src/sync/public-copy.ts`](../mobile/src/sync/public-copy.ts), [`mobile/src/sync/supabase-public-api.ts`](../mobile/src/sync/supabase-public-api.ts) |
+| When the plant info downloads | [`mobile/src/state/public-copy-context.tsx`](../mobile/src/state/public-copy-context.tsx) |
+| Downloading and keeping species photos | [`mobile/src/sync/public-photos.ts`](../mobile/src/sync/public-photos.ts), [`mobile/src/lib/species-photo-files.ts`](../mobile/src/lib/species-photo-files.ts), [`mobile/src/db/kept-photos.ts`](../mobile/src/db/kept-photos.ts) |
 | Tests for what the phone reads back | [`supabase/tests/phone-reads.test.js`](../supabase/tests/phone-reads.test.js) |
+| Tests for what visitors download | [`supabase/tests/visitor-reads.test.js`](../supabase/tests/visitor-reads.test.js) |
 | Tests that run our SQL and act as each kind of user | [`supabase/tests/`](../supabase/tests/) |
 | Example records both sides test against | [`supabase/tests/fixtures/phone-upload.json`](../supabase/tests/fixtures/phone-upload.json) |
 
@@ -201,6 +206,132 @@ How the phone sends them (see the [test results](test-results/item-11-photos.md)
   picker's own copy gets deleted as well.
 - **Photos stay on the phone after they've gone up**, so thumbnails work with no signal.
 
+## Plant info for visitors
+
+Visitors scan the QR tags on plants to read about them, and that has to work with no signal too.
+So the phone keeps its own copy of the plant info the website shows, and looks tags up in that.
+
+**Who uses the phone.** The first time the app opens, it asks whether someone is visiting the park
+or works there, saves the answer and doesn't ask again. A phone that already has records or has
+synced is a staff phone, so it skips the question. Visitors don't sign in. They get Home, Scan,
+Plants, History and Settings, while staff keep Home, Scan, New Record, My Records and Profile.
+Settings has a "Work at the park?" card to switch to the staff pages, and a signed out staff phone
+has a "Visiting the park?" card on Profile. Switching to the visitor pages leaves any records on
+the phone where they are. A link to a page the other kind of user gets opens Home instead, and on
+a new phone a link shows the welcome page first, then Home once someone picks.
+`mobile/src/__tests__/welcome-screen.test.tsx` checks both.
+
+**When it downloads.** The copy goes in the `public_species`, `public_records` and `public_photos`
+tables, apart from the staff records. Once someone has picked, the phone downloads it in both
+modes, so a staff scan can use it too. Visitors read it as someone with no account, and a signed in
+staff phone gets the same lists. It downloads:
+
+- when the app opens, and straight after the first pick
+- when the app comes back to the front
+- when the phone says it has a connection again
+- every 10 minutes while the app is open, so records an officer approves show up without a restart
+- when someone presses Update now on Settings, or Try again on Home
+
+The automatic ones skip the download if the last one that worked was in the past 5 minutes. One
+download runs at a time. If an automatic one comes up during it, the phone checks again once it
+finishes, so it only downloads again if that one didn't work.
+
+One download (`downloadPublicCopy`) goes like this:
+
+1. Stop if the phone says it has no connection. The copy on the phone stays as it is.
+2. Download the species from `species_public`, then the published records from `records_public`,
+   500 rows at a time, giving up after 100 pages. It needs both lists, so a plant page never shows
+   a new record next to an old species. An empty species list counts as failed, because it means
+   something went wrong on the server. No records is fine, since the park might not have published
+   any yet.
+3. Download the photo lists from `species_photos_public`. If they can't be read, the plant info
+   still saves, and the photos already on the phone stay for each species that's still in it.
+4. Swap the whole copy for the new one in one transaction. If anything goes wrong before then, the
+   old copy stays.
+
+The phone only asks for the columns its pages show, and never for the location column of
+`records_public`, because its plant pages don't say where a plant is.
+`supabase/tests/visitor-reads.test.js` reads the column lists out of `supabase-public-api.ts`, pins
+them, and runs the same reads against our SQL with no account and as a botanist.
+
+Update now and Try again say how it went, and a phone reads it out for screen readers too. Before
+there's any copy, Home shows the same messages with a Try again button. After that, an automatic
+download that doesn't work says nothing, because Last updated already says how old the copy is.
+
+| What happened | With a copy on the phone | With no copy yet |
+| --- | --- | --- |
+| It worked | Plant info updated. | Plant info updated. |
+| The phone says it has no connection | No signal right now. The plant info saved on this phone still works. | No signal right now. The plant info will download once this phone is online. |
+| Anything else went wrong | Couldn't update the plant info, but the copy saved on this phone still works. | Couldn't download the plant info. Try again in a little while. |
+
+**Photos.** After each download that works, the phone downloads the main photo of each species
+that isn't on it yet:
+
+- One at a time, stopping when the signal goes. The plant info doesn't wait for the photos.
+- The main photo is the one marked as main, or the first one when none is, the same as on the
+  website. The photos are read with the website's rules too: an uploaded photo has to be in its own
+  species' folder in the public `botanical-photos` bucket, and a link to a photo on another website
+  has to start with https.
+- A photo over 5 MB is stopped and isn't tried again until the app restarts, so it doesn't use up a
+  visitor's data. One that takes over a minute is stopped and tried again after the next download.
+- The files go in a `species-photos` folder in the app's documents folder, because the phone can
+  clear the cache folder when it runs low on space. The `public_photos` table (database version 8)
+  keeps each photo's link, caption, credit and file name. Files no saved photo uses are deleted
+  after each round and when the app opens.
+- The website version of the app doesn't download photos.
+- The phone never asks for the record photos, which stay in the private `record-photos` bucket.
+
+**Scanning.** A visitor's scan, or a typed tag code, looks the tag up in the saved copy and opens
+its plant page, which has no map and no location. A tag that isn't in the copy says there's no
+plant info for it yet, and that it'll show once the phone is online and the plant info updates.
+Staff scans open the record on the phone first, and fall back to the saved copy when no record
+there has the tag. Only visitors get History, which lists the tags they've scanned or typed in,
+newest first. A tag with no plant info yet goes in too, so they can look again after an update.
+
+**What the hosted project needs.** The phone reads these views as our SQL files leave them:
+
+- `species_public` has had every column the phone asks for since 004.
+- `records_public` needs 006 or later for the tag code and the species names.
+- `species_photos_public` comes in 009. Without it, every download logs a warning that the photo
+  lists can't be read, but the plant info still saves.
+- The comment at the top of 019 says the phone doesn't read `records_public`. That's out of date
+  now, but it's only a comment, and SQL files aren't edited once they might have been run on the
+  hosted project, so 019 stays as it is.
+
+Run every SQL file up to 021 on the hosted project before visitors use this. See
+[`supabase/README.md`](../supabase/README.md) for where the hosted project is up to.
+
+## Requests that get no answer
+
+Wi-Fi with no internet behind it, or a weak signal, can leave a request sitting there with no
+answer. Before 5 Nov the app set no time limit of its own, so Update now or Sync now could keep
+going for as long as the phone kept waiting. Now the client in `mobile/src/lib/supabase.ts` sends
+every request through one fetch with a time limit (`mobile/src/lib/time-limit.ts`). That covers
+the session check, record and photo uploads, reading back the reviews, the species list and the
+plant info downloads.
+
+- A request gets 30 seconds from when it's sent until the whole answer is back. A photo upload
+  gets a minute, the same as a species photo download, since it sends the whole photo.
+- A request that runs out of time counts as no signal. Update now says it couldn't update the
+  plant info, and the copy on the phone stays. A sync stops the same way it does with no signal,
+  and the records and photos stay waiting for the next one. If it runs out while reading back the
+  reviews or the species list, the sync finishes but doesn't count as a whole sync, like any other
+  failed download in steps 3 or 4.
+- supabase-js tries a failed read 3 more times, waiting 1, 2 and then 4 seconds, unless the
+  request was stopped on purpose. A request stopped for taking too long counts as stopped on
+  purpose, so it gives up after 30 seconds instead of being tried 3 more times.
+- Checking the session with an expired token means asking the server for a new one. With no
+  answer that gives up after 30 seconds and counts as no signal, so the person stays signed in and
+  it's tried again later.
+
+`mobile/src/sync/__tests__/stalled-server.test.ts` runs the real supabase-js client against a
+server that never answers, with fake timers. It checks what each of these requests gives back when
+it runs out of time, and that none of them is tried again. On 5 Nov 2026 we also tried it in the
+iOS simulator on Umer's Mac, against the stand-in. We paused the stand-in with
+`kill -STOP` so it stopped answering, then pressed Update now. "Updating..." was still showing at
+21 seconds, and by 36 seconds it said it couldn't update the plant info, with Last updated the
+same as before. After `kill -CONT` Update now worked again.
+
 ## Known limits
 
 - **Fixed on 29 Oct:** if an officer deleted a record before the phone had marked it synced, the
@@ -230,6 +361,18 @@ How the phone sends them (see the [test results](test-results/item-11-photos.md)
 - On iOS the keychain outlives the app, so someone who deletes and reinstalls the app can come back
   signed in if the session is still good.
 - Signing out with no signal can't tell the server, so that token works until it runs out.
+- Like syncing, the plant info only downloads while the app is open, so a visitor has to open the
+  app with signal once before they can scan with none. A record an officer approves shows up on the
+  phone after the next download that works.
+- Every download gets the whole plant info again, because `records_public` has no `updated_at`
+  column to ask for only what changed.
+- A phone can look connected with no real signal. The download then fails instead of finding no
+  signal, so Update now says it couldn't update the plant info rather than that there's no signal.
+- The time limit counts from when a request is sent, so a connection that's slow but working is
+  stopped too if one request takes over 30 seconds. The plant info comes down 500 rows a page and
+  each page gets its own 30 seconds, so a download of many pages can take longer than that in all.
+- Only the main photo of each species comes down, at full size, so a species page on the phone
+  shows one photo where the website's species page can show more.
 
 ## Setting it up
 

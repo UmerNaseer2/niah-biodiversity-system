@@ -34,7 +34,11 @@ describe('openDatabase', () => {
       expect(await versionOf(db)).toBe(MIGRATIONS.length);
       expect(await tablesIn(db)).toEqual([
         'plant_records',
+        'public_photos',
+        'public_records',
+        'public_species',
         'record_photos',
+        'scan_history',
         'species',
         'sync_meta',
       ]);
@@ -82,7 +86,11 @@ describe('openDatabase', () => {
       expect(await versionOf(db)).toBe(MIGRATIONS.length);
       expect(await tablesIn(db)).toEqual([
         'plant_records',
+        'public_photos',
+        'public_records',
+        'public_species',
         'record_photos',
+        'scan_history',
         'species',
         'sync_meta',
       ]);
@@ -127,7 +135,11 @@ describe('openDatabase', () => {
       expect(await versionOf(db)).toBe(MIGRATIONS.length);
       expect(await tablesIn(db)).toEqual([
         'plant_records',
+        'public_photos',
+        'public_records',
+        'public_species',
         'record_photos',
+        'scan_history',
         'species',
         'sync_meta',
       ]);
@@ -313,5 +325,186 @@ describe('migrate', () => {
     expect(await db.getAllAsync('SELECT id, note FROM first_step')).toEqual([
       { id: 7, note: null },
     ]);
+  });
+});
+
+describe('version 7', () => {
+  it('adds the public copy tables and leaves the records as they were', async () => {
+    const old = await openDatabaseAsync(DATABASE_NAME);
+    await migrate(old, MIGRATIONS.slice(0, 6));
+    await old.runAsync(
+      `INSERT INTO plant_records (id, tag_code, species_name, condition, recorded_at, sync_status)
+      VALUES ('7a6b5c4d-3e2f-4a1b-8c9d-0e1f2a3b4c5d', 'NNP-7A6B5C', 'Ficus sp.', 'healthy',
+        '2026-10-20T02:00:00.000Z', 'synced')`,
+    );
+    await old.closeAsync();
+
+    const db = await openDatabase();
+    try {
+      expect(await versionOf(db)).toBe(MIGRATIONS.length);
+      expect(await db.getAllAsync('SELECT tag_code FROM plant_records')).toEqual([
+        { tag_code: 'NNP-7A6B5C' },
+      ]);
+      expect(await db.getAllAsync('SELECT * FROM public_species')).toEqual([]);
+      expect(await db.getAllAsync('SELECT * FROM public_records')).toEqual([]);
+      expect(await db.getAllAsync('SELECT * FROM scan_history')).toEqual([]);
+    } finally {
+      await db.closeAsync();
+    }
+  });
+
+  it('has no place to keep where a plant is in the public copy', async () => {
+    const db = await openDatabase();
+    try {
+      const columnsOf = async (table: string) =>
+        (await db.getAllAsync<{ name: string }>(`PRAGMA table_info(${table})`)).map(
+          (column) => column.name,
+        );
+      expect(await columnsOf('public_records')).toEqual([
+        'id',
+        'tag_code',
+        'species_slug',
+        'species_name',
+        'common_name',
+        'height_m',
+        'condition',
+        'recorded_at',
+      ]);
+      expect(await columnsOf('public_species')).toEqual([
+        'slug',
+        'scientific_name',
+        'authority',
+        'family',
+        'common_names',
+        'iucn_code',
+        'sarawak_protected',
+        'newer_name',
+        'summary',
+        'about',
+        'habitat',
+        'uses',
+      ]);
+      expect(await columnsOf('scan_history')).toEqual(['tag_code', 'scanned_at']);
+      expect(await columnsOf('public_photos')).toEqual([
+        'species_slug',
+        'url',
+        'caption',
+        'credit',
+        'file',
+      ]);
+    } finally {
+      await db.closeAsync();
+    }
+  });
+
+  it('turns away public copy rows the plant page could not show', async () => {
+    const db = await openDatabase();
+    try {
+      const addSpecies = (changes: Record<string, string | number | null>) =>
+        db.runAsync(
+          `INSERT INTO public_species (slug, scientific_name, common_names, iucn_code,
+            sarawak_protected)
+          VALUES ($slug, $name, $names, $iucn, $protected)`,
+          {
+            $slug: 'shorea-macrophylla',
+            $name: 'Shorea macrophylla',
+            $names: '["Engkabang jantong"]',
+            $iucn: 'VU',
+            $protected: 1,
+            ...changes,
+          },
+        );
+      await expect(addSpecies({ $iucn: 'EX' })).rejects.toThrow('CHECK constraint failed');
+      await expect(addSpecies({ $protected: 2 })).rejects.toThrow('CHECK constraint failed');
+      await expect(addSpecies({ $names: '"Engkabang"' })).rejects.toThrow(
+        'CHECK constraint failed',
+      );
+      await expect(addSpecies({ $name: '' })).rejects.toThrow('CHECK constraint failed');
+      await addSpecies({});
+
+      const addRecord = (changes: Record<string, string | number | null>) =>
+        db.runAsync(
+          `INSERT INTO public_records (id, tag_code, species_name, height_m, condition, recorded_at)
+          VALUES ($id, $tag, $name, $height, $condition, '2026-10-21T03:00:00.000Z')`,
+          {
+            $id: '8b7c6d5e-4f3a-4b2c-9d0e-1f2a3b4c5d6e',
+            $tag: 'NNP-8B7C6D',
+            $name: 'Shorea macrophylla',
+            $height: 12.5,
+            $condition: 'healthy',
+            ...changes,
+          },
+        );
+      await expect(addRecord({ $tag: '' })).rejects.toThrow('CHECK constraint failed');
+      await expect(addRecord({ $name: '' })).rejects.toThrow('CHECK constraint failed');
+      await expect(addRecord({ $height: 0 })).rejects.toThrow('CHECK constraint failed');
+      await expect(addRecord({ $condition: 'fallen' })).rejects.toThrow('CHECK constraint failed');
+      // A condition this app doesn't know comes down empty, so empty is fine.
+      await addRecord({ $condition: null, $height: null });
+      expect(await db.getAllAsync('SELECT tag_code, condition FROM public_records')).toEqual([
+        { tag_code: 'NNP-8B7C6D', condition: null },
+      ]);
+    } finally {
+      await db.closeAsync();
+    }
+  });
+});
+
+describe('version 8', () => {
+  it('adds the species photo table and leaves the saved plant info as it was', async () => {
+    const old = await openDatabaseAsync(DATABASE_NAME);
+    await migrate(old, MIGRATIONS.slice(0, 7));
+    await old.runAsync(
+      `INSERT INTO public_species (slug, scientific_name, common_names, iucn_code,
+        sarawak_protected)
+      VALUES ('shorea-macrophylla', 'Shorea macrophylla', '["Engkabang"]', 'EN', 0)`,
+    );
+    await old.closeAsync();
+
+    const db = await openDatabase();
+    try {
+      expect(await versionOf(db)).toBe(MIGRATIONS.length);
+      expect(await db.getAllAsync('SELECT slug FROM public_species')).toEqual([
+        { slug: 'shorea-macrophylla' },
+      ]);
+      expect(await db.getAllAsync('SELECT * FROM public_photos')).toEqual([]);
+    } finally {
+      await db.closeAsync();
+    }
+  });
+
+  it('keeps one photo per species and turns away rows with nothing to show', async () => {
+    const db = await openDatabase();
+    try {
+      const addPhoto = (changes: Record<string, string | null>) =>
+        db.runAsync(
+          'INSERT INTO public_photos (species_slug, url, file) VALUES ($slug, $url, $file)',
+          {
+            $slug: 'shorea-macrophylla',
+            $url: 'https://images.example/engkabang.jpg',
+            $file: null,
+            ...changes,
+          },
+        );
+      await expect(addPhoto({ $slug: '' })).rejects.toThrow('CHECK constraint failed');
+      await expect(addPhoto({ $url: '' })).rejects.toThrow('CHECK constraint failed');
+      await expect(addPhoto({ $file: '' })).rejects.toThrow('CHECK constraint failed');
+      // A photo that hasn't come down yet has no file.
+      await addPhoto({});
+      await expect(addPhoto({ $file: 'engkabang.jpg' })).rejects.toThrow(
+        'UNIQUE constraint failed',
+      );
+      expect(await db.getAllAsync('SELECT * FROM public_photos')).toEqual([
+        {
+          species_slug: 'shorea-macrophylla',
+          url: 'https://images.example/engkabang.jpg',
+          caption: '',
+          credit: '',
+          file: null,
+        },
+      ]);
+    } finally {
+      await db.closeAsync();
+    }
   });
 });

@@ -109,7 +109,7 @@ Paste the last certificate it prints into `SUPABASE_ROOT_CA`. It has to be the t
 | What the edge device prints | What it means |
 | --- | --- |
 | `The database turned this device down` | Wrong `DEVICE_ID` or `DEVICE_TOKEN`, or an admin turned it off. It tries again every 5 minutes. |
-| `Couldn't send` | No internet, a wrong certificate, or Supabase is down. It keeps the readings and tries again, waiting longer each time. |
+| `Couldn't send` | No internet, a wrong certificate, or Supabase is down. With a 429 the device has sent more than its limit of readings in the last hour. Either way it keeps the readings and tries again, waiting longer each time. |
 | `Buffer is full` | It's been offline a long time. The oldest reading goes first. |
 | `refused` with `node_not_on_this_device` in the answer | Link that node to this device on the Devices page. |
 
@@ -117,6 +117,7 @@ Paste the last certificate it prints into `SUPABASE_ROOT_CA`. It has to be the t
 
 - The buffer on the edge device is in RAM and holds 180 readings, which is 3 nodes for an hour. A power cut loses what hasn't been sent.
 - The node doesn't keep a reading it can't deliver. It tries 3 times, then it's lost.
+- The database takes at most 3,600 readings an hour from one edge device (`supabase/022_iot_reading_limit.sql`). 3 nodes send about 180 an hour, and about 2,200 if all of them report a problem every 5 seconds for the whole hour. Readings sent again after a failed send don't count twice.
 - The link from node to edge is plain HTTP on the region's own WiFi, with one shared secret for the region. Someone on that WiFi could read it. The HTTPS part, with the device token, is only from the edge device to Supabase.
 - The edge device does one thing at a time, so a node that sends during a slow HTTPS call has to try again.
 - The numbers in the sketches and in `iot_alert_limits` are starting values. Nobody has tried them in the field. Soil and rain need calibrating for each probe. Admins can change the alert limits in the `iot_alert_limits` table.

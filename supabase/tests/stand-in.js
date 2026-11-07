@@ -755,6 +755,8 @@ class Refusal extends Error {
 
 /** The HTTP status the REST API gives for a Postgres error code, from PostgREST's table. */
 function statusFor(code, signedIn) {
+  // A code like PT429 picks the status itself
+  if (/^PT\d{3}$/.test(code)) return Number(code.slice(2));
   if (code === '42501') return signedIn ? 403 : 401;
   if (code === '23503' || code === '23505') return 409;
   if (code === '42P01' || code === '42883') return 404;

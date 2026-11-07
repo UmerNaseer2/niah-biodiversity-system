@@ -99,6 +99,9 @@ jobs:
             || echo "::warning title=npm audit (web)::Advisories found. Open this step to see them."
       - name: Lint
         run: npm run lint
+      - name: Unit tests
+        # Node runs these itself, so the web app needs no test packages
+        run: npm test
       - name: Build
         run: npm run build
         env:
