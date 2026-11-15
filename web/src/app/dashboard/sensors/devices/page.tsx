@@ -64,7 +64,7 @@ export default async function DevicesPage() {
       .select("device_id, name, zone, enabled, token_made_at, token_made_by_name, last_heard_at, latitude, longitude")
       .order("device_id"),
     // Only these columns. iot_nodes also has each node's calibration, which isn't changed here.
-    supabase.from("iot_nodes").select("node_id, name, zone, edge_device_id").order("node_id"),
+    supabase.from("iot_nodes").select("node_id, name, zone, edge_device_id, latitude, longitude").order("node_id"),
   ]);
 
   if (sqlIsMissing(devicesResult.error) || sqlIsMissing(nodesResult.error)) {
@@ -121,6 +121,8 @@ export default async function DevicesPage() {
     name: row.name,
     zone: row.zone,
     deviceId: row.edge_device_id,
+    latitude: row.latitude ? Number(row.latitude) : null,
+    longitude: row.longitude ? Number(row.longitude) : null,
   }));
 
   return (

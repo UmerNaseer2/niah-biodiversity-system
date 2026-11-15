@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { Icon } from "@/components/icon";
 import { ALERT_LEVEL } from "@/lib/alert-level";
 import type { AlertSeverity, AlertStatus } from "@/lib/iot";
-import { acknowledgeAlert, resolveAlert, type SensorResult } from "./actions";
+import { acknowledgeAlert, dispatchPatrol, resolveAlert, type SensorResult } from "./actions";
 
 export type AlertItem = {
   id: number;
@@ -23,6 +23,7 @@ export type AlertItem = {
   late: boolean;
   /** "Acknowledged by Aina Officer, 2 Oct, 2:20 am" */
   handled: string | null;
+  dispatched: string | null;
 };
 
 function ask(request: Promise<SensorResult>): Promise<SensorResult> {
@@ -92,6 +93,12 @@ function AlertRow({
             {alert.handled}
           </p>
         )}
+        {alert.dispatched && (
+          <p className="mt-1 flex items-start gap-1.5 text-sm font-bold text-warn">
+            <Icon name="alert" className="mt-0.5 size-4 shrink-0" />
+            {alert.dispatched}
+          </p>
+        )}
         {problem && (
           <p role="alert" className="mt-2 flex items-start gap-1.5 text-sm font-bold text-bad">
             <Icon name="alert" className="mt-0.5 size-4 shrink-0" />
@@ -101,6 +108,18 @@ function AlertRow({
       </div>
 
       <div className="flex shrink-0 flex-wrap gap-2 sm:flex-col sm:items-stretch">
+        {alert.severity === "urgent" && !alert.dispatched && alert.status !== "resolved" && (
+          <button
+            type="button"
+            disabled={pending}
+            className="btn btn-secondary border-warn text-warn hover:bg-warn/10"
+            onClick={() => run(() => dispatchPatrol(alert.id, "Urgent threat investigation"), false)}
+          >
+            <Icon name="alert" className="size-4" />
+            {pending ? "Saving…" : "Dispatch patrol"}
+            <span className="sr-only">: {alert.title} on {alert.nodeId}</span>
+          </button>
+        )}
         {alert.status === "open" && (
           <button
             type="button"

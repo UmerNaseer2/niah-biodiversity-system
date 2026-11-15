@@ -2,7 +2,7 @@
 // the maths that turns raw sensor values into percentages and states, and the checks on what staff
 // type. Nothing here reads the clock or the database.
 
-import { plural } from "./format";
+import { plural } from "./format.ts";
 
 export type AlertSeverity = "urgent" | "routine";
 export type AlertStatus = "open" | "acknowledged" | "resolved";
@@ -52,6 +52,10 @@ export type SensorAlert = {
   acknowledgedByName: string | null;
   resolvedAt: string | null;
   resolvedByName: string | null;
+  closedByItself?: boolean;
+  dispatchedAt: string | null;
+  dispatchedByName: string | null;
+  patrolNotes: string | null;
 };
 
 /** One row of the iot_node_status view: a node and its newest reading, worked out from raw. */
@@ -78,6 +82,12 @@ export type NodeStatus = {
   quiet: boolean;
   openAlerts: number;
   urgentAlerts: number;
+  latitude: number | null;
+  longitude: number | null;
+  temperatureC?: number | null;
+  humidityPercent?: number | null;
+  soilMoisturePercent?: number | null;
+  rainPercent?: number | null;
 };
 
 /** A node's own calibration and alert settings, from iot_nodes */
@@ -144,11 +154,11 @@ export type NodePosition = { nodeId: string; latitude: number; longitude: number
 // The columns the pages read. None of them gets a select("*"), so a column added later for staff
 // only can't leak into a page by accident.
 export const NODE_COLUMNS =
-  "node_id, name, zone, edge_device_id, status, last_reading_at, temp_c, temp_state, hum_pct, soil_pct, soil_state, rain_pct, rain_state, dist_cm, baseline_cm, dist_state, motion, beep_on, rssi, quiet, open_alerts, urgent_alerts";
+  "node_id, name, zone, edge_device_id, status, last_reading_at, temp_c, temp_state, hum_pct, soil_pct, soil_state, rain_pct, rain_state, dist_cm, baseline_cm, dist_state, motion, beep_on, rssi, quiet, open_alerts, urgent_alerts, latitude, longitude";
 export const SETTINGS_COLUMNS =
   "node_id, soil_dry_raw, soil_wet_raw, soil_flood_pct, soil_dry_pct, rain_dry_raw, rain_wet_raw, rain_light_pct, rain_heavy_pct, move_cm, too_hot_c, soil_flood_clear_pct, soil_dry_clear_pct, rain_light_clear_pct, rain_heavy_clear_pct, move_clear_cm, too_hot_clear_c, alert_types, alert_confirm_readings, motion_confirm_readings, motion_clear_readings, alert_rearm_s, quiet_minutes";
 export const ALERT_COLUMNS =
-  "id, node_id, node_name, device_id, type, severity, status, recorded_at, confirmed_at, from_backlog, cleared_recorded_at, cleared_at, acknowledged_at, acknowledged_by_name, resolved_at, resolved_by_name";
+  "id, node_id, node_name, device_id, type, severity, status, recorded_at, confirmed_at, from_backlog, cleared_recorded_at, cleared_at, acknowledged_at, acknowledged_by_name, resolved_at, resolved_by_name, closed_by_itself, dispatched_at, dispatched_by_name, patrol_notes";
 export const HISTORY_COLUMNS = "recorded_at, temp_c, hum_pct, soil_raw, rain_raw, dist_cm, baseline_cm, motion";
 export const COMMAND_COLUMNS = "id, node_id, command, status, created_at, created_by_name, done_at, result";
 export const DEVICE_COLUMNS = "device_id, name, zone, enabled, last_heard_at, latitude, longitude";
@@ -187,6 +197,10 @@ export function alertFromRow(row: Row): SensorAlert {
     acknowledgedByName: textOrNull(row.acknowledged_by_name),
     resolvedAt: textOrNull(row.resolved_at),
     resolvedByName: textOrNull(row.resolved_by_name),
+    closedByItself: row.closed_by_itself === true,
+    dispatchedAt: textOrNull(row.dispatched_at),
+    dispatchedByName: textOrNull(row.dispatched_by_name),
+    patrolNotes: textOrNull(row.patrol_notes),
   };
 }
 
@@ -198,12 +212,12 @@ export function nodeFromRow(row: Row): NodeStatus {
     edgeDeviceId: textOrNull(row.edge_device_id),
     health: (textOrNull(row.status) ?? "online") as NodeHealth,
     lastReadingAt: textOrNull(row.last_reading_at),
-    tempC: numberOrNull(row.temp_c),
+    tempC: numberOrNull(row.temp_c ?? row.temperature_c),
     tempState: textOrNull(row.temp_state),
-    humPct: numberOrNull(row.hum_pct),
-    soilPct: numberOrNull(row.soil_pct),
+    humPct: numberOrNull(row.hum_pct ?? row.humidity_percent),
+    soilPct: numberOrNull(row.soil_pct ?? row.soil_moisture_percent),
     soilState: textOrNull(row.soil_state),
-    rainPct: numberOrNull(row.rain_pct),
+    rainPct: numberOrNull(row.rain_pct ?? row.rain_percent),
     rainState: textOrNull(row.rain_state),
     distCm: numberOrNull(row.dist_cm),
     baselineCm: numberOrNull(row.baseline_cm),
@@ -214,6 +228,12 @@ export function nodeFromRow(row: Row): NodeStatus {
     quiet: row.quiet === true,
     openAlerts: Number(row.open_alerts ?? 0),
     urgentAlerts: Number(row.urgent_alerts ?? 0),
+    latitude: numberOrNull(row.latitude),
+    longitude: numberOrNull(row.longitude),
+    temperatureC: numberOrNull(row.temperature_c ?? row.temp_c),
+    humidityPercent: numberOrNull(row.humidity_percent ?? row.hum_pct),
+    soilMoisturePercent: numberOrNull(row.soil_moisture_percent ?? row.soil_pct),
+    rainPercent: numberOrNull(row.rain_percent ?? row.rain_pct),
   };
 }
 
@@ -541,7 +561,14 @@ export function checkDevicePosition(input: unknown): Checked<DevicePosition> {
   return { ok: true, value: { deviceId: id.value, latitude, longitude } };
 }
 
-export type NewNode = { nodeId: string; name: string; zone: string; deviceId: string | null };
+export type NewNode = {
+  nodeId: string;
+  name: string;
+  zone: string;
+  deviceId: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+};
 
 export function checkNewNode(input: unknown): Checked<NewNode> {
   const raw = (input ?? {}) as Record<string, unknown>;
@@ -556,7 +583,29 @@ export function checkNewNode(input: unknown): Checked<NewNode> {
   }
   const device = checkNodeDevice(raw.deviceId);
   if (!device.ok) return device;
-  return { ok: true, value: { nodeId: id.value, name, zone, deviceId: device.value } };
+
+  const latRaw = raw.latitude;
+  const lngRaw = raw.longitude;
+  let latitude: number | null = null;
+  let longitude: number | null = null;
+
+  if (latRaw !== undefined && latRaw !== null && latRaw !== "" &&
+      lngRaw !== undefined && lngRaw !== null && lngRaw !== "") {
+    const lat = Number(latRaw);
+    const lng = Number(lngRaw);
+    if (!Number.isFinite(lat) || lat < -90 || lat > 90) {
+      return { ok: false, message: "Latitude must be a valid number between -90 and 90." };
+    }
+    if (!Number.isFinite(lng) || lng < -180 || lng > 180) {
+      return { ok: false, message: "Longitude must be a valid number between -180 and 180." };
+    }
+    latitude = lat;
+    longitude = lng;
+  } else if ((latRaw && !lngRaw) || (!latRaw && lngRaw)) {
+    return { ok: false, message: "Provide both latitude and longitude, or leave both empty." };
+  }
+
+  return { ok: true, value: { nodeId: id.value, name, zone, deviceId: device.value, latitude, longitude } };
 }
 
 function checkNodeDevice(input: unknown): Checked<string | null> {

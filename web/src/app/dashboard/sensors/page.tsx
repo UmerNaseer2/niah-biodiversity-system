@@ -94,6 +94,12 @@ function alertItem(alert: SensorAlert, now: number): AlertItem {
       alert.status === "acknowledged" && alert.acknowledgedAt
         ? `Acknowledged by ${alert.acknowledgedByName ?? "someone"}, ${databaseTime(alert.acknowledgedAt)}`
         : null,
+    dispatched:
+      alert.dispatchedAt
+        ? `Patrol dispatched by ${alert.dispatchedByName ?? "someone"}, ${databaseTime(alert.dispatchedAt)}${
+            alert.patrolNotes ? ` — “${alert.patrolNotes}”` : ""
+          }`
+        : null,
   };
 }
 
@@ -629,7 +635,7 @@ export default async function SensorsPage() {
   );
   const historyFor = new Map(histories);
 
-  // The map: edge devices with a position, and nodes with one from their last power-up
+  // The map: edge devices with a position, and nodes with one from their last power-up or node coordinates
   const mapEdges: MapEdge[] = (devices ?? []).flatMap((device) =>
     device.latitude === null || device.longitude === null
       ? []
@@ -647,7 +653,11 @@ export default async function SensorsPage() {
         ],
   );
   const mapNodes: MapNode[] = (nodes ?? []).flatMap((node) => {
-    const where = positions.get(node.nodeId);
+    const where =
+      positions.get(node.nodeId) ??
+      (node.latitude !== null && node.longitude !== null
+        ? { latitude: node.latitude, longitude: node.longitude }
+        : undefined);
     if (!where) return [];
     const edge = node.edgeDeviceId ? deviceFor.get(node.edgeDeviceId) : undefined;
     return [
@@ -665,7 +675,9 @@ export default async function SensorsPage() {
       },
     ];
   });
-  const unplacedNodes = (nodes ?? []).filter((node) => !positions.has(node.nodeId)).map((node) => node.nodeId);
+  const unplacedNodes = (nodes ?? [])
+    .filter((node) => !positions.has(node.nodeId) && (node.latitude === null || node.longitude === null))
+    .map((node) => node.nodeId);
   const unplacedEdges = (devices ?? [])
     .filter((device) => device.latitude === null || device.longitude === null)
     .map((device) => device.deviceId);

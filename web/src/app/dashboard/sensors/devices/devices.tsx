@@ -23,7 +23,14 @@ export type DeviceItem = {
   heardLine: string;
 };
 
-export type NodeItem = { id: string; name: string; zone: string; deviceId: string | null };
+export type NodeItem = {
+  id: string;
+  name: string;
+  zone: string;
+  deviceId: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+};
 
 function ask<T extends DeviceResult>(request: Promise<T>): Promise<T | DeviceResult> {
   return request.catch(() => ({
@@ -324,6 +331,11 @@ function NodeRow({
         <p className="font-mono font-bold">{node.id}</p>
         <p className="text-sm text-moss">
           {node.name}, {node.zone}
+          {node.latitude != null && node.longitude != null && (
+            <span className="ml-2 font-mono text-xs text-moss">
+              ({node.latitude.toFixed(4)}, {node.longitude.toFixed(4)})
+            </span>
+          )}
         </p>
         {result && (
           <div className="mt-1">
@@ -474,12 +486,21 @@ function AddNodeForm({
   const [name, setName] = useState("");
   const [zone, setZone] = useState("");
   const [deviceId, setDeviceId] = useState("");
+  const [latitude, setLatitude] = useState("");
+  const [longitude, setLongitude] = useState("");
   const [pending, startTransition] = useTransition();
   const [result, setResult] = useState<DeviceResult | null>(null);
 
   function submit(event: React.FormEvent) {
     event.preventDefault();
-    const checked = checkNewNode({ nodeId, name, zone, deviceId });
+    const checked = checkNewNode({
+      nodeId,
+      name,
+      zone,
+      deviceId,
+      latitude: latitude.trim() ? Number(latitude) : null,
+      longitude: longitude.trim() ? Number(longitude) : null,
+    });
     if (!checked.ok) {
       setResult({ ok: false, message: checked.message });
       return;
@@ -493,6 +514,8 @@ function AddNodeForm({
         setNodeId("");
         setName("");
         setZone("");
+        setLatitude("");
+        setLongitude("");
       }
     });
   }
@@ -561,6 +584,32 @@ function AddNodeForm({
         </select>
       </div>
       <div>
+        <label htmlFor="node-latitude" className="text-sm font-bold">
+          Latitude (GPS)
+        </label>
+        <input
+          id="node-latitude"
+          type="text"
+          placeholder="e.g. 3.81520"
+          value={latitude}
+          onChange={(event) => setLatitude(event.target.value)}
+          className="field mt-1.5 w-full font-mono"
+        />
+      </div>
+      <div>
+        <label htmlFor="node-longitude" className="text-sm font-bold">
+          Longitude (GPS)
+        </label>
+        <input
+          id="node-longitude"
+          type="text"
+          placeholder="e.g. 113.77750"
+          value={longitude}
+          onChange={(event) => setLongitude(event.target.value)}
+          className="field mt-1.5 w-full font-mono"
+        />
+      </div>
+      <div className="sm:col-span-2">
         <button type="submit" disabled={pending} className="btn btn-primary">
           <Icon name="plus" className="size-4" />
           {pending ? "Adding…" : "Add node"}
