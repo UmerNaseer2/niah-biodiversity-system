@@ -38,9 +38,10 @@ kept, and you can fix the problem and run it again.
 | `023_iot_boots.sql` | Each node's power-ups: where it's installed and the first and last reading that arrived | 28 | Yes |
 | `024_iot_alert_state.sql` | The edge-com function's working state for deciding alerts. Nobody reads it through the API | 31 | Yes |
 | `025_iot_commands.sql` | Commands for the nodes (the locate beep and a baseline reset), which officers and admins send from the Sensors page | 31 | Yes |
+| `026_iot_gps_mapping.sql` | IoT Device Tracking, GPS mapping, and patrol dispatch: adds coordinates to nodes, exposes locations through `iot_node_status`, and records patrol response | 32 | Yes |
 
 As of 16 Oct 2026 the hosted project has 001 and 002. Run 003, 004, 005, 006, 007, 008, 009, 010,
-011, 012, 013, 014, 015, 016_1 to 017, 019, 020, 021 and 022 to 025 next, one file at a time, in
+011, 012, 013, 014, 015, 016_1 to 017, 019, 020, 021, and 022 to 026 next, one file at a time, in
 that order, and don't stop part way. There's no 018 file: the number was held for the phone's photos, and they
 didn't need one. The website's species pages (add, edit and delete) and its public pages need 007,
 and 007 stops on its first line if 006 isn't there. Until then the public pages say "This page
@@ -66,8 +67,8 @@ edge device can add. 022 stops on its first line if 021 isn't there. 003 is fine
 turns out to be there already. The history only starts once 013 is in, so changes made before
 that aren't in it.
 
-The sensor steps are 016_1, 016_2, 016_3, 016_4 and 017 after 015, then 022, 023, 024 and 025
-after 021. Each stops on its first line if the one before it isn't there (022 checks for 021). Then
+The sensor steps are 016_1, 016_2, 016_3, 016_4 and 017 after 015, then 022, 023, 024, 025 and 026
+after 021. Each stops on its first line if the one before it isn't there (022 checks for 021, and 026 checks for 025). Note: do not use any legacy 016_iot_readings.sql file; use 016_1 through 016_4. Then
 deploy the `edge-com` Edge Function (`functions/edge-com/index.ts`) with JWT verification turned
 off. Then an admin opens **Sensors**, then **Devices**, adds each edge device with its position,
 links its nodes and makes it a token.

@@ -1,17 +1,17 @@
 -- IoT Device Tracking, GPS Mapping and Patrol Response (item 32).
 -- Adds GPS coordinates to sensor nodes, exposes node locations through iot_node_status,
 -- and allows conservation officers and admins to dispatch patrols for urgent alerts.
--- Run it after 001 to 021.
+-- Run it after 001 to 025.
 -- The SQL editor runs a whole file as one transaction, so if anything in here fails, nothing from
 -- it is kept. It's safe to run again.
 
--- 021 has to be there first.
+-- 025 has to be there first.
 DO $$
 BEGIN
   IF NOT EXISTS (
-    SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'role_changes'
+    SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'iot_commands'
   ) THEN
-    RAISE EXCEPTION '022 needs 021_role_changes.sql to be run first';
+    RAISE EXCEPTION '026 needs 025_iot_commands.sql to be run first';
   END IF;
 END
 $$;
@@ -113,28 +113,56 @@ SELECT
   n.name,
   n.zone,
   n.edge_device_id,
+  n.status,
+  n.last_heartbeat,
   last.recorded_at AS last_reading_at,
-  last.temperature_c,
-  last.humidity_percent,
-  last.soil_moisture_percent,
-  last.rain_percent,
-  last.battery_percent,
-  last.tilt_degrees,
-  last.shock_g,
-  last.distance_change_cm,
-  last.motion_detected,
-  COALESCE(last.recorded_at < now() - make_interval(mins => limits.quiet_minutes), false) AS quiet,
-  COALESCE(last.latitude, n.latitude) AS latitude,
-  COALESCE(last.longitude, n.longitude) AS longitude
+  now() - last.recorded_at AS age,
+  last.temp_c,
+  CASE WHEN last.temp_c >= n.too_hot_c THEN 'TOO_HOT'
+       WHEN last.temp_c IS NOT NULL THEN 'NORMAL' END AS temp_state,
+  last.hum_pct,
+  last.soil_raw,
+  p.soil_pct,
+  CASE WHEN p.soil_pct >= n.soil_flood_pct THEN 'SATURATED'
+       WHEN p.soil_pct <= n.soil_dry_pct THEN 'DRY'
+       WHEN p.soil_pct IS NOT NULL THEN 'NORMAL' END AS soil_state,
+  last.rain_raw,
+  p.rain_pct,
+  CASE WHEN p.rain_pct >= n.rain_heavy_pct THEN 'HEAVY'
+       WHEN p.rain_pct >= n.rain_light_pct THEN 'RAIN'
+       WHEN p.rain_pct IS NOT NULL THEN 'NONE' END AS rain_state,
+  last.dist_cm,
+  last.baseline_cm,
+  CASE WHEN last.id IS NULL THEN NULL
+       WHEN last.dist_cm IS NULL THEN 'NO_ECHO'
+       WHEN last.baseline_cm IS NOT NULL
+        AND abs(round(last.dist_cm * 10) - round(last.baseline_cm * 10)) > round(n.move_cm * 10) THEN 'MOVED'
+       ELSE 'OK' END AS dist_state,
+  last.motion,
+  n.beep_on,
+  n.last_rssi AS rssi,
+  COALESCE(last.recorded_at < now() - make_interval(mins => n.quiet_minutes), false) AS quiet,
+  COALESCE(a.going_on, 0) AS open_alerts,
+  COALESCE(a.urgent, 0) AS urgent_alerts,
+  n.latitude,
+  n.longitude
 FROM public.iot_nodes AS n
-CROSS JOIN public.iot_alert_limits AS limits
 LEFT JOIN LATERAL (
   SELECT r.*
   FROM public.iot_readings AS r
   WHERE r.node_id = n.node_id
   ORDER BY r.recorded_at DESC
   LIMIT 1
-) AS last ON true;
+) AS last ON true
+CROSS JOIN LATERAL (
+  SELECT public.iot_raw_pct(last.soil_raw, n.soil_dry_raw, n.soil_wet_raw) AS soil_pct,
+         public.iot_raw_pct(last.rain_raw, n.rain_dry_raw, n.rain_wet_raw) AS rain_pct
+) AS p
+LEFT JOIN LATERAL (
+  SELECT count(*) AS going_on, count(*) FILTER (WHERE x.severity = 'urgent') AS urgent
+  FROM public.iot_alerts AS x
+  WHERE x.node_id = n.node_id AND x.cleared_at IS NULL AND x.status <> 'resolved'
+) AS a ON true;
 
 REVOKE ALL ON TABLE public.iot_node_status FROM PUBLIC, anon, authenticated;
 GRANT SELECT ON TABLE public.iot_node_status TO authenticated;
