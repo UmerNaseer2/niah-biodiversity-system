@@ -1,7 +1,7 @@
 // The parts of the sensor pages that are safe for the browser: the rows, the words for each alert,
 // and the checks on what an admin types. Nothing here reads the clock or the database.
 
-import { plural } from "./format";
+import { plural } from "./format.ts";
 
 export type AlertSeverity = "urgent" | "routine";
 export type AlertStatus = "open" | "acknowledged" | "resolved";
@@ -33,6 +33,9 @@ export type SensorAlert = {
   resolvedAt: string | null;
   resolvedByName: string | null;
   closedByItself: boolean;
+  dispatchedAt: string | null;
+  dispatchedByName: string | null;
+  patrolNotes: string | null;
 };
 
 export type NodeStatus = {
@@ -49,6 +52,8 @@ export type NodeStatus = {
   tiltDegrees: number | null;
   motionDetected: boolean | null;
   quiet: boolean;
+  latitude: number | null;
+  longitude: number | null;
 };
 
 export type AlertLimits = {
@@ -73,9 +78,9 @@ export type HistoryReading = {
 // The columns the pages read. iot_nodes also has old columns that 002 filled with made up numbers,
 // and iot_readings has the GPS columns, so neither gets a select("*").
 export const NODE_COLUMNS =
-  "node_id, name, zone, edge_device_id, last_reading_at, temperature_c, humidity_percent, soil_moisture_percent, rain_percent, battery_percent, tilt_degrees, motion_detected, quiet";
+  "node_id, name, zone, edge_device_id, last_reading_at, temperature_c, humidity_percent, soil_moisture_percent, rain_percent, battery_percent, tilt_degrees, motion_detected, quiet, latitude, longitude";
 export const ALERT_COLUMNS =
-  "id, node_id, node_name, kind, severity, status, reading_field, reading_value, limit_value, first_seen_at, last_seen_at, repeat_count, acknowledged_at, acknowledged_by_name, resolved_at, resolved_by_name, closed_by_itself";
+  "id, node_id, node_name, kind, severity, status, reading_field, reading_value, limit_value, first_seen_at, last_seen_at, repeat_count, acknowledged_at, acknowledged_by_name, resolved_at, resolved_by_name, closed_by_itself, dispatched_at, dispatched_by_name, patrol_notes";
 export const HISTORY_COLUMNS = "recorded_at, temperature_c, soil_moisture_percent";
 
 type Row = Record<string, unknown>;
@@ -108,6 +113,9 @@ export function alertFromRow(row: Row): SensorAlert {
     resolvedAt: textOrNull(row.resolved_at),
     resolvedByName: textOrNull(row.resolved_by_name),
     closedByItself: row.closed_by_itself === true,
+    dispatchedAt: textOrNull(row.dispatched_at),
+    dispatchedByName: textOrNull(row.dispatched_by_name),
+    patrolNotes: textOrNull(row.patrol_notes),
   };
 }
 
@@ -126,6 +134,8 @@ export function nodeFromRow(row: Row): NodeStatus {
     tiltDegrees: numberOrNull(row.tilt_degrees),
     motionDetected: typeof row.motion_detected === "boolean" ? row.motion_detected : null,
     quiet: row.quiet === true,
+    latitude: numberOrNull(row.latitude),
+    longitude: numberOrNull(row.longitude),
   };
 }
 
@@ -303,7 +313,14 @@ export function checkDeviceSwitch(input: unknown): Checked<DeviceSwitch> {
   return { ok: true, value: { deviceId: id.value, enabled: raw.enabled } };
 }
 
-export type NewNode = { nodeId: string; name: string; zone: string; deviceId: string | null };
+export type NewNode = {
+  nodeId: string;
+  name: string;
+  zone: string;
+  deviceId: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+};
 
 export function checkNewNode(input: unknown): Checked<NewNode> {
   const raw = (input ?? {}) as Record<string, unknown>;
@@ -318,7 +335,29 @@ export function checkNewNode(input: unknown): Checked<NewNode> {
   }
   const device = checkNodeDevice(raw.deviceId);
   if (!device.ok) return device;
-  return { ok: true, value: { nodeId: id.value, name, zone, deviceId: device.value } };
+
+  const latRaw = raw.latitude;
+  const lngRaw = raw.longitude;
+  let latitude: number | null = null;
+  let longitude: number | null = null;
+
+  if (latRaw !== undefined && latRaw !== null && latRaw !== "" &&
+      lngRaw !== undefined && lngRaw !== null && lngRaw !== "") {
+    const lat = Number(latRaw);
+    const lng = Number(lngRaw);
+    if (!Number.isFinite(lat) || lat < -90 || lat > 90) {
+      return { ok: false, message: "Latitude must be a valid number between -90 and 90." };
+    }
+    if (!Number.isFinite(lng) || lng < -180 || lng > 180) {
+      return { ok: false, message: "Longitude must be a valid number between -180 and 180." };
+    }
+    latitude = lat;
+    longitude = lng;
+  } else if ((latRaw && !lngRaw) || (!latRaw && lngRaw)) {
+    return { ok: false, message: "Provide both latitude and longitude, or leave both empty." };
+  }
+
+  return { ok: true, value: { nodeId: id.value, name, zone, deviceId: device.value, latitude, longitude } };
 }
 
 function checkNodeDevice(input: unknown): Checked<string | null> {

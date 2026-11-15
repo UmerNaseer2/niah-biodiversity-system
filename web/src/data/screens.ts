@@ -79,9 +79,14 @@ export const staffScreens: Screen[] = [
     works: "Counts of the plant records in Supabase by IUCN status, condition, species and month, filtered by date. It prints or saves as a PDF, and the server builds the CSV download after checking the role.",
   },
   {
+    title: "Ecology",
+    path: "/dashboard/ecology",
+    works: "Cross-sectional ecological analysis (item 33) correlating IoT microclimate sensors (temperature, humidity, soil moisture, VPD) with plant species in Niah National Park, with CSV export.",
+  },
+  {
     title: "Sensors",
     path: "/dashboard/sensors",
-    works: "Real readings and threat alerts from Supabase, checking again every 15 seconds while the page is open. Officers and admins can acknowledge and resolve alerts.",
+    works: "Real readings and threat alerts from Supabase, GPS mapping of sensor nodes (item 32), checking again every 15 seconds while the page is open. Officers and admins can acknowledge and resolve alerts and dispatch patrols.",
   },
   {
     title: "Sensor devices",

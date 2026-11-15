@@ -93,8 +93,8 @@ These are scheduled for Weeks 10 to 11 in the proposal, after the Sprint #2 revi
 
 ## Monitoring and data (items 32 and 33)
 
-- [ ] 32. IoT Device Tracking & GPS Mapping
-- [ ] 33. Ecological Data Storage & Analysis Module
+- [x] 32. IoT Device Tracking & GPS Mapping. Done 15 Nov, see [test results](test-results/item-32-33-sensor-maps-ecology.md)
+- [x] 33. Ecological Data Storage & Analysis Module. Done 15 Nov, see [test results](test-results/item-32-33-sensor-maps-ecology.md)
 
 ## Verification and documentation (items 34 to 37)
 

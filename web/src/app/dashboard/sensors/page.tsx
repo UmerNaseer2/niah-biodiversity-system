@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Icon } from "@/components/icon";
 import { PageHeader } from "@/components/page-header";
+import { ParkMap, type MapSensor } from "@/components/park-map";
 import { requireStaff } from "@/lib/auth";
 import {
   clockNow,
@@ -65,6 +66,12 @@ function alertItem(alert: SensorAlert, now: number): AlertItem {
     handled:
       alert.status === "acknowledged" && alert.acknowledgedAt
         ? `Acknowledged by ${alert.acknowledgedByName ?? "someone"}, ${databaseTime(alert.acknowledgedAt)}`
+        : null,
+    dispatched:
+      alert.dispatchedAt
+        ? `Patrol dispatched by ${alert.dispatchedByName ?? "someone"}, ${databaseTime(alert.dispatchedAt)}${
+            alert.patrolNotes ? ` — “${alert.patrolNotes}”` : ""
+          }`
         : null,
   };
 }
@@ -456,6 +463,16 @@ export default async function SensorsPage() {
   );
   const historyFor = new Map(histories);
 
+  const mappedSensors: MapSensor[] = (nodes ?? [])
+    .filter((node) => node.latitude !== null && node.longitude !== null)
+    .map((node) => ({
+      id: node.nodeId,
+      lat: node.latitude as number,
+      lng: node.longitude as number,
+      online: Boolean(node.lastReadingAt && !node.quiet),
+      alert: (alerts ?? []).some((a) => a.nodeId === node.nodeId && a.status !== "resolved"),
+    }));
+
   const reporting = nodes?.filter((node) => node.lastReadingAt && !node.quiet).length ?? null;
   const quiet = nodes?.filter((node) => node.quiet).length ?? null;
   const open = alerts?.filter((alert) => alert.status === "open") ?? null;
@@ -514,6 +531,32 @@ export default async function SensorsPage() {
           </Problem>
         )}
       </section>
+
+      {mappedSensors.length > 0 && (
+        <section aria-labelledby="sensors-map-heading">
+          <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between">
+            <h2 id="sensors-map-heading" className="text-xl font-bold tracking-tight">
+              Sensor locations & GPS tracking
+            </h2>
+            <p className="text-sm text-moss">
+              {plural(mappedSensors.length, "sensor node")} mapped around Niah National Park
+            </p>
+          </div>
+          <p className="mt-1 max-w-2xl text-moss">
+            Shows each deployed sensor node at its exact GPS coordinate with real-time connectivity and threat status.
+          </p>
+          <ParkMap
+            id="sensors-park-map"
+            title="Map of environmental sensor nodes in Niah National Park"
+            description={`A map of Niah National Park showing ${plural(
+              mappedSensors.length,
+              "sensor node",
+            )} across park trails and forest sectors.`}
+            sensors={mappedSensors}
+            className="mt-6"
+          />
+        </section>
+      )}
 
       <section aria-labelledby="nodes-heading">
         <h2 id="nodes-heading" className="text-xl font-bold tracking-tight">

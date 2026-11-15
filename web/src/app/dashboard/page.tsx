@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Icon } from "@/components/icon";
 import { ConditionBadge, LatinName } from "@/components/plant-bits";
-import { ParkMap } from "@/components/park-map";
+import { ParkMap, type MapSensor } from "@/components/park-map";
 import { requireStaff } from "@/lib/auth";
 import { ALERT_LEVEL } from "@/lib/alert-level";
 import { formatDateTime, formatLongDate, parkNow, parkTime, plural } from "@/lib/format";
@@ -65,8 +65,8 @@ export default async function OverviewPage() {
         .range(from, to),
     ),
     supabase.from("species_staff").select("id", { count: "exact", head: true }),
-    // Only these columns, because this page has no use for the readings
-    supabase.from("iot_node_status").select("node_id, quiet, last_reading_at"),
+    // Node status with latitude and longitude for GPS mapping (item 32)
+    supabase.from("iot_node_status").select("node_id, quiet, last_reading_at, latitude, longitude"),
     supabase.from("iot_alerts").select(ALERT_COLUMNS).eq("status", "open"),
   ]);
   if (recordsResult.error) {
@@ -109,6 +109,16 @@ export default async function OverviewPage() {
           ]
         : [],
     );
+
+  const mappedSensors: MapSensor[] = nodeRows
+    .filter((n) => n.latitude != null && n.longitude != null)
+    .map((n) => ({
+      id: String(n.node_id),
+      lat: Number(n.latitude),
+      lng: Number(n.longitude),
+      online: Boolean(n.last_reading_at && !n.quiet),
+      alert: openAlerts.some((a) => a.nodeId === n.node_id),
+    }));
 
   const shown = waiting.slice(0, 3).map((r) => `${plantName(r) || "No species yet"} (${r.tagCode})`);
   const others = waiting.length - shown.length;
@@ -373,20 +383,20 @@ export default async function OverviewPage() {
 
       <section aria-labelledby="map-heading">
         <h2 id="map-heading" className="text-xl font-bold tracking-tight">
-          Where the plants are
+          Where the plants and sensors are
         </h2>
         <p className="max-w-2xl text-moss">
-          Every plant record that hasn’t been rejected, at its exact spot,
-          threatened plants included.
+          Every plant record that hasn’t been rejected at its exact spot, along with active IoT monitoring nodes.
         </p>
         <ParkMap
           id="overview-map"
-          title="Map of tagged plants around park HQ"
+          title="Map of tagged plants and sensor nodes around park HQ"
           description={`A map of the park around park HQ with ${plural(
             mapped.length,
             "tagged plant",
-          )}. Each plant’s dot is a link to its record.`}
+          )}${mappedSensors.length > 0 ? ` and ${plural(mappedSensors.length, "sensor node")}` : ""}. Each plant’s dot is a link to its record.`}
           points={mapped}
+          sensors={mappedSensors}
           className="mt-8"
         />
       </section>

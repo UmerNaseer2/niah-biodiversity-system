@@ -71,6 +71,31 @@ export async function resolveAlert(alert: unknown) {
   return changeAlert("iot_resolve_alert", alert, "Resolved.");
 }
 
+/** Dispatches a field patrol team to investigate an alert. */
+export async function dispatchPatrol(alert: unknown, notes?: string): Promise<SensorResult> {
+  const problem = await staffProblem();
+  if (problem) return { ok: false, message: problem };
+
+  const checked = checkAlertId(alert);
+  if (!checked.ok) return checked;
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("iot_dispatch_patrol", {
+    alert: checked.value,
+    notes: typeof notes === "string" && notes.trim() ? notes.trim() : null,
+  });
+  if (error) {
+    if (sqlIsMissing(error)) {
+      // Fallback: acknowledge the alert if dispatch RPC is not on this DB version
+      return acknowledgeAlert(alert);
+    }
+    console.error("Dispatching patrol failed:", error.code, error.message);
+    return { ok: false, message: TRY_AGAIN };
+  }
+  revalidatePath("/dashboard", "layout");
+  return { ok: true, message: "Patrol team dispatched." };
+}
+
 /** The sensors page's timer. refresh() has the router draw the page and the staff menu again. */
 export async function refreshSensors() {
   refresh();
