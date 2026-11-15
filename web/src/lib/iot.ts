@@ -88,6 +88,7 @@ export type NodeStatus = {
   humidityPercent?: number | null;
   soilMoisturePercent?: number | null;
   rainPercent?: number | null;
+  batteryPercent?: number | null;
 };
 
 /** A node's own calibration and alert settings, from iot_nodes */

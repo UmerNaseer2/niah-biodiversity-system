@@ -245,7 +245,7 @@ export function summarizeEcologicalStatus(
   }
 
   const allNodes = zones.flatMap((z) => z.nodes);
-  const batteryNodes = allNodes.filter((n) => n.batteryPercent !== null);
+  const batteryNodes = allNodes.filter((n) => n.batteryPercent != null);
   const avgBattery =
     batteryNodes.length > 0
       ? Math.round(batteryNodes.reduce((acc, n) => acc + (n.batteryPercent ?? 0), 0) / batteryNodes.length)

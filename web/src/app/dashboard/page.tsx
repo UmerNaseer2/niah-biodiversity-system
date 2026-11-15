@@ -119,13 +119,17 @@ export default async function OverviewPage() {
 
   const mappedSensors: MapSensor[] = nodeRows
     .filter((n) => n.latitude != null && n.longitude != null)
-    .map((n) => ({
-      id: String(n.node_id),
-      lat: Number(n.latitude),
-      lng: Number(n.longitude),
-      online: Boolean(n.last_reading_at && !n.quiet),
-      alert: openAlerts.some((a) => a.nodeId === n.node_id),
-    }));
+    .map((n) => {
+      const isQuiet = n.quiet === true;
+      const hasAlert = openAlerts.some((a) => a.nodeId === n.node_id);
+      const state = isQuiet ? "quiet" : hasAlert ? "alert" : "ok";
+      return {
+        id: String(n.node_id),
+        lat: Number(n.latitude),
+        lng: Number(n.longitude),
+        state,
+      };
+    });
 
   const shown = waiting.slice(0, 3).map((r) => `${plantName(r) || "No species yet"} (${r.tagCode})`);
   const others = waiting.length - shown.length;
