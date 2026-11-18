@@ -8,7 +8,7 @@ import ScanScreen from '@/app/(tabs)/scan';
 import RecordScreen from '@/app/record/[id]';
 import { DATABASE_NAME } from '@/db/database';
 import { openRecordsStore } from '@/db/records-store';
-import { RESCAN_AFTER_MS } from '@/lib/qr';
+import { RESCAN_AFTER_MS, tagQrText } from '@/lib/qr';
 import { AccountProvider } from '@/state/account-context';
 import { RecordsProvider } from '@/state/records-context';
 
@@ -227,6 +227,14 @@ describe('Scanning a tag', () => {
   it('opens the record from a link to the tag page on the website', async () => {
     const app = await renderScan();
     scan('https://niah.example.org/tag/nnp-8c41e7');
+    expect(app.getPathname()).toBe(`/record/${PITCHER_PLANT_ID}`);
+    expect(screen.getByText('Tag NNP-8C41E7')).toBeVisible();
+  });
+
+  it('opens the record from a code only tag, which holds no web address', async () => {
+    // A protected or threatened plant's tag holds just its code (lib/tag-rule.ts)
+    const app = await renderScan();
+    scan(tagQrText('NNP-8C41E7', undefined));
     expect(app.getPathname()).toBe(`/record/${PITCHER_PLANT_ID}`);
     expect(screen.getByText('Tag NNP-8C41E7')).toBeVisible();
   });

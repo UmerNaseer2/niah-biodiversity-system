@@ -31,6 +31,7 @@ const SPECIES_FIELDS = [
   'common_names',
   'iucn_code',
   'sarawak_protected',
+  'rough_area_only',
   'newer_name',
   'summary',
   'about',

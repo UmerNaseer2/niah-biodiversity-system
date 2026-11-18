@@ -12,6 +12,7 @@ import {
 import { MainPhoto } from "@/components/photo-gallery";
 import { ParkMap } from "@/components/park-map";
 import { TreeTag } from "@/components/tree-tag";
+import { codeOnlyReason } from "@/lib/code-only-tag";
 import { recordHidesLocation, type Species } from "@/data/species";
 import { formatDate, plural } from "@/lib/format";
 import { fromHq, roughAreas } from "@/lib/geo";
@@ -68,6 +69,8 @@ export default async function TagResultPage({
   const hidden = recordHidesLocation(record.speciesName, species);
   const unsure = !species || nameDisagrees(record.speciesName, species.scientificName);
   const speciesPhotos = species?.photos ?? [];
+  // A plant whose spot is hidden gets a tag with only the code on it, and no link
+  const tagReason = codeOnlyReason(record.speciesName, species);
 
   return (
     <div className="mx-auto w-full max-w-4xl px-4 py-8 sm:px-6">
@@ -88,8 +91,11 @@ export default async function TagResultPage({
       </nav>
 
       <header className="mt-8 flex flex-col gap-8 sm:flex-row sm:items-start">
-        <div aria-hidden="true" className="shrink-0 self-center sm:self-start">
-          <TreeTag code={code} swing />
+        <div className="shrink-0 self-center sm:self-start">
+          <div aria-hidden="true">
+            <TreeTag code={code} swing codeOnly={tagReason !== null} />
+          </div>
+          {tagReason && <p className="mt-3 max-w-36 text-xs text-moss">{tagReason}</p>}
         </div>
         <div>
           <p className="eyebrow">You scanned tag {code}</p>

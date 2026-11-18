@@ -4,7 +4,9 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { Icon } from "@/components/icon";
 import { ALERT_LEVEL } from "@/lib/alert-level";
 import type { AlertSeverity, AlertStatus } from "@/lib/iot";
+import type { NearbyPlants } from "@/lib/nearby-plants";
 import { acknowledgeAlert, dispatchPatrol, resolveAlert, type SensorResult } from "./actions";
+import { NEARBY_HEADING, NearbyPlantList } from "./nearby-plants";
 
 export type AlertItem = {
   id: number;
@@ -24,6 +26,8 @@ export type AlertItem = {
   /** "Acknowledged by Aina Officer, 2 Oct, 2:20 am" */
   handled: string | null;
   dispatched: string | null;
+  /** The tagged plants near the alert's node, so whoever goes knows what to check */
+  nearby: NearbyPlants;
 };
 
 function ask(request: Promise<SensorResult>): Promise<SensorResult> {
@@ -86,6 +90,10 @@ function AlertRow({
           <span className="font-bold">What to do: </span>
           {alert.todo}
         </p>
+        <div className="mt-2">
+          <p className="text-sm font-bold">{NEARBY_HEADING}</p>
+          <NearbyPlantList nearby={alert.nearby} />
+        </div>
         <p className="mt-2 text-sm text-moss">{alert.seen}</p>
         {alert.handled && (
           <p className="mt-1 flex items-start gap-1.5 text-sm font-bold text-ok">

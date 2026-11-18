@@ -154,7 +154,7 @@ function RenewTag({ id }: { id: string }) {
 export default function RecordScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { getRecord } = useRecords();
+  const { getRecord, publicSpecies } = useRecords();
   const record = getRecord(id);
 
   if (!record) {
@@ -242,7 +242,7 @@ export default function RecordScreen() {
       <RecordPhotos record={record} />
 
       <Card title="QR tag" icon="qr">
-        <QrTag record={record} />
+        <QrTag record={record} publicSpecies={publicSpecies} />
         <View style={styles.recordId}>
           <ThemedText type="small" themeColor="textSecondary">
             Record ID

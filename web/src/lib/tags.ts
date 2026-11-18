@@ -24,10 +24,12 @@ const SITE =
 /**
  * What goes in a tag's QR code: a link to the plant's page, so a normal phone
  * camera can open it. With no SITE_URL set it's only the code, which the phone
- * app's scanner can still read. SITE_URL has no NEXT_PUBLIC_ on purpose, since
- * tags are drawn on the server and the browser has no use for it.
+ * app's scanner can still read. A plant whose spot is hidden gets only the
+ * code too (codeOnly, see code-only-tag.ts). SITE_URL has no NEXT_PUBLIC_ on
+ * purpose, since tags are drawn on the server and the browser has no use for it.
  */
-export function tagQrText(code: string) {
+export function tagQrText(code: string, { codeOnly = false }: { codeOnly?: boolean } = {}) {
+  if (codeOnly) return code;
   const site = process.env.SITE_URL?.trim().replace(/\/+$/, "");
   return site && SITE.test(site) ? `${site}/tag/${code}` : code;
 }

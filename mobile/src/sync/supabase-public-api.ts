@@ -12,7 +12,7 @@ import { fetchAllPages } from './sync-engine';
 // Only the columns the plant page on the phone shows. records_public also has a location column,
 // and the phone never asks for it, because the plant page doesn't say where a plant is.
 const SPECIES_COLUMNS =
-  'id, scientific_name, authority, family, common_names, iucn_code, sarawak_protected, newer_name, summary, about, description, habitat, uses';
+  'id, scientific_name, authority, family, common_names, iucn_code, sarawak_protected, rough_area_only, newer_name, summary, about, description, habitat, uses';
 const RECORD_COLUMNS =
   'id, tag_code, species_slug, species_name, common_name, height_m, condition, recorded_at';
 

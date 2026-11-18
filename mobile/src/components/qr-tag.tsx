@@ -9,7 +9,9 @@ import { Radius, Spacing } from '@/constants/theme';
 import { announce } from '@/lib/announce';
 import { QUIET_ZONE, qrPath, qrSquares, qrViewBox, tagPrintHtml } from '@/lib/qr-code';
 import { tagQrText, tagWebsite } from '@/lib/qr';
+import { codeOnlyReason } from '@/lib/tag-rule';
 import type { PlantRecord } from '@/types/plant-record';
+import type { PublicSpecies } from '@/types/public-copy';
 
 // The print call only prints the page the app is on when it runs on the web.
 const CAN_PRINT = Platform.OS !== 'web';
@@ -49,8 +51,17 @@ function scanNote({ reviewStatus }: PlantRecord, website: string | undefined) {
   return `${inApp} A normal phone camera gets "no plant with that tag yet" until an officer approves the record.`;
 }
 
-/** The tag code in black on white. Dark mode can't change it, or some scanners can't read it. */
-export function QrTag({ record }: { record: PlantRecord }) {
+/**
+ * The tag code in black on white. Dark mode can't change it, or some scanners can't read it.
+ * publicSpecies is the plant info saved on the phone, which says if the tag can hold a link.
+ */
+export function QrTag({
+  record,
+  publicSpecies,
+}: {
+  record: PlantRecord;
+  publicSpecies: readonly PublicSpecies[];
+}) {
   const printing = useRef(false);
   const [printFailed, setPrintFailed] = useState(false);
 
@@ -64,7 +75,9 @@ export function QrTag({ record }: { record: PlantRecord }) {
   }
 
   const website = tagWebsite();
-  const text = tagQrText(record.tagCode, website);
+  // A plant whose spot is hidden on the public map gets a tag with only its code.
+  const codeOnly = website ? codeOnlyReason(record, publicSpecies) : null;
+  const text = tagQrText(record.tagCode, codeOnly ? undefined : website);
   const squares = qrSquares(text);
   // A whole number of points per square, so the edges stay sharp enough for a screen to be scanned.
   const across = squares.length + QUIET_ZONE * 2;
@@ -104,7 +117,7 @@ export function QrTag({ record }: { record: PlantRecord }) {
         </ThemedText>
       </View>
       <ThemedText type="small" themeColor="textSecondary">
-        {scanNote(record, website)}
+        {codeOnly ?? scanNote(record, website)}
       </ThemedText>
       {record.syncStatus === 'pending' ? (
         <ThemedText type="small" themeColor="warning">

@@ -28,6 +28,7 @@ function speciesRow(changes: Partial<SpeciesPublicRow> = {}): SpeciesPublicRow {
     common_names: ['Raffles pitcher plant', 'Periuk kera'],
     iucn_code: 'LC',
     sarawak_protected: true,
+    rough_area_only: true,
     newer_name: null,
     summary: 'A pitcher plant that traps insects.',
     about: 'Its pitchers hold a liquid that breaks down whatever falls in.',
@@ -61,6 +62,7 @@ const pitcher: PublicSpecies = {
   commonNames: ['Raffles pitcher plant', 'Periuk kera'],
   iucnCode: 'LC',
   sarawakProtected: true,
+  roughAreaOnly: true,
   summary: 'A pitcher plant that traps insects.',
   about: 'Its pitchers hold a liquid that breaks down whatever falls in.',
   habitat: 'Forest edges and open heath forest.',
@@ -213,6 +215,15 @@ describe('speciesFromServer', () => {
       speciesRow({ id: 'unknown', sarawak_protected: null }),
     ]);
     expect(species.map((each) => each.sarawakProtected)).toEqual([true, false, false]);
+  });
+
+  it('only shows the exact spot of a species when the server clearly says so', () => {
+    const species = speciesFromServer([
+      speciesRow({ id: 'rough', rough_area_only: true }),
+      speciesRow({ id: 'exact', rough_area_only: false }),
+      speciesRow({ id: 'unknown', rough_area_only: null }),
+    ]);
+    expect(species.map((each) => each.roughAreaOnly)).toEqual([true, false, true]);
   });
 
   it('leaves out a newer name that is empty', () => {

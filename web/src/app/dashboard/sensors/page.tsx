@@ -46,9 +46,19 @@ import {
 } from "@/lib/iot";
 import { checkAlerts, sqlIsMissing } from "@/lib/iot-db";
 import { SENSOR_FILES, whatToRun } from "@/lib/setup-hint";
+import {
+  NEARBY_PLANT_COLUMNS,
+  NEARBY_RADIUS_M,
+  NEARBY_READ_LIMIT,
+  boxAround,
+  nearbyFromRead,
+  pointFrom,
+  type NearbyPlants,
+} from "@/lib/nearby-plants";
 import { createClient } from "@/lib/supabase/server";
 import { AlertList, type AlertItem } from "./alert-list";
 import { AutoRefresh } from "./auto-refresh";
+import { NEARBY_HEADING, NearbyPlantList } from "./nearby-plants";
 import { NodeCommands, type CommandLine } from "./node-commands";
 import { SensorMap, type MapEdge, type MapNode } from "./sensor-map";
 import { Sparkline, type ChartPoint } from "./sparkline";
@@ -68,7 +78,7 @@ function databaseTime(iso: string) {
   return formatDateTime(parkTime(iso));
 }
 
-function alertItem(alert: SensorAlert, now: number): AlertItem {
+function alertItem(alert: SensorAlert, now: number, nearby: NearbyPlants): AlertItem {
   const words = ALERT_WORDS[alert.type];
   const details: string[] = [];
   if (alert.clearedRecordedAt) {
@@ -105,6 +115,7 @@ function alertItem(alert: SensorAlert, now: number): AlertItem {
             alert.patrolNotes ? `. Notes: “${alert.patrolNotes}”` : ""
           }`
         : null,
+    nearby,
   };
 }
 
@@ -419,6 +430,7 @@ function NodeCard({
   today,
   commands,
   device,
+  nearby,
   now,
 }: {
   node: NodeStatus;
@@ -432,6 +444,7 @@ function NodeCard({
   /** Newest first */
   commands: SensorCommand[];
   device: EdgeDevice | null;
+  nearby: NearbyPlants;
   now: number;
 }) {
   const headingId = `node-${node.nodeId}`;
@@ -500,6 +513,11 @@ function NodeCard({
           </p>
         </div>
         {badge}
+      </div>
+
+      <div className="mt-3">
+        <p className="text-sm font-bold">{NEARBY_HEADING}</p>
+        <NearbyPlantList nearby={nearby} />
       </div>
 
       {!node.lastReadingAt ? (
@@ -814,6 +832,36 @@ export default async function SensorsPage() {
   );
   const historyFor = new Map(histories);
 
+  // Where each node is, the same spot the map uses: its last power-up, or the node's own coordinates
+  const spotOf = (node: NodeStatus) =>
+    positions.get(node.nodeId) ?? pointFrom(node.latitude, node.longitude) ?? undefined;
+
+  // The tagged plants near each node. Only the records in a small box around the node are read, so
+  // this stays quick with thousands of records, and the exact distances are worked out here.
+  // records_staff has no deleted records, and rejected ones are left out.
+  const nearbyList = await Promise.all(
+    (nodes ?? []).map(async (node): Promise<[string, NearbyPlants]> => {
+      const spot = spotOf(node) ?? null;
+      if (!spot) return [node.nodeId, nearbyFromRead(null, { rows: [], failed: false })];
+      const box = boxAround(spot, NEARBY_RADIUS_M);
+      const { data, error } = await supabase
+        .from("records_staff")
+        .select(NEARBY_PLANT_COLUMNS)
+        .neq("status", "rejected")
+        .gte("gps->lat", box.south)
+        .lte("gps->lat", box.north)
+        .gte("gps->lng", box.west)
+        .lte("gps->lng", box.east)
+        .limit(NEARBY_READ_LIMIT);
+      if (error) console.error("Loading the plants near a node failed:", error.code);
+      return [node.nodeId, nearbyFromRead(spot, { rows: error ? null : (data ?? []), failed: Boolean(error) })];
+    }),
+  );
+  const nearbyFor = new Map(nearbyList);
+  // An alert for a node that isn't in the list has no spot to measure from
+  const nearbyOf = (nodeId: string): NearbyPlants =>
+    nearbyFor.get(nodeId) ?? (nodes ? { kind: "no-position" } : { kind: "failed" });
+
   // The map: edge devices with a position, and nodes with one from their last power-up or node coordinates
   const mapEdges: MapEdge[] = (devices ?? []).flatMap((device) =>
     device.latitude === null || device.longitude === null
@@ -832,11 +880,7 @@ export default async function SensorsPage() {
         ],
   );
   const mapNodes: MapNode[] = (nodes ?? []).flatMap((node) => {
-    const where =
-      positions.get(node.nodeId) ??
-      (node.latitude !== null && node.longitude !== null
-        ? { latitude: node.latitude, longitude: node.longitude }
-        : undefined);
+    const where = spotOf(node);
     if (!where) return [];
     const edge = node.edgeDeviceId ? deviceFor.get(node.edgeDeviceId) : undefined;
     return [
@@ -914,7 +958,7 @@ export default async function SensorsPage() {
         {goingOn && ended ? (
           <>
             <AlertList
-              alerts={goingOn.map((alert) => alertItem(alert, now))}
+              alerts={goingOn.map((alert) => alertItem(alert, now, nearbyOf(alert.nodeId)))}
               clearId="alerts-clear"
               clearTitle="Nothing going on"
               clearText="New alerts show up here and in the staff menu."
@@ -929,7 +973,7 @@ export default async function SensorsPage() {
                   nothing needs doing, so the list stays short.
                 </p>
                 <AlertList
-                  alerts={ended.map((alert) => alertItem(alert, now))}
+                  alerts={ended.map((alert) => alertItem(alert, now, nearbyOf(alert.nodeId)))}
                   clearId="ended-clear"
                   clearTitle="All resolved"
                   clearText="Alerts that end by themselves wait here until someone resolves them."
@@ -1011,6 +1055,7 @@ export default async function SensorsPage() {
                   today={today}
                   commands={commandsFor.get(node.nodeId) ?? []}
                   device={node.edgeDeviceId ? (deviceFor.get(node.edgeDeviceId) ?? null) : null}
+                  nearby={nearbyOf(node.nodeId)}
                   now={now}
                 />
               </li>

@@ -246,6 +246,7 @@ type PublicSpeciesRow = {
   common_names: string;
   iucn_code: IucnCode;
   sarawak_protected: number;
+  rough_area_only: number;
   newer_name: string | null;
   summary: string;
   about: string;
@@ -367,6 +368,7 @@ function toPublicSpecies(row: PublicSpeciesRow): PublicSpecies {
     commonNames: JSON.parse(row.common_names) as string[],
     iucnCode: row.iucn_code,
     sarawakProtected: row.sarawak_protected === 1,
+    roughAreaOnly: row.rough_area_only !== 0,
     newerName: row.newer_name ?? undefined,
     summary: row.summary,
     about: row.about,
@@ -627,9 +629,10 @@ export async function openRecordsStore(): Promise<RecordsStore> {
         for (const item of species) {
           await txn.runAsync(
             `INSERT INTO public_species (slug, scientific_name, authority, family, common_names,
-              iucn_code, sarawak_protected, newer_name, summary, about, habitat, uses)
+              iucn_code, sarawak_protected, rough_area_only, newer_name, summary, about, habitat,
+              uses)
             VALUES ($slug, $scientificName, $authority, $family, $commonNames, $iucnCode,
-              $sarawakProtected, $newerName, $summary, $about, $habitat, $uses)`,
+              $sarawakProtected, $roughAreaOnly, $newerName, $summary, $about, $habitat, $uses)`,
             {
               $slug: item.slug,
               $scientificName: item.scientificName,
@@ -638,6 +641,7 @@ export async function openRecordsStore(): Promise<RecordsStore> {
               $commonNames: JSON.stringify(item.commonNames),
               $iucnCode: item.iucnCode,
               $sarawakProtected: item.sarawakProtected ? 1 : 0,
+              $roughAreaOnly: item.roughAreaOnly === false ? 0 : 1,
               $newerName: item.newerName ?? null,
               $summary: item.summary,
               $about: item.about,
