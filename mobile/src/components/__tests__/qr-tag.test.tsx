@@ -6,8 +6,9 @@ import { Path } from 'react-native-svg';
 
 import { QrTag } from '@/components/qr-tag';
 import { parseTagQr } from '@/lib/qr';
-import { QUIET_ZONE } from '@/lib/qr-code';
+import { QUIET_ZONE, qrPath, qrSquares } from '@/lib/qr-code';
 import type { PlantRecord } from '@/types/plant-record';
+import type { PublicSpecies } from '@/types/public-copy';
 
 jest.mock('expo-print', () => ({ printAsync: jest.fn() }));
 
@@ -17,6 +18,7 @@ const record: PlantRecord = {
   id: 'c8f4a0e2-3d5b-4f7c-9e1a-2b4d6f8a0c31',
   tagCode: 'NNP-C8F4A0',
   speciesName: 'Ficus benjamina',
+  speciesSlug: 'ficus-benjamina',
   condition: 'healthy',
   photoCount: 0,
   recordedAt: '2026-10-31T01:00:00.000Z',
@@ -25,6 +27,24 @@ const record: PlantRecord = {
 };
 
 const WEBSITE = 'https://niah.example.org';
+
+/** A common species whose exact spot is on the public map, so its tag can hold a link. */
+const ficus: PublicSpecies = {
+  slug: 'ficus-benjamina',
+  scientificName: 'Ficus benjamina',
+  authority: 'L.',
+  family: 'Moraceae',
+  commonNames: ['Weeping fig'],
+  iucnCode: 'LC',
+  sarawakProtected: false,
+  roughAreaOnly: false,
+  summary: '',
+  about: '',
+  habitat: '',
+  uses: '',
+};
+
+const SPECIES = [ficus];
 
 /** What the drawn path says, read back by a scanner. */
 function scanDrawnCode() {
@@ -60,39 +80,39 @@ describe('QrTag', () => {
   });
 
   it("draws a code holding a link to the plant's page", () => {
-    render(<QrTag record={record} />);
+    render(<QrTag publicSpecies={SPECIES} record={record} />);
     expect(scanDrawnCode()).toBe(`${WEBSITE}/tag/NNP-C8F4A0`);
     expect(parseTagQr(scanDrawnCode() ?? '')).toBe('NNP-C8F4A0');
   });
 
   it('names the tag for a screen reader', () => {
-    render(<QrTag record={record} />);
+    render(<QrTag publicSpecies={SPECIES} record={record} />);
     expect(screen.getByLabelText('QR code for tag NNP-C8F4A0')).toBeTruthy();
     expect(screen.getByText('NNP-C8F4A0')).toBeTruthy();
   });
 
   it('keeps the tile black on white', () => {
-    render(<QrTag record={record} />);
+    render(<QrTag publicSpecies={SPECIES} record={record} />);
     expect(screen.getByTestId('qr-tile')).toHaveStyle({ backgroundColor: '#ffffff' });
     expect(screen.UNSAFE_getByType(Path).props.fill).toBe('#000000');
   });
 
   it('draws the new code when the record gets a new tag', () => {
-    render(<QrTag record={record} />);
-    screen.rerender(<QrTag record={{ ...record, tagCode: 'NNP-0A1B2C' }} />);
+    render(<QrTag publicSpecies={SPECIES} record={record} />);
+    screen.rerender(<QrTag publicSpecies={SPECIES} record={{ ...record, tagCode: 'NNP-0A1B2C' }} />);
     expect(scanDrawnCode()).toBe(`${WEBSITE}/tag/NNP-0A1B2C`);
   });
 
   it('holds only the code, and says so, when the build has no website', () => {
     delete process.env.EXPO_PUBLIC_SITE_URL;
-    render(<QrTag record={record} />);
+    render(<QrTag publicSpecies={SPECIES} record={record} />);
     expect(scanDrawnCode()).toBe('NNP-C8F4A0');
     expect(screen.getByText(/only holds the tag code/)).toBeTruthy();
     expect(screen.queryByText(/public page/)).toBeNull();
   });
 
   it('says a camera opens the public page once an officer approves it', () => {
-    render(<QrTag record={record} />);
+    render(<QrTag publicSpecies={SPECIES} record={record} />);
     expect(screen.getByText(/A normal phone camera opens the plant's public page/)).toBeTruthy();
     expect(screen.getByText(/The Scan tab opens this record, even with no signal/)).toBeTruthy();
   });
@@ -101,18 +121,18 @@ describe('QrTag', () => {
     ['still waiting', 'waiting' as const],
     ['not heard about yet', undefined],
   ])('says a camera finds nothing yet for a record %s', (_what, reviewStatus) => {
-    render(<QrTag record={{ ...record, reviewStatus }} />);
+    render(<QrTag publicSpecies={SPECIES} record={{ ...record, reviewStatus }} />);
     expect(screen.getByText(/no plant with that tag yet/)).toBeTruthy();
     expect(screen.queryByText(/isn't checked until/)).toBeNull();
   });
 
   it('says the website has no page for a rejected record', () => {
-    render(<QrTag record={{ ...record, reviewStatus: 'rejected' }} />);
+    render(<QrTag publicSpecies={SPECIES} record={{ ...record, reviewStatus: 'rejected' }} />);
     expect(screen.getByText(/the website has no page for this tag/)).toBeTruthy();
   });
 
   it('shows the code with no signal, and warns it could change, before the upload', () => {
-    render(<QrTag record={{ ...record, syncStatus: 'pending', reviewStatus: undefined }} />);
+    render(<QrTag publicSpecies={SPECIES} record={{ ...record, syncStatus: 'pending', reviewStatus: undefined }} />);
     expect(scanDrawnCode()).toBe(`${WEBSITE}/tag/NNP-C8F4A0`);
     expect(screen.getByText(/isn't checked until the record uploads/)).toBeTruthy();
     expect(screen.getByText('Print this tag')).toBeTruthy();
@@ -122,7 +142,7 @@ describe('QrTag', () => {
     'still shows the code when the upload problem is %s',
     (uploadProblem) => {
       render(
-        <QrTag
+        <QrTag publicSpecies={SPECIES}
           record={{ ...record, syncStatus: 'pending', reviewStatus: undefined, uploadProblem }}
         />,
       );
@@ -135,7 +155,7 @@ describe('QrTag', () => {
     ['deleted' as const, /isn't on the server any more/],
   ])('shows no code to print when the upload problem is %s', (uploadProblem, reason) => {
     render(
-      <QrTag
+      <QrTag publicSpecies={SPECIES}
         record={{ ...record, syncStatus: 'pending', reviewStatus: undefined, uploadProblem }}
       />,
     );
@@ -144,8 +164,53 @@ describe('QrTag', () => {
     expect(screen.queryByText('Print this tag')).toBeNull();
   });
 
+  it.each([
+    ['protected', { sarawakProtected: true }, 'This species is protected'],
+    ['threatened', { iucnCode: 'EN' as const }, 'This species is threatened'],
+    ['of unknown risk', { iucnCode: 'DD' as const }, "This species' risk isn't known yet"],
+    ['shown as a rough area', { roughAreaOnly: true }, 'This species only shows a rough area on the map'],
+  ])('holds only the code for a species that is %s, and says why', (_what, change, start) => {
+    render(<QrTag publicSpecies={[{ ...ficus, ...change }]} record={record} />);
+    expect(scanDrawnCode()).toBe('NNP-C8F4A0');
+    // The app's scanner still opens the record from the bare code
+    expect(parseTagQr(scanDrawnCode() ?? '')).toBe('NNP-C8F4A0');
+    expect(
+      screen.getByText(`${start}, so its tag holds only the code. Staff can scan it in the Niah app.`),
+    ).toBeTruthy();
+    expect(screen.queryByText(/public page/)).toBeNull();
+  });
+
+  it('holds only the code when the plant has no species, or the phone has no plant info', () => {
+    render(
+      <QrTag publicSpecies={SPECIES} record={{ ...record, speciesSlug: undefined }} />,
+    );
+    expect(scanDrawnCode()).toBe('NNP-C8F4A0');
+    expect(screen.getByText(/isn't matched to a species yet/)).toBeTruthy();
+
+    screen.rerender(<QrTag publicSpecies={[]} record={record} />);
+    expect(scanDrawnCode()).toBe('NNP-C8F4A0');
+    expect(screen.getByText(/doesn't have the plant info for this species yet/)).toBeTruthy();
+  });
+
+  it('counts a species saved before the phone knew about rough areas as rough', () => {
+    const { roughAreaOnly: _unknown, ...older } = ficus;
+    render(<QrTag publicSpecies={[older]} record={record} />);
+    expect(scanDrawnCode()).toBe('NNP-C8F4A0');
+  });
+
+  it('prints a code only tag with no web address in it', async () => {
+    render(
+      <QrTag publicSpecies={[{ ...ficus, sarawakProtected: true }]} record={record} />,
+    );
+    await act(async () => fireEvent.press(screen.getByText('Print this tag')));
+    const { html } = printAsync.mock.calls[0][0];
+    // The printed QR code is the one for the bare code, not the one for the link
+    expect(html).toContain(`d="${qrPath(qrSquares('NNP-C8F4A0'))}"`);
+    expect(html).not.toContain(`d="${qrPath(qrSquares(`${WEBSITE}/tag/NNP-C8F4A0`))}"`);
+  });
+
   it('prints a page with the code on it and no species', async () => {
-    render(<QrTag record={record} />);
+    render(<QrTag publicSpecies={SPECIES} record={record} />);
     await act(async () => fireEvent.press(screen.getByText('Print this tag')));
     expect(printAsync).toHaveBeenCalledTimes(1);
     const { html } = printAsync.mock.calls[0][0];
@@ -158,7 +223,7 @@ describe('QrTag', () => {
     printAsync.mockRejectedValue(
       Object.assign(new Error('Printing did not complete'), { code: 'ERR_PRINT_INCOMPLETE' }),
     );
-    render(<QrTag record={record} />);
+    render(<QrTag publicSpecies={SPECIES} record={record} />);
     await act(async () => fireEvent.press(screen.getByText('Print this tag')));
     expect(screen.queryByText(/Couldn't open the print window/)).toBeNull();
   });
@@ -166,7 +231,7 @@ describe('QrTag', () => {
   it('says so when printing really fails, and clears it on the next try', async () => {
     const announce = jest.spyOn(AccessibilityInfo, 'announceForAccessibility');
     printAsync.mockRejectedValueOnce(new Error('No printer'));
-    render(<QrTag record={record} />);
+    render(<QrTag publicSpecies={SPECIES} record={record} />);
     await act(async () => fireEvent.press(screen.getByText('Print this tag')));
     expect(screen.getByText("Couldn't open the print window. Try again.")).toBeTruthy();
     expect(announce).toHaveBeenCalledWith("Couldn't open the print window. Try again.");
@@ -183,7 +248,7 @@ describe('QrTag', () => {
         finish = resolve;
       }),
     );
-    render(<QrTag record={record} />);
+    render(<QrTag publicSpecies={SPECIES} record={record} />);
     fireEvent.press(screen.getByText('Print this tag'));
     fireEvent.press(screen.getByText('Print this tag'));
     expect(printAsync).toHaveBeenCalledTimes(1);

@@ -87,7 +87,8 @@ describe('what the phone asks for', () => {
     ]);
   });
 
-  test('species come down with only the columns the species pages use', () => {
+  test('species come down with only the columns the species pages and printed tags use', () => {
+    // rough_area_only tells the phone if a tag can hold a link (mobile/src/lib/tag-rule.ts)
     assert.deepEqual(SPECIES_COLUMNS, [
       'id',
       'scientific_name',
@@ -96,6 +97,7 @@ describe('what the phone asks for', () => {
       'common_names',
       'iucn_code',
       'sarawak_protected',
+      'rough_area_only',
       'newer_name',
       'summary',
       'about',

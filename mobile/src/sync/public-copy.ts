@@ -24,6 +24,7 @@ export type SpeciesPublicRow = {
   common_names: unknown;
   iucn_code: string | null;
   sarawak_protected: boolean | null;
+  rough_area_only: boolean | null;
   newer_name: string | null;
   summary: string | null;
   about: string | null;
@@ -99,6 +100,8 @@ export function speciesFromServer(rows: SpeciesPublicRow[]): PublicSpecies[] {
         // The website shows a code it doesn't know as Not Evaluated, so the phone does too.
         iucnCode: isIucnCode(row.iucn_code) ? row.iucn_code : 'NE',
         sarawakProtected: row.sarawak_protected === true,
+        // Only a clear no shows the exact spot, the same as records_public on the server.
+        roughAreaOnly: row.rough_area_only !== false,
         newerName: filled(row.newer_name),
         summary: text(row.summary),
         // Older species only have a description, and the website shows that instead.

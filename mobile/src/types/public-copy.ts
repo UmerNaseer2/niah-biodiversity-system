@@ -23,6 +23,11 @@ export type PublicSpecies = {
   commonNames: string[];
   iucnCode: IucnCode;
   sarawakProtected: boolean;
+  /**
+   * The public map only shows a rough area for this species. Left out means it isn't known, which
+   * counts as rough.
+   */
+  roughAreaOnly?: boolean;
   /** The name botanists use now, when the species has been renamed. */
   newerName?: string;
   summary: string;

@@ -383,6 +383,7 @@ describe('version 7', () => {
         'about',
         'habitat',
         'uses',
+        'rough_area_only',
       ]);
       expect(await columnsOf('scan_history')).toEqual(['tag_code', 'scanned_at']);
       expect(await columnsOf('public_photos')).toEqual([
@@ -503,6 +504,44 @@ describe('version 8', () => {
           file: null,
         },
       ]);
+    } finally {
+      await db.closeAsync();
+    }
+  });
+});
+
+describe('version 9', () => {
+  it('counts the species saved before it as rough, until the next download', async () => {
+    const old = await openDatabaseAsync(DATABASE_NAME);
+    await migrate(old, MIGRATIONS.slice(0, 8));
+    await old.runAsync(
+      `INSERT INTO public_species (slug, scientific_name, common_names, iucn_code,
+        sarawak_protected)
+      VALUES ('ficus-benjamina', 'Ficus benjamina', '[]', 'LC', 0)`,
+    );
+    await old.closeAsync();
+
+    const db = await openDatabase();
+    try {
+      expect(await versionOf(db)).toBe(MIGRATIONS.length);
+      expect(await db.getAllAsync('SELECT slug, rough_area_only FROM public_species')).toEqual([
+        { slug: 'ficus-benjamina', rough_area_only: 1 },
+      ]);
+    } finally {
+      await db.closeAsync();
+    }
+  });
+
+  it('only takes 0 or 1 for a rough area', async () => {
+    const db = await openDatabase();
+    try {
+      await expect(
+        db.runAsync(
+          `INSERT INTO public_species (slug, scientific_name, iucn_code, sarawak_protected,
+            rough_area_only)
+          VALUES ('ficus-benjamina', 'Ficus benjamina', 'LC', 0, 2)`,
+        ),
+      ).rejects.toThrow('CHECK constraint failed');
     } finally {
       await db.closeAsync();
     }

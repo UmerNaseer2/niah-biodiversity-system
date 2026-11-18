@@ -179,6 +179,12 @@ export const MIGRATIONS: readonly string[] = [
     credit TEXT NOT NULL DEFAULT '',
     file TEXT CHECK (file IS NULL OR file <> '')
   ) STRICT;`,
+
+  // Version 9: whether the public map only shows a rough area for a species, the same as
+  // rough_area_only on the server. A tag for a plant whose spot is hidden holds only its code
+  // (lib/tag-rule.ts). Species saved before this count as rough until the next download.
+  `ALTER TABLE public_species
+    ADD COLUMN rough_area_only INTEGER NOT NULL DEFAULT 1 CHECK (rough_area_only IN (0, 1));`,
 ];
 
 /**
