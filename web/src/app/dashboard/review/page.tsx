@@ -16,6 +16,13 @@ export const metadata: Metadata = { title: "Review queue" };
 /** How many reviewed records the page keeps under the queue, for fixing a mistake */
 const RECENT = 10;
 
+/**
+ * How many waiting records the page shows at once, oldest first. With 400 waiting the page was over
+ * 2 MB (docs/test-results/item-37-performance.md), and hosted Supabase sends at most 1000 rows, so a
+ * longer queue would have shown the wrong number too. The next ones come in as these are decided.
+ */
+const SHOWN = 50;
+
 export default async function ReviewPage() {
   if (!(await requireStaff())) return null;
 
@@ -25,9 +32,11 @@ export default async function ReviewPage() {
   const [waitingResult, decidedResult, speciesResult] = await Promise.all([
     supabase
       .from("records_staff")
-      .select("*")
+      .select("*", { count: "exact" })
       .eq("status", "waiting")
-      .order("recorded_at", { ascending: true }),
+      .order("recorded_at", { ascending: true })
+      .order("id")
+      .limit(SHOWN),
     supabase
       .from("records_staff")
       .select("*")
@@ -112,6 +121,7 @@ export default async function ReviewPage() {
       {header}
       <ReviewQueue
         waiting={waitingResult.data.map(toItem)}
+        waitingTotal={waitingResult.count ?? waitingResult.data.length}
         decided={decidedResult.data.map(toItem)}
       />
     </div>

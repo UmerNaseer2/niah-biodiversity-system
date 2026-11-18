@@ -95,9 +95,12 @@ function checksFor(item: ReviewItem) {
 
 export function ReviewQueue({
   waiting,
+  waitingTotal,
   decided,
 }: {
   waiting: ReviewItem[];
+  /** Every waiting record, when the page only sent the oldest ones */
+  waitingTotal: number;
   decided: ReviewItem[];
 }) {
   const [isPending, startTransition] = useTransition();
@@ -208,7 +211,7 @@ export function ReviewQueue({
           className="text-xl font-bold tracking-tight"
         >
           Waiting{" "}
-          <span className="font-normal text-moss">({waiting.length})</span>
+          <span className="font-normal text-moss">({Math.max(waitingTotal, waiting.length)})</span>
         </h2>
 
         {waiting.length === 0 ? (
@@ -452,6 +455,13 @@ export function ReviewQueue({
               </li>
             ))}
           </ul>
+        )}
+
+        {waitingTotal > waiting.length && (
+          <p className="mt-4 text-sm text-moss">
+            These are the oldest {waiting.length} of the {waitingTotal} waiting. The next ones show
+            up here as you approve or reject these.
+          </p>
         )}
       </section>
 

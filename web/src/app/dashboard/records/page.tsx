@@ -11,7 +11,6 @@ import {
   STATUS_LABEL,
   type StaffStatus,
 } from "@/lib/records-staff";
-import { readAll } from "@/lib/supabase/read-all";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "Records" };
@@ -19,23 +18,57 @@ export const metadata: Metadata = { title: "Records" };
 // A tag code like NNP-3F2A9C, the same shape lib/tags.ts makes
 const TAG = /^NNP-[0-9A-F]{6}$/;
 
+// How many records one page of the list shows. With every record on one page, 10,000 records
+// made the page take over half a minute and several megabytes to load
+// (docs/test-results/item-37-performance.md).
+const PER_PAGE = 100;
+
+/** Which page of the list to show, from ?page=2. Anything that isn't a page number gives the first. */
+function pageFrom(value: unknown) {
+  const page = typeof value === "string" ? Number(value) : 1;
+  return Number.isSafeInteger(page) && page >= 1 ? page : 1;
+}
+
+function pageHref(status: StaffStatus | null, page: number) {
+  const params = new URLSearchParams();
+  if (status) params.set("status", status);
+  if (page > 1) params.set("page", String(page));
+  const search = params.toString();
+  return `/dashboard/records${search ? `?${search}` : ""}`;
+}
+
 export default async function RecordsPage({
   searchParams,
 }: PageProps<"/dashboard/records">) {
   if (!(await requireStaff())) return null;
-  const { deleted, status } = await searchParams;
+  const { deleted, status, page: pageParam } = await searchParams;
   const filter = STAFF_STATUSES.find((s) => s === status) ?? null;
+  const page = pageFrom(pageParam);
+  const from = (page - 1) * PER_PAGE;
+  const askedAboutTag = typeof deleted === "string" && TAG.test(deleted) ? deleted : null;
 
-  // records_staff only answers officers and admins (supabase/006)
+  // records_staff only answers officers and admins (supabase/006). The database counts each
+  // status, and the list is one page of records, plus one more to know if there's an older page.
   const supabase = await createClient();
-  const { data, error } = await readAll((from, to) =>
-    supabase
-      .from("records_staff")
-      .select("*", { count: "exact" })
+  let list = supabase.from("records_staff").select("*");
+  if (filter) list = list.eq("status", filter);
+  const [listResult, deletedResult, ...countResults] = await Promise.all([
+    list
       .order("recorded_at", { ascending: false })
       .order("id")
-      .range(from, to),
-  );
+      .range(from, from + PER_PAGE),
+    askedAboutTag
+      ? supabase
+          .from("records_staff")
+          .select("id", { count: "exact", head: true })
+          .eq("tag_code", askedAboutTag)
+      : null,
+    ...STAFF_STATUSES.map((s) =>
+      supabase.from("records_staff").select("id", { count: "exact", head: true }).eq("status", s),
+    ),
+  ]);
+  const error =
+    listResult.error ?? deletedResult?.error ?? countResults.find((r) => r.error)?.error ?? null;
 
   const header = (
     <PageHeader
@@ -63,22 +96,23 @@ export default async function RecordsPage({
     );
   }
 
-  const all = data.map(recordFromRow);
   const counts = Object.fromEntries(
-    STAFF_STATUSES.map((s) => [s, all.filter((r) => r.status === s).length]),
+    STAFF_STATUSES.map((s, i) => [s, countResults[i].count ?? 0]),
   ) as Record<StaffStatus, number>;
-  const rows = filter ? all.filter((r) => r.status === filter) : all;
+  const total = STAFF_STATUSES.reduce((sum, s) => sum + counts[s], 0);
+  const shownTotal = filter ? counts[filter] : total;
+  const rows = (listResult.data ?? []).slice(0, PER_PAGE).map(recordFromRow);
+  const hasOlder = (listResult.data?.length ?? 0) > PER_PAGE;
+  const first = from + 1;
+  const last = from + rows.length;
 
   // Deleting a record sends the officer here with its tag (actions.ts). Only a
-  // tag that isn't in the list shows, so a made up link can't put other text
-  // on the page.
-  const deletedTag =
-    typeof deleted === "string" && TAG.test(deleted) && !all.some((r) => r.tagCode === deleted)
-      ? deleted
-      : null;
+  // tag that isn't in the database shows, so a made up link can't put other
+  // text on the page.
+  const deletedTag = askedAboutTag && deletedResult?.count === 0 ? askedAboutTag : null;
 
   const tabs: { label: string; href: string; count: number; current: boolean }[] = [
-    { label: "All", href: "/dashboard/records", count: all.length, current: !filter },
+    { label: "All", href: "/dashboard/records", count: total, current: !filter },
     ...STAFF_STATUSES.map((s) => ({
       label: STATUS_LABEL[s],
       href: `/dashboard/records?status=${s}`,
@@ -123,8 +157,9 @@ export default async function RecordsPage({
       >
         <table className="w-full min-w-[56rem] text-left text-sm">
           <caption id="records-table-caption" className="sr-only">
-            {plural(rows.length, "record")}
+            {plural(shownTotal, "record")}
             {filter ? `, ${STATUS_LABEL[filter].toLowerCase()}` : ""}
+            {page > 1 || hasOlder ? `, ${first} to ${last} shown` : ""}
           </caption>
           <thead className="border-b border-line bg-paper/60 text-moss">
             <tr>
@@ -143,9 +178,19 @@ export default async function RecordsPage({
             {rows.length === 0 && (
               <tr>
                 <td colSpan={7} className="px-4 py-6 text-moss">
-                  {filter
-                    ? `No records are ${STATUS_LABEL[filter].toLowerCase()}.`
-                    : "There aren’t any records in the database yet."}
+                  {page > 1 ? (
+                    <>
+                      There aren’t that many records.{" "}
+                      <Link href={pageHref(filter, 1)} className="font-bold text-forest underline">
+                        Go to the newest
+                      </Link>
+                      .
+                    </>
+                  ) : filter ? (
+                    `No records are ${STATUS_LABEL[filter].toLowerCase()}.`
+                  ) : (
+                    "There aren’t any records in the database yet."
+                  )}
                 </td>
               </tr>
             )}
@@ -191,6 +236,31 @@ export default async function RecordsPage({
           </tbody>
         </table>
       </div>
+
+      {(page > 1 || hasOlder) && rows.length > 0 && (
+        <nav
+          aria-label="Pages of records"
+          className="mt-4 flex flex-wrap items-center justify-between gap-3"
+        >
+          <p className="text-sm text-moss">
+            Records {first} to {last} of {shownTotal}, newest first
+          </p>
+          <div className="flex gap-3">
+            {page > 1 && (
+              <Link href={pageHref(filter, page - 1)} className="btn btn-secondary">
+                <Icon name="arrow-left" className="size-4" />
+                Newer
+              </Link>
+            )}
+            {hasOlder && (
+              <Link href={pageHref(filter, page + 1)} className="btn btn-secondary">
+                Older
+                <Icon name="arrow-right" className="size-4" />
+              </Link>
+            )}
+          </div>
+        </nav>
+      )}
     </div>
   );
 }

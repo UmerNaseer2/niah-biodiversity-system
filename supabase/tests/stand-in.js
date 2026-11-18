@@ -16,6 +16,7 @@ import { createServer } from 'node:http';
 import { pathToFileURL } from 'node:url';
 import { EDGE_COM_RUNS, startEdgeCom } from './edge-com.js';
 import { asUser, newDatabase, SQL_FILES } from './harness.js';
+import { addLoadData } from './load-data.js';
 
 /** The anon key the website uses with the stand-in. It only works here. */
 export const ANON_KEY = 'stand-in-anon-key';
@@ -152,6 +153,10 @@ export async function startStandIn({
   sqlThrough = null,
   // A day of made-up readings and alerts from the sample nodes. The tests turn it off to start empty
   sensorData = true,
+  // Lots more made up data, to time the pages with (load-data.js): this many records, and this
+  // many days of a reading a minute from each node before the day above
+  loadRecords = 0,
+  loadReadingDays = 0,
 } = {}) {
   const sqlFiles = sqlThrough ? SQL_FILES.filter((file) => file.slice(0, 3) <= sqlThrough) : SQL_FILES;
   const db = await newDatabase(sqlFiles);
@@ -168,6 +173,9 @@ export async function startStandIn({
     } else {
       log('edge-com needs Node 22.13 or newer, so the stand-in runs without it and its sensor data');
     }
+  }
+  if (loadRecords > 0 || loadReadingDays > 0) {
+    await addLoadData(db, { records: loadRecords, readingDays: sensors ? loadReadingDays : 0 });
   }
 
   // The API's schema cache: the columns of every table and view in public
@@ -1474,8 +1482,9 @@ async function signLinks(res, { bucket }, body, asker, ctx) {
 
 // `npm run stand-in` runs this. STAND_IN_PORT changes the port, STAND_IN_TOKEN_SECONDS makes a
 // sign in run out sooner, to try refreshing, STAND_IN_MAX_ROWS sends fewer rows per read, to try
-// reading a long list in pages, STAND_IN_SQL_THROUGH=015 leaves out the SQL files after 015, and
-// STAND_IN_SENSOR_DATA=0 starts with no sensor readings.
+// reading a long list in pages, STAND_IN_SQL_THROUGH=015 leaves out the SQL files after 015,
+// STAND_IN_SENSOR_DATA=0 starts with no sensor readings, and STAND_IN_LOAD_RECORDS=10000 with
+// STAND_IN_LOAD_DAYS=30 adds that many made up records and days of readings (load-data.js).
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const port = Number(process.env.STAND_IN_PORT || 54321);
   const tokenSeconds = Number(process.env.STAND_IN_TOKEN_SECONDS || 3600);
@@ -1490,7 +1499,21 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   }
   const sqlThrough = process.env.STAND_IN_SQL_THROUGH || null;
   const sensorData = process.env.STAND_IN_SENSOR_DATA !== '0';
-  const standIn = await startStandIn({ port, tokenSeconds, maxRows, sqlThrough, sensorData });
+  const loadRecords = Number(process.env.STAND_IN_LOAD_RECORDS || 0);
+  const loadReadingDays = Number(process.env.STAND_IN_LOAD_DAYS || 0);
+  if (![loadRecords, loadReadingDays].every((n) => Number.isInteger(n) && n >= 0)) {
+    console.error('STAND_IN_LOAD_RECORDS and STAND_IN_LOAD_DAYS have to be whole numbers.');
+    process.exit(1);
+  }
+  const standIn = await startStandIn({
+    port,
+    tokenSeconds,
+    maxRows,
+    sqlThrough,
+    sensorData,
+    loadRecords,
+    loadReadingDays,
+  });
   console.log(`Supabase stand-in running on ${standIn.url}, with the anon key ${ANON_KEY}`);
   console.log('Test accounts (the password is TEST_PASSWORD in stand-in.js):');
   for (const user of TEST_USERS) console.log(`  ${user.email}  ${user.role ?? 'no profile'}`);
