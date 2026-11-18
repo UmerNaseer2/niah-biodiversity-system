@@ -6,6 +6,7 @@ import { IucnChip, LatinName } from "@/components/plant-bits";
 import { hidesLocation } from "@/data/species";
 import { requireStaff } from "@/lib/auth";
 import { formatDate } from "@/lib/format";
+import { ifItKeepsHappening } from "@/lib/setup-hint";
 import { speciesFromRow } from "@/lib/species-db";
 import { SCIENTIFIC_NAME } from "@/lib/species-form";
 import { readAll } from "@/lib/supabase/read-all";
@@ -16,7 +17,8 @@ export const metadata: Metadata = { title: "Species" };
 export default async function SpeciesPage({
   searchParams,
 }: PageProps<"/dashboard/species">) {
-  if (!(await requireStaff())) return null;
+  const me = await requireStaff();
+  if (!me) return null;
   const { deleted } = await searchParams;
 
   // Both views only answer officers and admins (supabase/006 and 007)
@@ -61,9 +63,8 @@ export default async function SpeciesPage({
           className="mt-8 flex max-w-2xl items-start gap-2.5 rounded-xl border-2 border-bad bg-sheet p-4 font-bold text-bad"
         >
           <Icon name="alert" className="mt-0.5 size-4 shrink-0" />
-          The species list didn’t load. Refresh the page, and if it keeps
-          happening, ask an administrator to check the database is up to date
-          (supabase/README.md).
+          The species list didn’t load. Refresh the page, and if it keeps happening,{" "}
+          {ifItKeepsHappening(me.role)}
         </p>
       </div>
     );

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Form from "next/form";
 import Link from "next/link";
 import { Icon } from "@/components/icon";
 import { PageHeader } from "@/components/page-header";
@@ -11,6 +12,8 @@ import {
   STATUS_LABEL,
   type StaffStatus,
 } from "@/lib/records-staff";
+import { searchFilter, searchTermFrom, SEARCH_MAX } from "@/lib/records-search";
+import { ifItKeepsHappening } from "@/lib/setup-hint";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "Records" };
@@ -29,29 +32,34 @@ function pageFrom(value: unknown) {
   return Number.isSafeInteger(page) && page >= 1 ? page : 1;
 }
 
-function pageHref(status: StaffStatus | null, page: number) {
+function pageHref(status: StaffStatus | null, page: number, search: string | null) {
   const params = new URLSearchParams();
   if (status) params.set("status", status);
+  if (search) params.set("q", search);
   if (page > 1) params.set("page", String(page));
-  const search = params.toString();
-  return `/dashboard/records${search ? `?${search}` : ""}`;
+  const query = params.toString();
+  return `/dashboard/records${query ? `?${query}` : ""}`;
 }
 
 export default async function RecordsPage({
   searchParams,
 }: PageProps<"/dashboard/records">) {
-  if (!(await requireStaff())) return null;
-  const { deleted, status, page: pageParam } = await searchParams;
+  const me = await requireStaff();
+  if (!me) return null;
+  const { deleted, status, page: pageParam, q } = await searchParams;
   const filter = STAFF_STATUSES.find((s) => s === status) ?? null;
+  const search = searchTermFrom(q);
   const page = pageFrom(pageParam);
   const from = (page - 1) * PER_PAGE;
   const askedAboutTag = typeof deleted === "string" && TAG.test(deleted) ? deleted : null;
 
   // records_staff only answers officers and admins (supabase/006). The database counts each
   // status, and the list is one page of records, plus one more to know if there's an older page.
+  // A search is one more filter on the list and the counts, so the database does the matching.
   const supabase = await createClient();
   let list = supabase.from("records_staff").select("*");
   if (filter) list = list.eq("status", filter);
+  if (search) list = list.or(searchFilter(search));
   const [listResult, deletedResult, ...countResults] = await Promise.all([
     list
       .order("recorded_at", { ascending: false })
@@ -63,9 +71,13 @@ export default async function RecordsPage({
           .select("id", { count: "exact", head: true })
           .eq("tag_code", askedAboutTag)
       : null,
-    ...STAFF_STATUSES.map((s) =>
-      supabase.from("records_staff").select("id", { count: "exact", head: true }).eq("status", s),
-    ),
+    ...STAFF_STATUSES.map((s) => {
+      const count = supabase
+        .from("records_staff")
+        .select("id", { count: "exact", head: true })
+        .eq("status", s);
+      return search ? count.or(searchFilter(search)) : count;
+    }),
   ]);
   const error =
     listResult.error ?? deletedResult?.error ?? countResults.find((r) => r.error)?.error ?? null;
@@ -88,9 +100,8 @@ export default async function RecordsPage({
           className="mt-8 flex max-w-2xl items-start gap-2.5 rounded-xl border-2 border-bad bg-sheet p-4 font-bold text-bad"
         >
           <Icon name="alert" className="mt-0.5 size-4 shrink-0" />
-          The records didn’t load. Refresh the page, and if it keeps happening,
-          ask an administrator to check the database is up to date
-          (supabase/README.md).
+          The records didn’t load. Refresh the page, and if it keeps happening,{" "}
+          {ifItKeepsHappening(me.role)}
         </p>
       </div>
     );
@@ -112,10 +123,10 @@ export default async function RecordsPage({
   const deletedTag = askedAboutTag && deletedResult?.count === 0 ? askedAboutTag : null;
 
   const tabs: { label: string; href: string; count: number; current: boolean }[] = [
-    { label: "All", href: "/dashboard/records", count: total, current: !filter },
+    { label: "All", href: pageHref(null, 1, search), count: total, current: !filter },
     ...STAFF_STATUSES.map((s) => ({
       label: STATUS_LABEL[s],
-      href: `/dashboard/records?status=${s}`,
+      href: pageHref(s, 1, search),
       count: counts[s],
       current: filter === s,
     })),
@@ -135,7 +146,39 @@ export default async function RecordsPage({
         </p>
       )}
 
-      <nav aria-label="Filter by status" className={`${deletedTag ? "mt-4" : "mt-8"} flex flex-wrap gap-2`}>
+      <Form
+        key={search ?? ""}
+        action="/dashboard/records"
+        role="search"
+        className={`${deletedTag ? "mt-4" : "mt-8"} max-w-2xl`}
+      >
+        <label htmlFor="records-search" className="font-bold">
+          Search records
+        </label>
+        <p id="records-search-hint" className="text-sm text-moss">
+          Looks in the tag code, the species names and the notes.
+        </p>
+        {filter && <input type="hidden" name="status" value={filter} />}
+        <div className="mt-2 flex gap-2">
+          <input
+            id="records-search"
+            type="search"
+            name="q"
+            defaultValue={search ?? ""}
+            maxLength={SEARCH_MAX}
+            autoComplete="off"
+            aria-describedby="records-search-hint"
+            placeholder="NNP-3F2A9C, Belian, riverbank…"
+            className="field min-w-0 flex-1"
+          />
+          <button type="submit" className="btn btn-primary">
+            <Icon name="search" />
+            Search
+          </button>
+        </div>
+      </Form>
+
+      <nav aria-label="Filter by status" className="mt-4 flex flex-wrap gap-2">
         {tabs.map((tab) => (
           <Link
             key={tab.href}
@@ -159,6 +202,7 @@ export default async function RecordsPage({
           <caption id="records-table-caption" className="sr-only">
             {plural(shownTotal, "record")}
             {filter ? `, ${STATUS_LABEL[filter].toLowerCase()}` : ""}
+            {search ? `, matching “${search}”` : ""}
             {page > 1 || hasOlder ? `, ${first} to ${last} shown` : ""}
           </caption>
           <thead className="border-b border-line bg-paper/60 text-moss">
@@ -181,8 +225,16 @@ export default async function RecordsPage({
                   {page > 1 ? (
                     <>
                       There aren’t that many records.{" "}
-                      <Link href={pageHref(filter, 1)} className="font-bold text-forest underline">
+                      <Link href={pageHref(filter, 1, search)} className="font-bold text-forest underline">
                         Go to the newest
+                      </Link>
+                      .
+                    </>
+                  ) : search ? (
+                    <>
+                      No records match “{search}”{filter ? ` in ${STATUS_LABEL[filter].toLowerCase()}` : ""}.{" "}
+                      <Link href={pageHref(filter, 1, null)} className="font-bold text-forest underline">
+                        Clear the search
                       </Link>
                       .
                     </>
@@ -243,17 +295,18 @@ export default async function RecordsPage({
           className="mt-4 flex flex-wrap items-center justify-between gap-3"
         >
           <p className="text-sm text-moss">
-            Records {first} to {last} of {shownTotal}, newest first
+            Records {first} to {last} of {shownTotal}
+            {search ? ` matching “${search}”` : ""}, newest first
           </p>
           <div className="flex gap-3">
             {page > 1 && (
-              <Link href={pageHref(filter, page - 1)} className="btn btn-secondary">
+              <Link href={pageHref(filter, page - 1, search)} className="btn btn-secondary">
                 <Icon name="arrow-left" className="size-4" />
                 Newer
               </Link>
             )}
             {hasOlder && (
-              <Link href={pageHref(filter, page + 1)} className="btn btn-secondary">
+              <Link href={pageHref(filter, page + 1, search)} className="btn btn-secondary">
                 Older
                 <Icon name="arrow-right" className="size-4" />
               </Link>

@@ -1,6 +1,7 @@
 import { Icon } from "@/components/icon";
 import { formatDate, formatTime, parkTime } from "@/lib/format";
 import { HISTORY_LIMIT, type ChangeLine, type History } from "@/lib/history";
+import { ifItKeepsHappening } from "@/lib/setup-hint";
 
 function Change({ line }: { line: ChangeLine }) {
   if (line.kind === "short") return <li>{line.text}</li>;
@@ -41,9 +42,12 @@ function Change({ line }: { line: ChangeLine }) {
 export function EditHistory({
   history,
   what,
+  role,
 }: {
   history: History | null;
   what: "record" | "species";
+  /** The signed in role, so only administrators are told which file to check */
+  role: string;
 }) {
   return (
     <section
@@ -64,8 +68,7 @@ export function EditHistory({
         <p className="mt-5 flex items-start gap-2.5 rounded-xl border-2 border-bad bg-sheet p-4 font-bold text-bad">
           <Icon name="alert" className="mt-0.5 size-4 shrink-0" />
           The history didn’t load. Refresh the page, and if it keeps
-          happening, ask an administrator to check 013_edit_history.sql has
-          been run (supabase/README.md).
+          happening, {ifItKeepsHappening(role, ["013_edit_history.sql"])}
         </p>
       ) : history.entries.length === 0 ? (
         <p className="mt-5 rounded-xl border border-dashed border-line p-4 text-moss">

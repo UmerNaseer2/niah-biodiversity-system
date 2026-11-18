@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Icon } from "@/components/icon";
 import { PageHeader } from "@/components/page-header";
-import { requireStaff } from "@/lib/auth";
+import { getSession, requireStaff } from "@/lib/auth";
 import { formatDateTime, parkTime } from "@/lib/format";
 import { sqlIsMissing } from "@/lib/iot-db";
 import { DB_ROLE_LABEL, type DbRole } from "@/lib/roles";
@@ -15,7 +15,15 @@ import {
   type RoleChangeList,
 } from "./role-changes";
 
-export const metadata: Metadata = { title: "Users and roles" };
+/** Admins manage the accounts here. Everyone else only reads what each role can do. */
+function pageTitle(isAdmin: boolean) {
+  return isAdmin ? "Users and roles" : "Team";
+}
+
+export async function generateMetadata(): Promise<Metadata> {
+  const session = await getSession();
+  return { title: pageTitle(session.status === "ok" && session.role === "admin") };
+}
 
 const ROLES: DbRole[] = ["researcher", "botanist", "conservation_officer", "admin"];
 
@@ -148,12 +156,12 @@ export default async function UsersPage() {
   return (
     <div className="space-y-12">
       <PageHeader
-        eyebrow="Admin"
-        title="Users and roles"
+        eyebrow={isAdmin ? "Admin" : "Staff"}
+        title={pageTitle(isAdmin)}
         description={
           isAdmin
             ? "Everyone with an account. Field teams use the same accounts in the mobile app, and their role decides what they can see and change."
-            : "What each role can do. Only administrators can see who has an account and change their role."
+            : "What each role can do in the mobile app and on this website. Only administrators invite people and change roles."
         }
       />
 

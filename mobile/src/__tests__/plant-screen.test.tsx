@@ -253,7 +253,7 @@ describe('species photo and page', () => {
     setPlantInfo(DOWNLOADED, [PITCHER_PHOTO]);
     openPlant('NNP-E1A2B3');
     expect(await screen.findByRole('heading', { name: 'Photo' })).toBeVisible();
-    expect(screen.getByText('This photo shows the species, not this plant.')).toBeVisible();
+    expect(screen.getByText('This photo shows the species, not this exact plant.')).toBeVisible();
     // The photo comes from the file on the phone, never the link, so it shows with no signal.
     expect(screen.getByLabelText('A pitcher on its vine.')).toHaveProp('source', [
       expect.objectContaining({

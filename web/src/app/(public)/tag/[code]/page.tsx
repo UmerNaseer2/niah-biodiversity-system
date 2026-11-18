@@ -165,8 +165,7 @@ export default async function TagResultPage({
           {speciesPhotos.length > 0 && (
             <>
               <p className="mt-2 text-moss">
-                What {name} looks like. This photo is of the species, not this
-                exact plant.
+                This photo shows the species, not this exact plant.
               </p>
               <MainPhoto photos={speciesPhotos} name={name} className="mt-4 max-w-md" />
             </>

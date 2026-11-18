@@ -10,6 +10,7 @@ import { loadHistory } from "@/lib/history";
 import { RECORD_ID } from "@/lib/record-form";
 import { recordPhotoLinks, type RecordPhoto } from "@/lib/record-photos";
 import { recordFromRow, STATUS_LABEL, valuesFromRecord } from "@/lib/records-staff";
+import { ifItKeepsHappening } from "@/lib/setup-hint";
 import { createClient } from "@/lib/supabase/server";
 import { RecordForm } from "../../record-form";
 
@@ -22,7 +23,7 @@ function noPhotosText(photoCount: number, photoFolder: string | null) {
     return (
       `The record says it has ${plural(photoCount, "photo")}, but it didn’t ` +
       "come from the app, or the account that sent it was deleted before " +
-      "014_photo_folder.sql was run, so they can’t be found."
+      "photos were linked to accounts, so they can’t be found."
     );
   }
   return (
@@ -35,7 +36,8 @@ function noPhotosText(photoCount: number, photoFolder: string | null) {
 export default async function EditRecordPage({
   params,
 }: PageProps<"/dashboard/records/[id]/edit">) {
-  if (!(await requireStaff())) return null;
+  const me = await requireStaff();
+  if (!me) return null;
 
   // Record IDs are UUIDs, so anything else can't be a record and doesn't go
   // to the database
@@ -73,9 +75,8 @@ export default async function EditRecordPage({
           className="mt-8 flex max-w-2xl items-start gap-2.5 rounded-xl border-2 border-bad bg-sheet p-4 font-bold text-bad"
         >
           <Icon name="alert" className="mt-0.5 size-4 shrink-0" />
-          The record didn’t load. Refresh the page, and if it keeps happening,
-          ask an administrator to check the database is up to date
-          (supabase/README.md).
+          The record didn’t load. Refresh the page, and if it keeps happening,{" "}
+          {ifItKeepsHappening(me.role)}
         </p>
       </div>
     );
@@ -157,7 +158,7 @@ export default async function EditRecordPage({
         )}
       </section>
 
-      <EditHistory history={history} what="record" />
+      <EditHistory history={history} what="record" role={me.role} />
     </div>
   );
 }

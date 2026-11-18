@@ -69,7 +69,7 @@ export default async function DashboardLayout({
           </div>
 
           <div className="relative">
-            <StaffNav waiting={waiting} urgent={urgent} />
+            <StaffNav waiting={waiting} urgent={urgent} isAdmin={me.role === "admin"} />
             {alertCounts && <AlertWatcher urgent={urgent} />}
             {/* hints that the nav scrolls sideways on small screens */}
             <div

@@ -592,6 +592,50 @@ export function SpeciesForm(props: Props) {
           />
         </div>
 
+        <div>
+          <label htmlFor="habitat" className={LABEL}>
+            Where it grows{OPTIONAL}
+          </label>
+          <p id="habitat-hint" className={HINT}>
+            The kind of forest, soil or height it grows in. The species page
+            shows it under this heading.
+          </p>
+          <FieldError id="habitat" message={errors.habitat} />
+          <textarea
+            id="habitat"
+            name="habitat"
+            rows={3}
+            value={values.habitat}
+            onChange={(e) => update("habitat", e.target.value, "habitat")}
+            maxLength={MAX.habitat}
+            aria-invalid={Boolean(errors.habitat)}
+            aria-describedby={describedBy("habitat", errors.habitat)}
+            className="field mt-2"
+          />
+        </div>
+
+        <div>
+          <label htmlFor="uses" className={LABEL}>
+            How people use it{OPTIONAL}
+          </label>
+          <p id="uses-hint" className={HINT}>
+            Food, timber, medicine or anything else people use it for. The
+            species page shows it under this heading.
+          </p>
+          <FieldError id="uses" message={errors.uses} />
+          <textarea
+            id="uses"
+            name="uses"
+            rows={3}
+            value={values.uses}
+            onChange={(e) => update("uses", e.target.value, "uses")}
+            maxLength={MAX.uses}
+            aria-invalid={Boolean(errors.uses)}
+            aria-describedby={describedBy("uses", errors.uses)}
+            className="field mt-2"
+          />
+        </div>
+
         <div className="rounded-xl border border-line bg-sheet p-4">
           <p className={LABEL}>Photos</p>
           <p className={HINT}>

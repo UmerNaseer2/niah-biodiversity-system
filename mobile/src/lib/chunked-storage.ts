@@ -4,7 +4,7 @@
 //
 // There are two sets of parts, a and b, and a small head item says which set is current. A new
 // value goes into the other set first and the head only moves once all of it is written, so if
-// the phone dies halfway the old session still works. Signing a ranger out in the forest, where
+// the phone dies halfway the old session still works. Signing field staff out in the forest, where
 // they can't sign back in, is the failure this is here to stop.
 
 /** What's needed from expo-secure-store, so the tests can use a fake one. */

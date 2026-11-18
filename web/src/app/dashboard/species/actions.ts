@@ -34,6 +34,7 @@ import {
   storedKey,
   type PhotoErrors,
 } from "@/lib/species-photos";
+import { notSetUp } from "@/lib/setup-hint";
 import { authConfigured } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
 
@@ -101,7 +102,7 @@ function refreshSpeciesPages() {
   revalidatePath("/(public)/tag", "layout");
 }
 
-function messageFor(code: string, message: string, what: string) {
+async function messageFor(code: string, message: string, what: string) {
   switch (code) {
     case "42501":
       return (
@@ -113,12 +114,13 @@ function messageFor(code: string, message: string, what: string) {
       // should have caught first
       console.error(`Trying to ${what} failed a database check:`, message);
       return "Nothing was saved, because the database said the photos weren’t right. Ask an administrator.";
-    case "PGRST204":
-      // The API doesn't know the rough_area_only column yet
-      return (
-        "Nothing was saved, because the database needs an update first " +
-        "(supabase/007_species_fixes.sql). Ask an administrator."
-      );
+    case "PGRST204": {
+      // The API doesn't know the rough_area_only column yet. Only an
+      // administrator is told which file adds it.
+      const session = await getSession();
+      const role = session.status === "ok" ? session.role : null;
+      return `Nothing was saved. ${notSetUp(role, ["007_species_fixes.sql"])}`;
+    }
     default:
       console.error(`Trying to ${what} failed:`, code, message);
       return "Nothing was saved. Try again, and if it keeps happening, ask an administrator.";
@@ -157,7 +159,7 @@ export async function addSpecies(
   if (error?.code === "23505") {
     return failed(null, { "scientific-name": `${name} is already in the database.` });
   }
-  if (error) return failed(messageFor(error.code, error.message, "add species"));
+  if (error) return failed(await messageFor(error.code, error.message, "add species"));
 
   refreshSpeciesPages();
   return { status: "saved", slug, values: tidyValues(values) };
@@ -197,7 +199,7 @@ export async function editSpecies(
   }
   const { data, error } = await query.select("scientific_name, updated_at");
 
-  if (error) return failed(messageFor(error.code, error.message, "edit species"));
+  if (error) return failed(await messageFor(error.code, error.message, "edit species"));
   if (data.length === 0) {
     const still = await supabase.from("species").select("id").eq("id", slug).maybeSingle();
     if (version && still.data) return failed(changedBySomeoneElse("species"));
@@ -240,7 +242,7 @@ export async function deleteSpecies(
   }
   const before = await shown.maybeSingle();
   if (before.error) {
-    return { status: "error", message: messageFor(before.error.code, before.error.message, "delete species") };
+    return { status: "error", message: await messageFor(before.error.code, before.error.message, "delete species") };
   }
   const notDeleted = await deleteFiles(supabase, slug, uploadedPaths(before.data?.photos, slug));
   if (notDeleted) return { status: "error", message: notDeleted };
@@ -253,7 +255,7 @@ export async function deleteSpecies(
   const { data, error } = await query.select("scientific_name");
 
   if (error) {
-    return { status: "error", message: messageFor(error.code, error.message, "delete species") };
+    return { status: "error", message: await messageFor(error.code, error.message, "delete species") };
   }
   if (data.length === 0) {
     const still = await supabase.from("species_staff").select("id").eq("id", slug).maybeSingle();
@@ -372,7 +374,7 @@ async function savePhotos(
     .eq("id", slug)
     .eq("photos", JSON.stringify(before))
     .select("id");
-  if (error) return messageFor(error.code, error.message, what);
+  if (error) return await messageFor(error.code, error.message, what);
   if (data.length === 0) return PHOTOS_CHANGED;
   return null;
 }

@@ -285,6 +285,27 @@ describe('reading as each account', () => {
     }
   });
 
+  test('an or() filter works like the Records search sends it', async () => {
+    const { access_token: token } = await sessionFor(officer);
+    const search = async (filter) => {
+      const query = `select=id&or=${encodeURIComponent(`(${filter})`)}`;
+      const { status, body } = await call(`/rest/v1/records_staff?${query}`, { token });
+      assert.equal(status, 200, filter);
+      return body.map((row) => row.id).sort();
+    };
+    const any = (pattern) =>
+      ['tag_code', 'species_name', 'common_name', 'notes', 'review_notes']
+        .map((column) => `${column}.ilike."${pattern}"`)
+        .join(',');
+    const trees = await search(any('%stand-in TREE%'));
+    assert.ok(trees.includes(rejectedRecord) && !trees.includes(belianRecord));
+    assert.deepEqual(await search(any('%NNP-D00D04%')), [rejectedRecord]);
+    // Commas and brackets in quotes are part of the value, and % escaped with \\ is only a %
+    assert.deepEqual(await search(any('%too blurry, (sorry)%')), []);
+    assert.deepEqual(await search(any('%blurry\\\\%%')), []);
+    assert.deepEqual(await search(any('%blurry%')), [rejectedRecord]);
+  });
+
   test('functions are called the way supabase.rpc() calls them, as whoever is asking', async () => {
     const counts = (token, body) =>
       call('/rest/v1/rpc/report_counts', { method: 'POST', token, body });
@@ -588,7 +609,10 @@ describe('requests the stand-in turns down', () => {
       'id=eq',
       'id=is.maybe',
       'id=in.',
-      'or=(id.eq.x)',
+      'or=(id.eq.x',
+      'or=(and(id.eq.x))',
+      'or=(id.eq."x)',
+      'and=(id.eq.x)',
       'order=id.sideways',
       'order=id.toString',
       'limit=-1',

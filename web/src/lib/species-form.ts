@@ -1,10 +1,10 @@
-import type { Species } from "@/data/species";
+import type { Species } from "../data/species.ts";
 import {
   IUCN,
   isIucnCode,
   showsExactSpot,
   type IucnCode,
-} from "@/lib/iucn";
+} from "./iucn.ts";
 
 // The species form, for adding a species (web/src/app/dashboard/species/new)
 // and editing one ([slug]/edit). The page runs these checks before it sends
@@ -21,6 +21,8 @@ export type Values = {
   visibility: "exact" | "rough";
   summary: string;
   about: string;
+  habitat: string;
+  uses: string;
 };
 
 // Only the fields that can have an error, in the order they appear
@@ -31,7 +33,9 @@ export type FieldId =
   | "common-names"
   | "iucn"
   | "summary"
-  | "about";
+  | "about"
+  | "habitat"
+  | "uses";
 export type Errors = Partial<Record<FieldId, string>>;
 
 export const EMPTY: Values = {
@@ -44,6 +48,8 @@ export const EMPTY: Values = {
   visibility: "exact",
   summary: "",
   about: "",
+  habitat: "",
+  uses: "",
 };
 
 export const FIELD_ORDER: FieldId[] = [
@@ -54,6 +60,8 @@ export const FIELD_ORDER: FieldId[] = [
   "iucn",
   "summary",
   "about",
+  "habitat",
+  "uses",
 ];
 
 /** The most characters each text field takes */
@@ -64,6 +72,8 @@ export const MAX = {
   commonNames: 300,
   summary: 200,
   about: 2000,
+  habitat: 1000,
+  uses: 1000,
 };
 
 /** A genus and species, like Shorea macrophylla or Hibiscus rosa-sinensis */
@@ -161,6 +171,14 @@ export function checkDetails(values: Values) {
     errors.about = `About can be up to ${MAX.about} characters.`;
   }
 
+  if (values.habitat.trim().length > MAX.habitat) {
+    errors.habitat = `Where it grows can be up to ${MAX.habitat} characters.`;
+  }
+
+  if (values.uses.trim().length > MAX.uses) {
+    errors.uses = `How people use it can be up to ${MAX.uses} characters.`;
+  }
+
   return errors;
 }
 
@@ -184,6 +202,8 @@ export function valuesFromSpecies(species: Species): Values {
         : "exact",
     summary: species.summary,
     about: species.about,
+    habitat: species.habitat,
+    uses: species.uses,
   };
 }
 
@@ -205,6 +225,8 @@ export function rowFromValues(values: Values) {
     // The public page falls back to description when about is empty, so
     // clearing About has to clear that too or the old text stays up
     ...(values.about.trim() ? {} : { description: null }),
+    habitat: values.habitat.trim() || null,
+    uses: values.uses.trim() || null,
   };
 }
 
@@ -222,6 +244,8 @@ export function tidyValues(values: Values): Values {
     visibility: row.rough_area_only ? "rough" : "exact",
     summary: row.summary,
     about: row.about ?? "",
+    habitat: row.habitat ?? "",
+    uses: row.uses ?? "",
   };
 }
 
@@ -244,6 +268,8 @@ export function valuesFromFormData(formData: FormData): Values {
     visibility: text(formData, "visibility") === "rough" ? "rough" : "exact",
     summary: text(formData, "summary"),
     about: text(formData, "about"),
+    habitat: text(formData, "habitat"),
+    uses: text(formData, "uses"),
   };
 }
 

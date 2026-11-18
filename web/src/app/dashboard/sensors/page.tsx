@@ -45,6 +45,7 @@ import {
   type SensorCommand,
 } from "@/lib/iot";
 import { checkAlerts, sqlIsMissing } from "@/lib/iot-db";
+import { SENSOR_FILES, whatToRun } from "@/lib/setup-hint";
 import { createClient } from "@/lib/supabase/server";
 import { AlertList, type AlertItem } from "./alert-list";
 import { AutoRefresh } from "./auto-refresh";
@@ -756,8 +757,8 @@ export default async function SensorsPage() {
         {header()}
         <Problem>
           This database hasn’t been set up for sensors yet, or has an older version of the sensor
-          tables, so there’s nothing to show here. The other pages aren’t affected. Ask an
-          administrator to run the sensor files, 016_1 to 027, in supabase/README.md.
+          tables, so there’s nothing to show here. The other pages aren’t affected.{" "}
+          {me.role === "admin" ? whatToRun(SENSOR_FILES) : "Ask an administrator."}
         </Problem>
       </div>
     );
@@ -983,8 +984,8 @@ export default async function SensorsPage() {
         </p>
         {dailyMissing && (
           <p className="mt-2 max-w-2xl text-sm text-moss">
-            The daily lowest, average and highest need 027_iot_daily_summary.sql, which this database
-            doesn’t have yet. Ask an administrator to run it, as in supabase/README.md.
+            The daily lowest, average and highest aren’t set up in this database yet.{" "}
+            {me.role === "admin" ? whatToRun(["027_iot_daily_summary.sql"]) : "Ask an administrator."}
           </p>
         )}
         {!nodes ? (

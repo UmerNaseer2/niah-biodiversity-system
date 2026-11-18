@@ -7,7 +7,7 @@ import {
 import "./globals.css";
 
 // Atkinson Hyperlegible was made by the Braille Institute to be easy to read,
-// which matters for rangers reading a screen outdoors. Newsreader italic is
+// which matters for field staff reading a screen outdoors. Newsreader italic is
 // only used for Latin plant names.
 const atkinson = Atkinson_Hyperlegible_Next({
   variable: "--font-atkinson",

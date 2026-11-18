@@ -2,6 +2,7 @@
 // works out the vapour pressure deficit from temperature and humidity, rates each zone, and lists
 // the plants recorded near it. Nothing here reads the clock or the database.
 
+import { metresBetween } from "./geo.ts";
 import type { NodeStatus, SensorAlert } from "./iot.ts";
 import type { StaffRecord } from "./records-staff.ts";
 
@@ -82,6 +83,24 @@ export const ZONE_ECOSYSTEMS: Record<string, { ecosystem: string; elevation: str
 
 const OTHER_ZONE = { ecosystem: "Mixed lowland forest", elevation: "Height not set" };
 
+/** A plant counts as near a zone when it was recorded this close to one of the zone's nodes */
+export const NEAR_NODE_M = 200;
+
+type Point = { lat: number; lng: number };
+
+function isPoint(point: { lat?: unknown; lng?: unknown } | null | undefined): point is Point {
+  return Number.isFinite(point?.lat) && Number.isFinite(point?.lng);
+}
+
+/** The records within NEAR_NODE_M of any of these points. A record with no GPS is never near. */
+export function recordsNear(records: StaffRecord[], points: Point[]): StaffRecord[] {
+  if (points.length === 0) return [];
+  return records.filter((r) => {
+    const gps = r.gps;
+    return isPoint(gps) && points.some((point) => metresBetween(gps, point) <= NEAR_NODE_M);
+  });
+}
+
 /** Rates a zone from its averaged readings and the alerts going on there, worst first. */
 export function evaluateZoneRisk(
   tempC: number | null,
@@ -145,12 +164,12 @@ export function buildZoneEcologies(
         zoneNodes.some((n) => n.nodeId === a.nodeId),
     );
 
-    // Records don't store a zone, so a record counts as near the zone when its notes or species
-    // name has the zone's first word in it (for example "Pangkalan").
-    const keyword = zoneName.toLowerCase().split(" ")[0];
-    const matchingRecords = records.filter(
-      (r) => r.notes?.toLowerCase().includes(keyword) || r.speciesName.toLowerCase().includes(keyword),
-    );
+    // Records don't store a zone, so a record counts as near the zone when it was recorded within
+    // NEAR_NODE_M of one of the zone's nodes. Nodes that haven't been given a GPS spot are skipped.
+    const nodePoints = zoneNodes
+      .map((n) => ({ lat: n.latitude, lng: n.longitude }))
+      .filter(isPoint);
+    const matchingRecords = recordsNear(records, nodePoints);
 
     // Each node's newest reading. A quiet node's one can be old, which the page shows next to it.
     const latestTempC = average(zoneNodes.map((n) => n.tempC));
