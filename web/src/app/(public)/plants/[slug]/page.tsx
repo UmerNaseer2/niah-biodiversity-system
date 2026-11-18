@@ -80,8 +80,8 @@ export default async function PlantPage({
   const points = allPoints.slice(0, MOST_DOTS);
   const shownTagged = tagged.slice(0, TAGGED_SHOWN);
 
-  // A species added on the website has no habitat or uses yet (the form
-  // doesn't ask for them), so a section with nothing in it is left out.
+  // Where it grows and How people use it are optional on the species form,
+  // so a section with nothing in it is left out.
   const sections = [
     { id: "about", title: "About", text: plant.about },
     { id: "habitat", title: "Where it grows", text: plant.habitat },
