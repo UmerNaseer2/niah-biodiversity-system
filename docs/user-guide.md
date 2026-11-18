@@ -31,11 +31,11 @@ Every account has one role. An administrator sets it on **Users and roles**.
 
 There is no "ranger" role. In this guide a ranger is anyone in the field team, and their account
 should have the **Botanist** role, because that is the role that can upload records from the phone.
-The website still says "ranger" in a few places, like "Ranger's note" in the review queue.
+The website calls them "the recorder" or "the person who recorded it", like "Recorder's note" in
+the review queue.
 
-**Times.** The website shows every time in park time (Sarawak, UTC+8), wherever you open it from.
-The phone app shows times on the phone's own clock. If a phone is set to another time zone, the
-same record can show one time on the phone and another on the website.
+**Times.** The website and the phone app show every time in park time (Sarawak, UTC+8), wherever you
+open them from, so the same record shows the same time on both.
 
 The screenshots come from the test run in [item 43](test-results/item-43-integration.md), with made
 up accounts and records.
@@ -75,6 +75,10 @@ Every tagged plant has a QR tag with its code under it, like NNP-3F2A9C.
 
 **With your phone's camera app:** point it at the QR tag. It opens the plant's page on the website.
 
+Some tags hold only the code, so the camera app shows the code as text and doesn't open a page.
+These are on protected and threatened plants, so a photo of the tag can't lead anyone to where the
+plant grows. Type the code on the website instead, as below.
+
 **By typing the code:**
 
 1. Press **Scan a tag** at the top of the website.
@@ -89,7 +93,10 @@ The tag page shows:
 
 - "You scanned tag" and the code, then the plant's name and badges.
 - **This plant**: Height ("Not measured" if nobody measured it), Condition (Healthy, Damaged,
-  Diseased or Dead), the date it was Recorded, and Photos.
+  Diseased or Dead), the date it was Recorded, and Photos. If the field team has been back to check
+  on it, the date says "First recorded" instead.
+- **Later visits**, when there are any: the date and condition from each time the field team came
+  back, newest first. The facts above are from the first record.
 - A photo of the species. "This photo is of the species, not this exact plant." The field team's own
   photos of the plant never go on the public site, "because a photo can show where a plant grows".
 - **Where it is**: a map with a dot and how far the plant is from park HQ, or a shaded rough area,
@@ -293,6 +300,31 @@ records uploaded." or "Nothing new to upload."
 The **This phone** card on **Profile** shows Records on this phone, Waiting to sync, Photos waiting,
 Synced and Last synced.
 
+Times and dates on the phone are in park time (Sarawak, UTC+8), the same as the website, whatever
+time zone the phone is set to.
+
+### Visiting a plant again
+
+When you come back to a plant that already has a tag, don't make a new plant record for it. Add a
+visit instead, so the plant keeps its tag and its history stays together.
+
+1. Open the plant's record. Scan its tag on the **Scan** tab, or find it on **My Records**.
+2. Under **History**, press **Add a visit**.
+3. The form opens with a **Visit to NNP-...** card at the top: "This saves a new record for the same
+   plant. The first record stays as it is, and the plant keeps its tag." The species is filled in
+   for you.
+4. Fill in the condition, height, notes, location and photos as they are today, and press **Save
+   record**.
+
+If you opened it by mistake, press **Make a new plant record instead**.
+
+A visit is a record of its own. It syncs and gets reviewed like any other record, and no new tag is
+printed for it. The record page shows "Visit to NNP-..." at the top, and **History** lists the first
+record and every visit, newest first, with the one you're looking at marked "open now".
+
+This only works for plants recorded on this phone. A plant recorded on another phone can't be found
+here yet, so make a new record and write the old tag code in the notes.
+
 ### Editing or deleting a record
 
 The app can't edit or delete a record once it's saved, even before it syncs.
@@ -313,6 +345,20 @@ record.
 
 While the record says **Pending sync**: "This code isn't checked until the record uploads. If
 another plant already has it you'd need a new tag, so print after the upload if you can."
+
+Some tags hold only the code, with no web address, so a phone camera can't open a page that names
+the plant at that spot. Staff can still scan them in the Niah app. The card says why, for example
+"This species is protected, so its tag holds only the code. Staff can scan it in the Niah app."
+A tag holds only the code when:
+
+- the species is protected in Sarawak
+- the species is Vulnerable, Endangered or Critically Endangered
+- the species' risk isn't known yet (Data Deficient or Not Evaluated)
+- the species only shows a rough area on the public map
+- the plant isn't matched to a species yet, or the name on the record doesn't match its species
+- the phone doesn't have the species' details yet (they come with the next sync)
+
+These are the same plants whose exact spot is hidden on the public site.
 
 If the server finds another plant with the same code, the record shows **Couldn't upload** and a
 **Get a new tag** button. It asks first, because a tag already on the plant would have to be
@@ -364,27 +410,29 @@ To set a new password, ask an administrator to send you a password link (see
 3. You land on **Overview**.
 
 The menu on the left has **Overview**, **Review queue**, **Records**, **Species**, **Reports**,
-**Ecology**, **Sensors** and **Users and roles**. Your name is under "Signed in as", above **Sign
-out**. The number next to **Review queue** is how many records are waiting. The red number next to
-**Sensors** is how many urgent alerts nobody has acknowledged.
+**Ecology**, **Sensors** and **Team** (**Users and roles** for administrators). Your name is under
+"Signed in as", above **Sign out**. The number next to **Review queue** is how many records are
+waiting. The red number next to **Sensors** is how many urgent alerts nobody has acknowledged.
 
 **Overview** shows what "Needs you today", like "3 records waiting for review" with **See waiting
 records**, and sensor alerts with **See sensors**. Under that are counts, "Latest records" and a
 map, "Where the plants and sensors are".
 
-**Users and roles** only shows officers a table of "What each role can do". Only administrators see
-who has an account.
+**Team** only shows officers a table of "What each role can do". Only administrators see who has an
+account, and only they get the page as **Users and roles**.
 
 ### Review queue
 
 "New records from the mobile app wait here until an officer checks them. Approved ones go on the
-public site." The oldest is at the top, 50 at a time.
+public site. Rejected ones stay off it, and the person who recorded it sees your reason on their
+phone after their next sync." The oldest is at the top, 50 at a time.
 
 For each record:
 
 1. Read the card: Height, Condition, Photos, GPS point with its accuracy, Recorded by and Recorded.
-   "Ranger's note" shows the notes from the phone, and "Earlier review note" shows if it has been
-   reviewed before.
+   "Recorder's note" shows the notes from the phone, and "Earlier review note" shows if it has been
+   reviewed before. A record that's a later visit to a plant says "Visit to" and the plant's first
+   tag, so you can open the first record and compare.
 2. Read the checks under it (table below).
 3. Press **Open the record** "to see its photos or fix a mistake before you decide."
 4. Press **Approve**, or **Reject**.
@@ -392,8 +440,8 @@ For each record:
 To reject a record:
 
 1. Press **Reject**.
-2. Under "Why are you rejecting it?", write what to fix. "The ranger sees this on their phone after
-   their next sync, so say what to fix." Up to 1000 characters.
+2. Under "Why are you rejecting it?", write what to fix. "The person who recorded it sees this on
+   their phone after their next sync, so say what to fix." Up to 1000 characters.
 3. Press **Reject record**, or **Cancel**.
 
 ![Two records in the review queue with their checks and the Approve and Reject buttons](test-results/images/item-43/03-web-review-queue.jpg)
@@ -409,7 +457,7 @@ What the checks mean:
 | "Matched to a species on our list" | The name matches a species in the database. |
 | "Not matched to a species yet, so the public site only shows a rough area" | The name isn't on the species list. Fix the name, or add the species first. |
 | "The record says ... but it's linked to ..." | The name on the record and the species it's linked to disagree. "Fix the name before you approve it, since the link decides how much of its spot the public sees." |
-| "The ranger typed the common name ..., which we don't have for this species. It shows on the public page" | A new common name. If it's right, add it to the species. |
+| "The recorder typed the common name ..., which we don't have for this species. It shows on the public page" | A new common name. If it's right, add it to the species. |
 
 When the queue is empty it says "Nothing left to review".
 
@@ -420,7 +468,11 @@ queue and decide again." Press **Back to the queue**, or **Open** to see the rec
 
 **Records** lists every record, newest first, 100 to a page. Press **All**, **Waiting for review**,
 **Published** or **Rejected** to show one kind, and **Newer** or **Older** to move between pages.
-There's no search box. The table shows Tag, Species, Condition, Status, Recorded and Edited.
+The table shows Tag, Species, Condition, Status, Recorded and Edited.
+
+To find a record, type in **Search records** and press **Search**. It "looks in the tag code, the
+species names and the notes", so a tag like NNP-3F2A9C, a name like Belian or a word from the notes
+all work. The search keeps whichever of All, Waiting for review, Published or Rejected you picked.
 
 **To edit a record:**
 
@@ -445,6 +497,10 @@ The edit page also has:
 - **History**, the changes saved to the record, newest first, with who made each one. A short
   change says what it was and what it is now, and long text like notes opens to show Before and
   After. For the location it only says that it changed.
+- **Later visits**, the visits the field team made to this plant after its first record, newest
+  first, with the date, condition and status. Press one to open it. On a visit the section is called
+  **First record** instead and links back to it. A visit is a record of its own, so editing it
+  doesn't change the first record, and the plant keeps the tag of its first record.
 
 If someone else saved the same record after you opened it, yours isn't saved: "Someone else saved
 changes to this record after you opened it, so yours weren't saved. Copy anything you need, reload
@@ -483,6 +539,9 @@ shows the "Exact spot" or the "Rough area".
      species.") or **Rough area only** ("Visitors see the 440 m grid square the plant is in, not the
      plant.")
    - **Summary**: "One sentence for the plant list and the tag page." **About** is optional.
+   - **Where it grows** (optional): "The kind of forest, soil or height it grows in."
+   - **How people use it** (optional): "Food, timber, medicine or anything else people use it for."
+     The species page shows both under their own headings. Don't write where in the park it grows.
 3. Look over "Preview on the public site" next to the form, then press **Add species**.
 4. On "Species added", press **Add photos**, **See its public page**, **Back to species** or **Add
    another**.
@@ -557,6 +616,9 @@ outage, so it may be long over.
 
 ![Two urgent Soil is saturated alerts with Dispatch patrol, Acknowledge and Resolve](test-results/images/item-43/05-sensors-alert.jpg)
 
+Each alert also lists the **Tagged plants within 100 m** of its node (see below), so you know which
+plants the patrol should check.
+
 "An alert also ends by itself when the readings go back to normal, and then it moves to the list
 below this one", under "Ended by themselves, not resolved yet". Resolve those too once you've
 checked them.
@@ -585,6 +647,13 @@ its newest Temperature, Humidity, Soil moisture, "Distance to the ground", Movem
 and "Locate beep". The daily figures count from midnight park time. "What raises an alert on this
 node" lists its limits.
 
+**Tagged plants within 100 m** lists the recorded plants near the node, nearest first: the species,
+its common name, the tag code and how far away it is, like "35 m away". Press a plant to open its
+record. Records an officer hasn't checked yet say "Waiting for review". It says "No tagged plants
+within 100 m." when there are none, and "No position for this node yet." when the node has no GPS
+spot. "There are a lot of records around this node, so these may not be the nearest ones" shows when
+there were too many to sort.
+
 **Commands** on each node:
 
 - **Start the locate beep** or **Stop the locate beep**. "The locate beep sounds every 5 seconds so
@@ -604,7 +673,9 @@ plants recorded there."
 - At the top: "Park score" out of 100 (the average of the zone ratings), Zones, "Readings stored"
   and "Nodes sending".
 - Each zone shows Temperature, Humidity, Soil moisture, Rain and "Vapour pressure deficit" (how dry
-  the air is), its nodes, the plants recorded near it, and a rating.
+  the air is), its nodes, the plants recorded near it, and a rating. A plant counts as near a zone
+  when it was recorded within 200 m of one of the zone's nodes. Nodes with no GPS spot are left out
+  of this.
 - **Download CSV** gives the zone figures as a spreadsheet.
 
 How a zone is rated, checked from the top down:
@@ -727,6 +798,13 @@ On the website, "Something went wrong" and "This page didn't load" mean "a probl
 like the plant database not answering". Press **Try again** after a moment, or **Go to the home
 page** (**Go to the overview** on the staff pages). If it keeps happening on the staff pages, let an
 administrator know.
+
+### "This part of the database isn't set up yet"
+
+A staff page says this when the database is missing something the page needs, like the sensor
+tables. Officers see "Ask an administrator." Administrators see which SQL file to run and are
+pointed to `supabase/README.md`, which lists the files in the order to run them. A page that keeps
+failing to load says the same thing after "Refresh the page, and if it keeps happening".
 
 On the staff pages, these mean someone else changed the same thing first. Reload the page and look
 again:
