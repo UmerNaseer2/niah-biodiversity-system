@@ -8,8 +8,6 @@ import {
   nodeFromRow,
   type SensorAlert,
 } from "@/lib/iot";
-import { recordFromRow } from "@/lib/records-staff";
-import { readAll } from "@/lib/supabase/read-all";
 import { createClient } from "@/lib/supabase/server";
 
 function refuse(status: number, message: string) {
@@ -48,24 +46,17 @@ export async function GET() {
   }
 
   const supabase = await createClient();
-  const [nodesResult, alertsResult, recordsResult] = await Promise.all([
+  const [nodesResult, alertsResult] = await Promise.all([
     supabase.from("iot_node_status").select(NODE_COLUMNS).order("node_id"),
     supabase
       .from("iot_alerts")
       .select(ALERT_COLUMNS)
       .neq("status", "resolved")
       .order("recorded_at", { ascending: false }),
-    readAll((from, to) =>
-      supabase
-        .from("records_staff")
-        .select("*", { count: "exact" })
-        .order("recorded_at", { ascending: false })
-        .range(from, to),
-    ),
   ]);
 
   // A file with some of the data missing would look complete, so any failure stops the download.
-  const failed = [nodesResult.error, alertsResult.error, recordsResult.error].find((error) => error !== null);
+  const failed = [nodesResult.error, alertsResult.error].find((error) => error !== null);
   if (failed) {
     console.error("Making the ecology CSV failed:", failed.code);
     return refuse(500, "The sensor data didn’t load. Try the download again in a minute.");
@@ -73,9 +64,10 @@ export async function GET() {
 
   const nodes = (nodesResult.data ?? []).map(nodeFromRow);
   const alerts: SensorAlert[] = (alertsResult.data ?? []).map(alertFromRow);
-  const records = (recordsResult.data ?? []).map(recordFromRow);
-
-  const zones = buildZoneEcologies(nodes, records, alerts);
+  // None of the columns in the file are about plants, so it doesn't read the records. Reading every
+  // one of them made the download take seconds with 10,000 records
+  // (docs/test-results/item-37-performance.md).
+  const zones = buildZoneEcologies(nodes, [], alerts);
 
   const headers = [
     "Zone",

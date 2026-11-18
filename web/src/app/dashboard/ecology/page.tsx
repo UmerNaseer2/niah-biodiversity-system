@@ -18,6 +18,8 @@ import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "Ecology" };
 
+const RECORD_COLUMNS = "id, tag_code, species_slug, species_name, common_name, notes, condition, recorded_at, status";
+
 const RISK_BADGES: Record<MicroclimateRisk, string> = {
   optimal: "bg-forest-soft text-forest-deep",
   moderate: "bg-pencil/20 text-pencil",
@@ -62,11 +64,16 @@ export default async function EcologyPage() {
       .select(ALERT_COLUMNS)
       .neq("status", "resolved")
       .order("recorded_at", { ascending: false }),
+    // Only the columns buildZoneEcologies looks at. Reading every column of every record made this
+    // page slow with 10,000 records (docs/test-results/item-37-performance.md). A rejected record
+    // was a mistake, so it doesn't count as a plant growing near a zone.
     readAll((from, to) =>
       supabase
         .from("records_staff")
-        .select("*", { count: "exact" })
+        .select(RECORD_COLUMNS, { count: "exact" })
+        .neq("status", "rejected")
         .order("recorded_at", { ascending: false })
+        .order("id")
         .range(from, to),
     ),
     supabase.from("iot_readings").select("id", { count: "exact", head: true }),

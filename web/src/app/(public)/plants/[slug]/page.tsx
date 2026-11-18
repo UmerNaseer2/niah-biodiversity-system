@@ -13,7 +13,7 @@ import {
   ProtectedBadge,
 } from "@/components/plant-bits";
 import { PhotoGallery } from "@/components/photo-gallery";
-import { ParkMap } from "@/components/park-map";
+import { MOST_DOTS, ParkMap } from "@/components/park-map";
 import { hidesLocation, recordHidesLocation } from "@/data/species";
 import { formatDate, plural } from "@/lib/format";
 import { roughAreas } from "@/lib/geo";
@@ -31,6 +31,11 @@ export async function generateMetadata({
     description: plant.summary,
   };
 }
+
+// How many tagged plants the list shows, newest first. A common species can have
+// thousands, and listing them all made the page several megabytes
+// (docs/test-results/item-37-performance.md). The tag page finds any of them.
+const TAGGED_SHOWN = 50;
 
 function LabelRow({ term, children }: { term: string; children: ReactNode }) {
   return (
@@ -68,8 +73,12 @@ export default async function PlantPage({
         }]
       : [],
   );
+  // The squares come from every record, so none are missing. The dots are the
+  // newest, because each one adds to the page.
   const areas = roughAreas(located.filter((p) => p.rough));
-  const points = located.filter((p) => !p.rough);
+  const allPoints = located.filter((p) => !p.rough);
+  const points = allPoints.slice(0, MOST_DOTS);
+  const shownTagged = tagged.slice(0, TAGGED_SHOWN);
 
   // A species added on the website has no habitat or uses yet (the form
   // doesn't ask for them), so a section with nothing in it is left out.
@@ -224,7 +233,7 @@ export default async function PlantPage({
             ) : (
               <>
                 <ul className="mt-4 grid gap-3 sm:grid-cols-2">
-                  {tagged.map((record) => {
+                  {shownTagged.map((record) => {
                     const code = record.tagCode;
                     return (
                       <li key={record.id}>
@@ -253,6 +262,21 @@ export default async function PlantPage({
                   })}
                 </ul>
 
+                {tagged.length > shownTagged.length && (
+                  <p className="mt-4 max-w-2xl text-moss">
+                    These are the newest {shownTagged.length} of the{" "}
+                    {tagged.length} tagged {name}. To find another one, type its
+                    tag code on the{" "}
+                    <Link
+                      href="/tag"
+                      className="font-bold underline decoration-line underline-offset-4 hover:decoration-ink"
+                    >
+                      tag lookup page
+                    </Link>
+                    .
+                  </p>
+                )}
+
                 {hidden && (
                   <p className="mt-6 flex max-w-2xl gap-3 text-moss">
                     <Icon name="lock" className="mt-0.5 size-5" />
@@ -275,7 +299,9 @@ export default async function PlantPage({
                     id="species-map"
                     title={`Map of where ${name} has been tagged`}
                     description={
-                      points.length > 0
+                      allPoints.length > points.length
+                        ? `A map of the park around park HQ with dots for the newest ${points.length} of the ${allPoints.length} tagged ${name}. Each dot is a link to its tag page.`
+                        : points.length > 0
                         ? `A map of the park around park HQ with a dot for each tagged ${name}. Each dot is a link to its tag page.`
                         : areas.length === 1
                           ? `A map of the park around park HQ. The shaded square marks the rough area, about 440 m across, that holds the tagged ${name}. The exact spot is not shown.`

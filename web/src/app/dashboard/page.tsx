@@ -2,14 +2,14 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Icon } from "@/components/icon";
 import { ConditionBadge, LatinName } from "@/components/plant-bits";
-import { ParkMap, type MapSensor } from "@/components/park-map";
+import { MOST_DOTS, ParkMap, type MapPoint, type MapSensor } from "@/components/park-map";
 import { requireStaff } from "@/lib/auth";
 import { ALERT_LEVEL } from "@/lib/alert-level";
 import { formatDateTime, formatLongDate, parkNow, parkTime, plural } from "@/lib/format";
 import { ALERT_COLUMNS, ALERT_WORDS, alertFromRow, alertOrder } from "@/lib/iot";
 import { checkAlerts, sqlIsMissing } from "@/lib/iot-db";
 import { recordFromRow, type StaffRecord } from "@/lib/records-staff";
-import { readAll } from "@/lib/supabase/read-all";
+import { tagCode } from "@/lib/tags";
 import { createClient } from "@/lib/supabase/server";
 
 // The template in dashboard/layout.tsx only covers the pages below it, so
@@ -38,9 +38,12 @@ function joinNames(names: string[]) {
   return `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
 }
 
-function plantName(record: StaffRecord) {
+function plantName(record: Pick<StaffRecord, "commonName" | "speciesName">) {
   return record.commonName || record.speciesName;
 }
+
+// How many waiting records the "Needs you today" line names. It counts the rest.
+const WAITING_NAMED = 3;
 
 export default async function OverviewPage() {
   const me = await requireStaff();
@@ -55,15 +58,44 @@ export default async function OverviewPage() {
   const supabase = await createClient();
   // Before the reads, so a node that has just gone quiet is counted on this draw
   await checkAlerts();
-  const [recordsResult, speciesResult, nodesResult, alertsResult] = await Promise.all([
-    readAll((from, to) =>
-      supabase
-        .from("records_staff")
-        .select("*", { count: "exact" })
-        .order("recorded_at", { ascending: false })
-        .order("id")
-        .range(from, to),
-    ),
+  // The database counts the records and sends only the ones this page shows, so the page stays
+  // quick with thousands of records (docs/test-results/item-37-performance.md)
+  const newestFirst = { ascending: false } as const;
+  const [
+    latestResult,
+    waitingResult,
+    publishedResult,
+    mapResult,
+    speciesResult,
+    nodesResult,
+    alertsResult,
+  ] = await Promise.all([
+    supabase
+      .from("records_staff")
+      .select("*", { count: "exact" })
+      .order("recorded_at", newestFirst)
+      .order("id")
+      .limit(LATEST),
+    supabase
+      .from("records_staff")
+      .select("id, tag_code, species_name, common_name", { count: "exact" })
+      .eq("status", "waiting")
+      .order("recorded_at", newestFirst)
+      .order("id")
+      .limit(WAITING_NAMED),
+    supabase
+      .from("records_staff")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "published"),
+    // A rejected record isn't a plant we know is there, so the map leaves it off
+    supabase
+      .from("records_staff")
+      .select("id, tag_code, species_name, common_name, gps", { count: "exact" })
+      .neq("status", "rejected")
+      .not("gps", "is", null)
+      .order("recorded_at", newestFirst)
+      .order("id")
+      .limit(MOST_DOTS),
     supabase.from("species_staff").select("id", { count: "exact", head: true }),
     // Node status with coordinates for GPS mapping (item 32)
     supabase.from("iot_node_status").select("node_id, quiet, last_reading_at, latitude, longitude"),
@@ -76,8 +108,10 @@ export default async function OverviewPage() {
       .is("cleared_at", null)
       .eq("from_backlog", false),
   ]);
-  if (recordsResult.error) {
-    console.error("Loading the records for the overview failed:", recordsResult.error.message);
+  const recordsError =
+    latestResult.error ?? waitingResult.error ?? publishedResult.error ?? mapResult.error;
+  if (recordsError) {
+    console.error("Loading the records for the overview failed:", recordsError.message);
   }
   if (speciesResult.error) {
     console.error("Counting the species failed:", speciesResult.error.message);
@@ -87,35 +121,42 @@ export default async function OverviewPage() {
     if (nodesResult.error) console.error("Loading the sensor nodes failed:", nodesResult.error.code);
     if (alertsResult.error) console.error("Loading the sensor alerts failed:", alertsResult.error.code);
   }
-  const recordsFailed = Boolean(recordsResult.error);
-  const all = (recordsResult.data ?? []).map(recordFromRow);
-  const waiting = all.filter((r) => r.status === "waiting");
-  const published = all.filter((r) => r.status === "published");
-  const latest = all.slice(0, LATEST);
+  const recordsFailed = Boolean(recordsError);
+  const latest = recordsFailed ? [] : (latestResult.data ?? []).map(recordFromRow);
+  const recordCount = latestResult.count ?? 0;
+  const waitingCount = waitingResult.count ?? 0;
+  const publishedCount = publishedResult.count ?? 0;
   const nodeRows = nodesResult.data ?? [];
   const reporting = nodeRows.filter((n) => n.last_reading_at && !n.quiet).length;
   const openAlerts = (alertsResult.data ?? []).map(alertFromRow).sort(alertOrder);
   const shownAlerts = openAlerts.slice(0, ALERTS_SHOWN);
 
-  // A rejected record isn't a plant we know is there, so the map leaves it off
-  const mapped = all
-    .filter((r) => r.status !== "rejected")
-    .flatMap((r) =>
-      r.gps
-        ? [
-            {
-              id: r.id,
-              lat: r.gps.lat,
-              lng: r.gps.lng,
-              label: plantName(r) || r.tagCode,
-              link: {
-                href: `/dashboard/records/${r.id}/edit`,
-                text: `Edit ${r.tagCode}, ${plantName(r) || "no species yet"}`,
-              },
+  const mapped: MapPoint[] = recordsFailed
+    ? []
+    : (mapResult.data ?? []).flatMap((row) => {
+        const gps = row.gps as StaffRecord["gps"];
+        if (!gps) return [];
+        const tag = row.tag_code ? String(row.tag_code) : tagCode(String(row.id));
+        const name = plantName({
+          commonName: row.common_name ? String(row.common_name) : null,
+          speciesName: String(row.species_name ?? ""),
+        });
+        return [
+          {
+            id: String(row.id),
+            lat: gps.lat,
+            lng: gps.lng,
+            label: name || tag,
+            link: {
+              href: `/dashboard/records/${row.id}/edit`,
+              text: `Edit ${tag}, ${name || "no species yet"}`,
             },
-          ]
-        : [],
-    );
+          },
+        ];
+      });
+  // Every record with a spot, when the map only has room for the newest
+  const mappable = mapResult.count ?? mapped.length;
+  const leftOff = mappable > mapped.length;
 
   const mappedSensors: MapSensor[] = nodeRows
     .filter((n) => n.latitude != null && n.longitude != null)
@@ -131,8 +172,15 @@ export default async function OverviewPage() {
       };
     });
 
-  const shown = waiting.slice(0, 3).map((r) => `${plantName(r) || "No species yet"} (${r.tagCode})`);
-  const others = waiting.length - shown.length;
+  const shown = (waitingResult.data ?? []).map((row) => {
+    const name = plantName({
+      commonName: row.common_name ? String(row.common_name) : null,
+      speciesName: String(row.species_name ?? ""),
+    });
+    const tag = row.tag_code ? String(row.tag_code) : tagCode(String(row.id));
+    return `${name || "No species yet"} (${tag})`;
+  });
+  const others = waitingCount - shown.length;
   const waitingNames = joinNames(others > 0 ? [...shown, plural(others, "other")] : shown);
 
   const counts: { label: string; value: string | null }[] = [
@@ -140,8 +188,8 @@ export default async function OverviewPage() {
       label: "Species",
       value: speciesResult.count == null ? null : String(speciesResult.count),
     },
-    { label: "Public records", value: recordsFailed ? null : String(published.length) },
-    { label: "Waiting for review", value: recordsFailed ? null : String(waiting.length) },
+    { label: "Public records", value: recordsFailed ? null : String(publishedCount) },
+    { label: "Waiting for review", value: recordsFailed ? null : String(waitingCount) },
     {
       label: "Sensors reporting",
       value: nodesResult.error ? null : `${reporting} of ${nodeRows.length}`,
@@ -179,21 +227,21 @@ export default async function OverviewPage() {
           {!recordsFailed && (
             <li className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:gap-5 sm:p-5">
               <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-forest-soft text-forest-deep">
-                <Icon name={waiting.length ? "inbox" : "check"} />
+                <Icon name={waitingCount ? "inbox" : "check"} />
               </span>
               <div className="min-w-0 flex-1">
                 <p className="font-bold">
-                  {waiting.length
-                    ? `${plural(waiting.length, "record")} waiting for review`
+                  {waitingCount
+                    ? `${plural(waitingCount, "record")} waiting for review`
                     : "No records are waiting for review"}
                 </p>
                 <p className="text-sm text-moss">
-                  {waiting.length
+                  {waitingCount
                     ? `${waitingNames}, sent in from the mobile app.`
                     : "New records from the mobile app will show up here."}
                 </p>
               </div>
-              {waiting.length > 0 && (
+              {waitingCount > 0 && (
                 <Link href={WAITING_HREF} className="btn btn-primary self-start sm:self-auto">
                   See waiting records
                 </Link>
@@ -382,13 +430,13 @@ export default async function OverviewPage() {
             </tbody>
           </table>
         </div>
-        {all.length > LATEST && (
+        {recordCount > LATEST && (
           <p className="mt-3">
             <Link
               href="/dashboard/records"
               className="font-bold underline decoration-line underline-offset-4 hover:decoration-ink"
             >
-              See all {plural(all.length, "record")}
+              See all {plural(recordCount, "record")}
             </Link>
           </p>
         )}
@@ -399,15 +447,16 @@ export default async function OverviewPage() {
           Where the plants and sensors are
         </h2>
         <p className="max-w-2xl text-moss">
-          Every plant record that hasn’t been rejected at its exact spot, along with active IoT monitoring nodes.
+          {leftOff
+            ? `The newest ${mapped.length} of the ${mappable} plant records that haven’t been rejected, at their exact spots, along with active IoT monitoring nodes. The records page has the rest.`
+            : "Every plant record that hasn’t been rejected at its exact spot, along with active IoT monitoring nodes."}
         </p>
         <ParkMap
           id="overview-map"
           title="Map of tagged plants and sensor nodes around park HQ"
-          description={`A map of the park around park HQ with ${plural(
-            mapped.length,
-            "tagged plant",
-          )}${mappedSensors.length > 0 ? ` and ${plural(mappedSensors.length, "sensor node")}` : ""}. Each plant’s dot is a link to its record.`}
+          description={`A map of the park around park HQ with ${
+            leftOff ? `the newest ${mapped.length} of ${mappable} tagged plants` : plural(mapped.length, "tagged plant")
+          }${mappedSensors.length > 0 ? ` and ${plural(mappedSensors.length, "sensor node")}` : ""}. Each plant’s dot is a link to its record.`}
           points={mapped}
           sensors={mappedSensors}
           className="mt-8"

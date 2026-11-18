@@ -3,6 +3,12 @@ import { StaticMap } from "./static-map";
 
 export type { MapArea, MapPoint, MapSensor };
 
+// The most plant dots a page puts on one map. Each dot is a link with a label, and the map is
+// drawn twice (once for the noscript copy), so 10,000 dots made a page of several megabytes that
+// took a long time to draw (docs/test-results/item-37-performance.md). Pages show the newest ones
+// and say how many were left off.
+export const MOST_DOTS = 500;
+
 /**
  * A map of the park with a legend under it (item 20). Pages build the points
  * on the server, so for a species whose spot is hidden they pass rough
