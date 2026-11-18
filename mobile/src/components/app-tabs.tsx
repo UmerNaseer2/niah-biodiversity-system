@@ -5,6 +5,12 @@ import { useTheme } from '@/hooks/use-theme';
 import { useSensorAlerts } from '@/state/alerts-context';
 import { useRecords } from '@/state/records-context';
 
+// The tab bar shows any text it is given and only reads hidden when there is none, so a count of
+// 0 has to be left out or the badge says "0".
+function badgeText(count: number) {
+  return count > 0 ? String(count) : undefined;
+}
+
 // Native tab bar for iOS and Android. The web preview uses app-tabs.web.tsx, so when you add
 // or rename a tab, change both files.
 export default function AppTabs() {
@@ -36,7 +42,7 @@ export default function AppTabs() {
         <NativeTabs.Trigger.Label>Home</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon sf={{ default: 'house', selected: 'house.fill' }} md="home" />
         <NativeTabs.Trigger.Badge hidden={alertCount === 0}>
-          {String(alertCount)}
+          {badgeText(alertCount)}
         </NativeTabs.Trigger.Badge>
       </NativeTabs.Trigger>
 
@@ -62,7 +68,7 @@ export default function AppTabs() {
           md="list_alt"
         />
         <NativeTabs.Trigger.Badge hidden={pendingCount === 0}>
-          {String(pendingCount)}
+          {badgeText(pendingCount)}
         </NativeTabs.Trigger.Badge>
       </NativeTabs.Trigger>
 
