@@ -1,12 +1,13 @@
 // Checks what the phone downloads so visitors can read about plants with no signal
-// (mobile/src/sync/supabase-public-api.ts): the species info, the published records and the
-// species photo lists. Visitors don't sign in, so the reads are as someone with no account. The
+// (mobile/src/sync/supabase-public-api.ts): the species info, the published records, which of them
+// are later visits to a plant, and the species photo lists. Visitors don't sign in, so the reads are as someone with no account. The
 // column lists are read from that file, so a column added there has to get past these tests too.
 // The phone never asks for the location column, since its plant pages don't say where a plant is.
 import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { after, before, describe, test } from 'node:test';
-import { addUser, newDatabase, selectAs } from './harness.js';
+import { addUser, insertAs, newDatabase, readFixture, selectAs } from './harness.js';
 
 const API_FILE = new URL('../../mobile/src/sync/supabase-public-api.ts', import.meta.url);
 const API_SOURCE = readFileSync(API_FILE, 'utf8');
@@ -26,6 +27,7 @@ function columns(list) {
 const SPECIES_COLUMNS = columns(foundIn(/const SPECIES_COLUMNS =\s*'([^']+)'/));
 const RECORD_COLUMNS = columns(foundIn(/const RECORD_COLUMNS =\s*'([^']+)'/));
 const PHOTO_COLUMNS = columns(foundIn(/\.from\('species_photos_public'\)\s*\.select\('([^']+)'\)/));
+const VISIT_COLUMNS = columns(foundIn(/\.from\('record_visits_public'\)\s*\.select\('([^']+)'\)/));
 const PHOTO_BUCKET = foundIn(/const PHOTO_BUCKET = '([^']+)'/);
 
 /** The first page of a read the phone makes. It asks for 500 rows at a time, sorted by ID. */
@@ -37,6 +39,7 @@ const READ_SPECIES = firstPage('species_public', SPECIES_COLUMNS);
 // The view only has published records, but the phone asks for them again as well.
 const READ_RECORDS = firstPage('records_public', RECORD_COLUMNS, "status = 'published'");
 const READ_PHOTOS = firstPage('species_photos_public', PHOTO_COLUMNS);
+const READ_VISITS = firstPage('record_visits_public', VISIT_COLUMNS);
 
 let db;
 let botanist;
@@ -54,6 +57,15 @@ function ids(rows) {
   return rows.map((row) => row.id);
 }
 
+const [everyField] = readFixture('phone-upload.json').uploads;
+
+/** Uploads the "every field filled in" record as the botanist with a new ID, and gives the ID. */
+async function upload(changes = {}) {
+  const row = { ...structuredClone(everyField.row), id: randomUUID(), ...changes };
+  await insertAs(db, botanist, 'public.records', row);
+  return row.id;
+}
+
 async function publishedCount() {
   const { rows } = await db.query(
     "SELECT count(*)::int AS count FROM public.records WHERE status = 'published'",
@@ -62,9 +74,14 @@ async function publishedCount() {
 }
 
 describe('what the phone asks for', () => {
-  test('it only reads the public views of species, records and species photos', () => {
+  test('it only reads the public views of species, records, visits and species photos', () => {
     const views = [...API_SOURCE.matchAll(/\.from\('([^']+)'\)/g)].map((match) => match[1]);
-    assert.deepEqual(views, ['species_public', 'records_public', 'species_photos_public']);
+    assert.deepEqual(views, [
+      'species_public',
+      'records_public',
+      'record_visits_public',
+      'species_photos_public',
+    ]);
     assert.match(API_SOURCE, /\.from\('species_public'\)\s*\.select\(SPECIES_COLUMNS\)/);
     assert.match(
       API_SOURCE,
@@ -107,6 +124,10 @@ describe('what the phone asks for', () => {
     ]);
   });
 
+  test('visits come down as only which record is a visit to which plant', () => {
+    assert.deepEqual(VISIT_COLUMNS, ['id', 'visit_of']);
+  });
+
   test('photo lists come down with only the species ID and its photos', () => {
     assert.deepEqual(PHOTO_COLUMNS, ['id', 'photos']);
   });
@@ -138,6 +159,22 @@ describe('reading it with no account', () => {
     for (const row of rows) {
       assert.deepEqual(Object.keys(row).sort(), [...RECORD_COLUMNS].sort());
     }
+  });
+
+  test('the visits can be read, and only link records the phone downloads', async () => {
+    // The sample data has no visits, so this adds an approved plant with an approved visit and
+    // one still waiting for review. Only the approved one comes down.
+    const firstId = await upload();
+    const approved = await upload({ visit_of: firstId });
+    await upload({ visit_of: firstId });
+    await db.query("UPDATE public.records SET status = 'published' WHERE id = ANY($1)", [
+      [firstId, approved],
+    ]);
+    const rows = await selectAs(db, null, READ_VISITS);
+    assert.deepEqual(rows, [{ id: approved, visit_of: firstId }]);
+    const published = new Set(ids(await selectAs(db, null, READ_RECORDS)));
+    assert.ok(published.has(approved));
+    assert.ok(published.has(firstId));
   });
 
   test('every species photo list can be read', async () => {
