@@ -19,6 +19,7 @@ const READS = {
   COMMAND_COLUMNS: 'iot_commands',
   DEVICE_COLUMNS: 'iot_devices',
   POSITION_COLUMNS: 'iot_boots',
+  DAILY_COLUMNS: 'iot_daily_summary',
 };
 
 /** The columns in one of the lists in iot.ts. */

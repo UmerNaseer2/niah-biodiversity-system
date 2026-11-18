@@ -122,8 +122,8 @@ src/
       review/           the review queue: approve or reject records from the mobile app, and send one back
       species/          the species table, new/ to add one, and [slug]/edit and [slug]/delete
       reports/          counts, charts and the print view, and csv/ for the download
-      sensors/          alerts, the sensor nodes and their history, commands, devices/ for tokens, and GPS mapping
-      ecology/          microclimate analysis, Vapor Pressure Deficit, habitat risk profiles, and CSV export
+      sensors/          alerts, the map, sending a patrol, the sensor nodes with their history and daily lowest, average and highest, commands, and devices/ for tokens and positions (admins)
+      ecology/          each zone's readings, how dry the air is (vapour pressure deficit), a rating, the plants recorded near it, and a CSV download
       users/            who has an account and what each role can do
   components/           shared pieces: park map, tree tag, photo gallery, icons...
   data/                 mock species and records, plus the screen list

@@ -24,7 +24,9 @@ sensor node  --- WiFi, plain HTTP --->  edge device  --- HTTPS, device token ---
   nothing to send, it says it's alive every 5 minutes.
 - **The node simulator** (`iot/node-simulator/node-simulator.mjs`) is plain Node with no packages.
   It pretends to be an edge device with 11 scenarios, so the dashboard can be shown with no hardware.
-  `iot/README.md` says how to run it.
+  `iot/README.md` says how to run it. It was taken out on 7 Nov, once the edge device moved to
+  Python and edge-com took over from `iot_add_readings`. `iot/edge-device/tools/fake-thing.py`
+  does its job now, through the real edge device, see `iot/Field_Node_Edge-to-Cloud_Setup_Guide.md`.
 - **The stand-in** serves all of this. It comes with a made up device, `NNP-EDGE-01`, with the nodes
   `NNP-IOT-01` to `03` on it, and `STAND_IN_SQL_THROUGH` leaves out newer SQL to try a page without it.
 

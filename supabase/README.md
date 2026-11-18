@@ -12,11 +12,11 @@ kept, and you can fix the problem and run it again.
 | File | What it does | Item | Safe to run again? |
 | --- | --- | --- | --- |
 | `001_initial_schema.sql` | The tables (profiles, species, records, iot_nodes), Row Level Security, and the public `botanical-photos` bucket | 14 | No, it stops on the policies that are already there |
-| `002_seed_data.sql` | The species and the sample records | 14 | Only on a new project. It writes the sample species' facts and photos back over any changes made on the website. If it does run again, run 007 again after it |
+| `002_seed_data.sql` | The species, the sample records and three sample sensor nodes, with their names and zones and no readings yet | 14 | Only on a new project. It writes the sample species' facts and photos back over any changes made on the website. If it does run again, run 007 again after it |
 | `003_profiles_read_own.sql` | Lets a signed in user read their own profile, so the website can see their role, and takes out an old view from 001 that nothing uses | 15 | Yes |
 | `004_security_hardening.sql` | Role checks on writes, the public views and the staff views | 4, 14, 15, 16 | No, it stops on the policies that are already there |
 | `005_phone_sync.sql` | Lets the phone upload records, and adds the private `record-photos` bucket | 3 | No, it stops on its first line and changes nothing |
-| `006_role_based_access.sql` | What each role can read and change, checked by the database: Row Level Security, column grants and a review trigger | 4 | Yes, then run 007, 008 and 019 again. The public still can't see the exact spot of a plant set to rough area only in between |
+| `006_role_based_access.sql` | What each role can read and change, checked by the database: Row Level Security, column grants and a review trigger | 4 | Yes, then run 007, 008, 016_2 and 019 again. The public still can't see the exact spot of a plant set to rough area only in between |
 | `007_species_fixes.sql` | The rough area only switch for a species, the public views that use it, checked facts for the sample species, and a trigger that sets `updated_at` when a species is edited | 14 | Yes, then run 019 again, because this puts the older public view back |
 | `008_record_edits.sql` | `updated_at` on records, set by a trigger when a record is edited, and the staff view that shows it | 17 | Yes |
 | `009_species_photos.sql` | Checks what goes in `species.photos`, the `species_photos_public` view for the plant pages, and lets officers and admins delete record photos | 18 | Yes |
@@ -38,11 +38,12 @@ kept, and you can fix the problem and run it again.
 | `023_iot_boots.sql` | Each node's power-ups: where it's installed and the first and last reading that arrived | 28 | Yes |
 | `024_iot_alert_state.sql` | The edge-com function's working state for deciding alerts. Nobody reads it through the API | 31 | Yes |
 | `025_iot_commands.sql` | Commands for the nodes (the locate beep and a baseline reset), which officers and admins send from the Sensors page | 31 | Yes |
-| `026_iot_gps_mapping.sql` | IoT Device Tracking, GPS mapping, and patrol dispatch: adds coordinates to nodes, exposes locations through `iot_node_status`, and records patrol response | 32 | Yes |
+| `026_iot_gps_mapping.sql` | Each node's position (latitude and longitude) for the map, shown in `iot_node_status`, and sending a patrol to an alert, which officers and admins do from the Sensors page | 32 | Yes |
+| `027_iot_daily_summary.sql` | Each node's lowest, average and highest temperature, humidity and soil moisture for today and the 6 days before, by park time, for the Sensors page. Officers and admins only | 30 | Yes |
 
 As of 16 Oct 2026 the hosted project has 001 and 002. Run 003, 004, 005, 006, 007, 008, 009, 010,
-011, 012, 013, 014, 015, 016_1 to 017, 019, 020, 021, and 022 to 026 next, one file at a time, in
-that order, and don't stop part way. There's no 018 file: the number was held for the phone's photos, and they
+011, 012, 013, 014, 015, 016_1 to 017, 019, 020, 021 and 022 to 027 next, one file at a time, in
+that order, and don't stop part way. On a new project, run 001 and 002 first. There's no 018 file: the number was held for the phone's photos, and they
 didn't need one. The website's species pages (add, edit and delete) and its public pages need 007,
 and 007 stops on its first line if 006 isn't there. Until then the public pages say "This page
 didn't load". Without 009 the plant pages show no photos. Without 010 a phone that hadn't synced a
@@ -67,9 +68,10 @@ edge device can add. 022 stops on its first line if 021 isn't there. 003 is fine
 turns out to be there already. The history only starts once 013 is in, so changes made before
 that aren't in it.
 
-The sensor steps are 016_1, 016_2, 016_3, 016_4 and 017 after 015, then 022, 023, 024, 025 and 026
-after 021. Each stops on its first line if the one before it isn't there (022 checks for 021, and 026 checks for 025).
-Then deploy the `edge-com` Edge Function (`functions/edge-com/index.ts`) with JWT verification turned
+The sensor steps are 016_1, 016_2, 016_3, 016_4 and 017 after 015, then 022 to 027
+after 021. Each stops on its first line if the one before it isn't there (022 checks for 021, 026
+checks for 025 and 027 checks for 026). Then deploy the `edge-com` Edge Function
+(`functions/edge-com/index.ts`) with JWT verification turned
 off. Then an admin opens **Sensors**, then **Devices**, adds each edge device with its position,
 links its nodes and makes it a token.
 [`iot/Field_Node_Edge-to-Cloud_Setup_Guide.md`](../iot/Field_Node_Edge-to-Cloud_Setup_Guide.md) has
@@ -180,7 +182,7 @@ npm test
   014 (item 18), `tests/downloads.test.js` checks 011, `tests/species-rough.test.js` checks 015
   (item 19), `tests/phone-reads.test.js` checks what the phone reads back when it syncs (item 10),
   `tests/visitor-reads.test.js` checks the plant info the phone downloads for visitors,
-  `tests/iot.test.js` checks the sensor files (016_1 to 017 and 023 to 025) and the `edge-com`
+  `tests/iot.test.js` checks the sensor files (016_1 to 017 and 023 to 027) and the `edge-com`
   function (items 28 to 31),
   `tests/public-details.test.js` checks 019, `tests/record-photo-access.test.js` checks 020,
   `tests/role-changes.test.js` checks 021 and `tests/iot-limit.test.js` checks 022 through

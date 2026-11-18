@@ -38,6 +38,7 @@ export const SQL_FILES = [
   '024_iot_alert_state.sql',
   '025_iot_commands.sql',
   '026_iot_gps_mapping.sql',
+  '027_iot_daily_summary.sql',
 ];
 
 export function readSql(file) {
