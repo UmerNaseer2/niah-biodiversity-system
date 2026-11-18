@@ -344,6 +344,32 @@ describe('reading as each account', () => {
     assert.equal(read.status, 405);
   });
 
+  test('a function that gives back rows sends them as a list, like find_plant_by_tag', async () => {
+    const find = (token, body) =>
+      call('/rest/v1/rpc/find_plant_by_tag', { method: 'POST', token, body });
+    const { access_token: botanistToken } = await sessionFor(botanist);
+    const found = await find(botanistToken, { code: 'nnp-d00d04' });
+    assert.equal(found.status, 200);
+    assert.equal(found.body.length, 1);
+    assert.equal(found.body[0].id, rejectedRecord);
+    assert.equal(found.body[0].tag_code, 'NNP-D00D04');
+    assert.equal(found.body[0].visit_count, 0);
+    assert.equal(found.body[0].notes, undefined);
+
+    const none = await find(botanistToken, { code: 'NNP-000000' });
+    assert.equal(none.status, 200);
+    assert.deepEqual(none.body, []);
+
+    // The columns it gives back aren't arguments
+    const column = await find(botanistToken, { code: 'NNP-D00D04', id: rejectedRecord });
+    assert.equal(column.status, 404);
+    assert.equal(column.body.code, 'PGRST202');
+
+    const signedOut = await find(undefined, { code: 'NNP-D00D04' });
+    assert.equal(signedOut.status, 401);
+    assert.equal(signedOut.body.code, '42501');
+  });
+
   test('the sensors page finds records in a box around a node, comparing the spot as numbers', async () => {
     const { access_token: token } = await sessionFor(officer);
     // The same request web/src/app/dashboard/sensors/page.tsx makes, with the columns from

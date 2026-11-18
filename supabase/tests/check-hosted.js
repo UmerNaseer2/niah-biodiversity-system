@@ -1,7 +1,8 @@
 // Checks which of our SQL files a Supabase project has, from outside, with only its URL and the
 // anon (publishable) key. It only reads: each check asks for no rows of a table, view or column
-// that a file adds, and it never calls a database function. Run it from supabase/tests with the
-// website's keys:
+// that a file adds. The only function it asks about is one the anon key isn't allowed to run, so
+// the database turns it away before it runs, and it would only read if it did. Run it from
+// supabase/tests with the website's keys:
 //
 //   node --env-file=../../web/.env.local check-hosted.js
 //
@@ -14,7 +15,8 @@
 /**
  * Every SQL file in the order supabase/README.md runs them, with what can be seen of it through
  * the API. `table` and `column` are something the file adds. `gone` is something it takes away.
- * A file with neither only changes policies, triggers or functions, which the anon key can't see.
+ * `fn` is a function it adds that only signed in staff can run, asked about with `args`. A file
+ * with none of them only changes policies, triggers or functions, which the anon key can't see.
  */
 const FILES = [
   { file: '001', table: 'species', column: 'id' },
@@ -47,6 +49,7 @@ const FILES = [
   { file: '026', table: 'iot_alerts', column: 'dispatched_at' },
   { file: '027', table: 'iot_daily_summary', column: '*' },
   { file: '028', table: 'record_visits_public', column: '*' },
+  { file: '029', fn: 'find_plant_by_tag', args: { code: '' } },
 ];
 
 // From 006 on, each file stops on its first line if the one before it isn't there, so a file
@@ -87,6 +90,29 @@ async function exists(table, column) {
   return `HTTP ${res.status} ${body.code ?? ''}`.trim();
 }
 
+/**
+ * Whether a function is there, the same way as exists(). The anon key isn't allowed to run it, so
+ * the database answers 42501 when it's there, and PostgREST answers PGRST202 when it isn't.
+ */
+async function hasFunction(name, args) {
+  let res;
+  try {
+    res = await fetch(`${url}/rest/v1/rpc/${name}`, {
+      method: 'POST',
+      headers: { apikey: key, Accept: 'application/json', 'Content-Type': 'application/json' },
+      body: JSON.stringify(args),
+      signal: AbortSignal.timeout(15000),
+    });
+  } catch (err) {
+    throw new CantReach(err.cause?.code || err.message);
+  }
+  const body = await res.json().catch(() => ({}));
+  if (body.code === '42501') return true;
+  if (res.status === 404 && body.code === 'PGRST202') return false;
+  if (res.status === 401 && !body.code) throw new CantReach('the key was turned down');
+  return `HTTP ${res.status} ${body.code ?? ''}`.trim();
+}
+
 /** What the edge-com function says to a GET. It turns away anything but POST before doing anything. */
 async function edgeCom() {
   let res;
@@ -110,8 +136,8 @@ async function main() {
   for (const f of FILES) {
     let state = 'unknown';
     let text = "can't tell from outside";
-    if (f.table) {
-      const seen = await exists(f.table, f.column);
+    if (f.table || f.fn) {
+      const seen = f.table ? await exists(f.table, f.column) : await hasFunction(f.fn, f.args);
       if (seen === true) [state, text] = ['in', 'in'];
       else if (seen === false) [state, text] = ['missing', 'missing'];
       else text = `couldn't tell (${seen})`;

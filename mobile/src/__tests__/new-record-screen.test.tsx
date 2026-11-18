@@ -57,10 +57,10 @@ function TestLayout() {
 }
 
 /** Opens the form once the records saved on the phone have loaded. */
-async function renderForm() {
+async function renderForm(initialUrl = '/new-record') {
   const app = renderRouter(
     { _layout: TestLayout, 'new-record': NewRecordScreen, 'record/[id]': RecordScreen },
-    { initialUrl: '/new-record' },
+    { initialUrl },
   );
   await screen.findByLabelText('Species, required');
   return app;
@@ -681,5 +681,46 @@ describe('Photos on the new record form', () => {
     ).toBeVisible();
     expect(screen.queryByRole('button', { name: 'Choose from library' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Take photo' })).toBeNull();
+  });
+});
+
+describe('Visit to a plant recorded on another phone', () => {
+  // What the plant page passes when the server found the plant, as in plant-screen.test.tsx.
+  const FIRST_RECORD = 'A1B2C3D4-5E6F-4A7B-8C9D-0E1F2A3B4C05';
+  const visitUrl = (visitOf: string) =>
+    '/new-record?' +
+    new URLSearchParams({
+      visitOf,
+      plantSpecies: 'Shorea macrophylla',
+      plantCommonName: 'Engkabang',
+    }).toString();
+
+  it('fills in the names the plant page sent and saves the visit against that record', async () => {
+    await renderForm(visitUrl(FIRST_RECORD));
+    expect(screen.getByText('Visit to NNP-A1B2C3')).toBeVisible();
+    expect(speciesBox()).toHaveDisplayValue('Shorea macrophylla');
+    expect(commonNameBox()).toHaveDisplayValue('Engkabang');
+
+    await captureLocation();
+    fireEvent.press(saveButton());
+    // The saved visit opens, under the tag of the plant it's a visit to.
+    expect(await screen.findByText('The first record isn\'t on this phone.', { exact: false })).toBeVisible();
+    expect(screen.getAllByText('Visit to NNP-A1B2C3').length).toBeGreaterThan(0);
+    expect(newestRecord()).toMatchObject({
+      speciesName: 'Shorea macrophylla',
+      commonName: 'Engkabang',
+      visitOf: FIRST_RECORD.toLowerCase(),
+    });
+  });
+
+  it("makes a new plant record when what it was given isn't a record id", async () => {
+    await renderForm(visitUrl('NNP-A1B2C3'));
+    expect(screen.queryByText(/^Visit to /)).toBeNull();
+    expect(speciesBox()).toHaveDisplayValue('');
+
+    fireEvent.changeText(speciesBox(), 'Shorea macrophylla');
+    await captureLocation();
+    await saveAndOpen();
+    expect(newestRecord()?.visitOf).toBeUndefined();
   });
 });

@@ -42,7 +42,9 @@ export default function ScanScreen() {
 
   /**
    * The page a tag opens, if there is one. Staff get their own record first and then the saved
-   * plant info, since they can scan a tag someone else recorded. Visitors only get the plant info.
+   * plant info, since they can scan a tag someone else recorded. Any other tag code opens the
+   * plant page for staff too, which looks it up on the server, because the plant may have been
+   * recorded on another phone and not approved yet. Visitors only get the plant info.
    */
   function pageFor(input: string): Href | undefined {
     const record = visitor ? undefined : findByTag(input);
@@ -50,7 +52,12 @@ export default function ScanScreen() {
       return { pathname: '/record/[id]', params: { id: record.id } };
     }
     const plant = findPublicByTag(input);
-    return plant ? { pathname: '/plant/[tag]', params: { tag: plant.tagCode } } : undefined;
+    if (plant) {
+      return { pathname: '/plant/[tag]', params: { tag: plant.tagCode } };
+    }
+    // A typed code can leave out the NNP- part, the same as when it's found on the phone.
+    const tag = visitor ? undefined : (parseTagQr(input) ?? parseTagQr(`NNP-${input}`));
+    return tag ? { pathname: '/plant/[tag]', params: { tag } } : undefined;
   }
 
   /**
@@ -98,11 +105,8 @@ export default function ScanScreen() {
     remember(tag);
     const page = pageFor(tag);
     if (!page) {
-      showProblem(
-        visitor
-          ? `No plant info for tag ${tag} yet. ${SHOWS_LATER}`
-          : `No record with tag ${tag} on this phone.`,
-      );
+      // Staff always get a page for a tag, so this is only ever for visitors.
+      showProblem(`No plant info for tag ${tag} yet. ${SHOWS_LATER}`);
       return;
     }
     opened.current = data;
@@ -124,9 +128,10 @@ export default function ScanScreen() {
     router.push(page);
   }
 
+  // Staff get the plant page for any whole tag code, so for them it's only ever something else.
   const notFoundMessage = visitor
     ? `No plant info for that tag yet. ${SHOWS_LATER}`
-    : 'No record with that tag on this phone.';
+    : "That isn't a tag code. They look like NNP-3F2A9C.";
 
   return (
     <Screen hasInputs title="Scan a tag" subtitle="Point the camera at the QR tag on the plant.">
@@ -149,7 +154,7 @@ export default function ScanScreen() {
           error={notFound ? notFoundMessage : undefined}
         />
         <Button
-          label={visitor ? 'Find plant' : 'Find record'}
+          label="Find plant"
           icon="search"
           variant="outline"
           onPress={lookUp}

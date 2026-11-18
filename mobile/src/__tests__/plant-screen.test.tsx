@@ -1,3 +1,5 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
+import * as Network from 'expo-network';
 import { Stack } from 'expo-router';
 import { fireEvent, renderRouter, screen, testRouter } from 'expo-router/testing-library';
 import { Text } from 'react-native';
@@ -5,13 +7,17 @@ import { Text } from 'react-native';
 import PlantScreen from '@/app/plant/[tag]';
 import { formatRecordedAt, formatTime } from '@/lib/format';
 import { matchesTag } from '@/lib/id';
+import { getSupabase } from '@/lib/supabase';
 import { useRecords } from '@/state/records-context';
+import type { AppMode } from '@/types/app-mode';
 import type { PublicPhoto, PublicRecord, PublicSpecies } from '@/types/public-copy';
 
 // The plant page, with the plant info saved on the phone swapped for made-up plants. Opening it
 // from a scan or from History is tested in scan-plant-info.test.tsx.
 
 jest.mock('@/state/records-context', () => ({ useRecords: jest.fn() }));
+jest.mock('@/lib/supabase', () => ({ getSupabase: jest.fn() }));
+jest.mock('expo-network', () => ({ getNetworkStateAsync: jest.fn() }));
 
 const NO_SPECIES = "The field team hasn't matched this plant to a species on our list yet.";
 const NOT_YET =
@@ -105,13 +111,21 @@ const PITCHER_PHOTO: PublicPhoto = {
   file: '7f3a9c2e-4b1d-4e6f-8a2c-5d9e1b7f3a04',
 };
 
-/** The plant info on the phone, when it came down, and the species photos it has. */
-function setPlantInfo(publicCopyAt = DOWNLOADED, publicPhotos: PublicPhoto[] = []) {
+/**
+ * The plant info on the phone, when it came down, and the species photos it has. Most of the
+ * page is the same for staff, so it's tested in visitor mode unless a test says otherwise.
+ */
+function setPlantInfo(
+  publicCopyAt = DOWNLOADED,
+  publicPhotos: PublicPhoto[] = [],
+  mode: AppMode = 'visitor',
+) {
   jest.mocked(useRecords).mockReturnValue({
     findPublicByTag: (input: string) => PLANTS.find((plant) => matchesTag(plant, input)),
     publicSpecies: [PITCHER, BENJAMINA],
     publicCopyAt,
     publicPhotos,
+    mode,
   } as never);
 }
 
@@ -130,6 +144,7 @@ function renderApp(initialUrl: string) {
       scan: () => <StandIn name="Scan page" />,
       'plant/[tag]': PlantScreen,
       'species/[slug]': () => <StandIn name="Species page" />,
+      'new-record': () => <StandIn name="New record form" />,
     },
     { initialUrl },
   );
@@ -331,5 +346,133 @@ describe('plant page for a tag with no plant info', () => {
     expect(screen.queryByRole('heading', { name: 'No plant info for this tag yet' })).toBeNull();
     expect(screen.getByText('Scan page')).toBeVisible();
     expect(testRouter.canGoBack()).toBe(false);
+  });
+});
+
+// What the server sends back for a plant another botanist recorded, with two visits since.
+const SERVER_ROW = {
+  id: 'a1b2c3d4-5e6f-4a7b-8c9d-0e1f2a3b4c05',
+  tag_code: 'NNP-A1B2C3',
+  species_name: 'Shorea macrophylla',
+  common_name: 'Engkabang',
+  species_slug: 'shorea-macrophylla',
+  condition: 'healthy',
+  recorded_at: '2026-10-12T02:30:00+00:00',
+  status: 'waiting',
+  visit_count: 2,
+  last_visit_at: '2026-11-10T02:00:00+00:00',
+  last_visit_condition: 'damaged',
+};
+
+type Answer = { data: unknown; error: { message: string; code: string } | null; status: number };
+
+const NO_SIGNAL: Answer = {
+  data: null,
+  error: { message: 'TypeError: Network request failed', code: '' },
+  status: 0,
+};
+
+/** A server that gives back these answers in turn, the last one again once they run out. */
+function serverAnswers(...answers: Answer[]) {
+  const rpc = jest.fn(() => Promise.resolve(answers.length > 1 ? answers.shift() : answers[0]));
+  jest.mocked(getSupabase).mockReturnValue({ rpc } as unknown as SupabaseClient);
+  return rpc;
+}
+
+describe('plant page for field staff', () => {
+  beforeEach(() => {
+    setPlantInfo(DOWNLOADED, [], 'staff');
+    jest.mocked(Network.getNetworkStateAsync).mockResolvedValue({ isConnected: true } as never);
+  });
+
+  it('can add a visit to a plant in the plant info, with its names filled in', async () => {
+    const app = openPlant('NNP-E1A2B3');
+    fireEvent.press(await screen.findByRole('button', { name: 'Add a visit' }));
+    expect(app.getPathname()).toBe('/new-record');
+    expect(app.getSearchParams()).toEqual({
+      visitOf: PITCHER_PLANT.id,
+      plantSpecies: 'Nepenthes rafflesiana',
+      plantCommonName: 'Raffles pitcher plant',
+    });
+  });
+
+  it("doesn't offer a visit to visitors", async () => {
+    setPlantInfo(DOWNLOADED, [], 'visitor');
+    openPlant('NNP-E1A2B3');
+    expect(await screen.findByRole('heading', { name: 'This plant' })).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Add a visit' })).toBeNull();
+  });
+
+  it('looks up a plant recorded on another phone and shows only what the server sends', async () => {
+    const rpc = serverAnswers({ data: [SERVER_ROW], error: null, status: 200 });
+    openPlant('NNP-A1B2C3');
+    expect(await screen.findByRole('heading', { name: 'Engkabang' })).toBeVisible();
+    expect(rpc).toHaveBeenCalledWith('find_plant_by_tag', { code: 'NNP-A1B2C3' });
+    expect(screen.getByText('Tag NNP-A1B2C3')).toBeVisible();
+    expect(screen.getByText('Shorea macrophylla')).toHaveStyle({ fontStyle: 'italic' });
+    expect(screen.getByText('12 Oct 2026')).toBeVisible();
+    expect(screen.getByText('Healthy')).toBeVisible();
+    expect(screen.getByText('2')).toBeVisible();
+    expect(screen.getByText('10 Nov 2026, damaged')).toBeVisible();
+    expect(screen.getByText('Waiting for review')).toBeVisible();
+    expect(screen.getByText(/^Recorded on another phone\./)).toBeVisible();
+    expect(screen.queryByRole('heading', { name: 'No plant info for this tag yet' })).toBeNull();
+  });
+
+  it('adds a visit to the plant from the server, pointing at its first record', async () => {
+    serverAnswers({ data: [SERVER_ROW], error: null, status: 200 });
+    const app = openPlant('NNP-A1B2C3');
+    fireEvent.press(await screen.findByRole('button', { name: 'Add a visit' }));
+    expect(app.getPathname()).toBe('/new-record');
+    expect(app.getSearchParams()).toEqual({
+      visitOf: SERVER_ROW.id,
+      plantSpecies: 'Shorea macrophylla',
+      plantCommonName: 'Engkabang',
+    });
+  });
+
+  it("says so when there's no visit yet, and leaves out the last visit", async () => {
+    serverAnswers({
+      data: [{ ...SERVER_ROW, visit_count: 0, last_visit_at: null, last_visit_condition: null }],
+      error: null,
+      status: 200,
+    });
+    openPlant('NNP-A1B2C3');
+    expect(await screen.findByText('None yet')).toBeVisible();
+    expect(screen.queryByText('Last visit')).toBeNull();
+  });
+
+  it('says so when no record anywhere has the tag', async () => {
+    serverAnswers({ data: [], error: null, status: 200 });
+    openPlant('NNP-A1B2C3');
+    expect(await screen.findByText('No plant with this tag')).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Add a visit' })).toBeNull();
+  });
+
+  it('tries again after no signal', async () => {
+    const rpc = serverAnswers(NO_SIGNAL, { data: [SERVER_ROW], error: null, status: 200 });
+    openPlant('NNP-A1B2C3');
+    expect(await screen.findByText('No signal')).toBeVisible();
+    fireEvent.press(screen.getByRole('button', { name: 'Try again' }));
+    expect(await screen.findByRole('heading', { name: 'Engkabang' })).toBeVisible();
+    expect(rpc).toHaveBeenCalledTimes(2);
+  });
+
+  it("says when the account can't look up plants", async () => {
+    serverAnswers({
+      data: null,
+      error: { message: 'Only field staff can look up a plant by its tag', code: '42501' },
+      status: 403,
+    });
+    openPlant('NNP-A1B2C3');
+    expect(await screen.findByText("Can't look up plants")).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull();
+  });
+
+  it("says so when this copy of the app isn't linked to a server", async () => {
+    jest.mocked(getSupabase).mockReturnValue(null);
+    openPlant('NNP-A1B2C3');
+    expect(await screen.findByText("Can't look up plants")).toBeVisible();
+    expect(screen.getByText(/isn't linked to the server/)).toBeVisible();
   });
 });

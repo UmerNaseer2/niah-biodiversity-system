@@ -10,6 +10,14 @@ export function newId(): string {
   return randomUUID();
 }
 
+/** Whether a value is shaped like a record ID, for an ID that came in a link or a page's params. */
+export function isRecordId(value: unknown): value is string {
+  return (
+    typeof value === 'string' &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)
+  );
+}
+
 /**
  * Short code printed under the QR code, like NNP-3F2A9C (NNP for Niah National Park).
  * Six hex characters gives about 16 million codes, so two records can end up with the same one.
