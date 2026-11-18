@@ -4,7 +4,8 @@ How we test the Niah system: what counts as good enough, which kinds of test we 
 on, and where each one has got to. It's deliverable D8 in the proposal. Results for each item are in
 [`test-results/`](test-results/). This page doesn't repeat them, it says where to find them.
 
-Written on 1 Nov 2026, at the end of Sprint #2. The numbers below are from `main` on that day.
+Written on 1 Nov 2026, at the end of Sprint #2, and brought up to date on 18 Nov 2026. The numbers
+below are from `main` on 18 Nov.
 
 ## What counts as done
 
@@ -29,24 +30,24 @@ The targets are the ones in the proposal's Quality Management section.
 | --- | --- | --- | --- |
 | Usability | 90% of tasks completed, SUS score of 70 or above | Not run. Planned for Week 10 with real users, see [below](#usability-test-for-week-10) | None yet |
 | Performance | Saving on the phone under 1 s, submitting under 3 s on 4G, web search under 2 s | Web search took 0.11 s with 10,000 records on a dev server, and five searches at once finished in 1.93 s. The load test also found six staff and public pages that read every record and fixed them. The phone targets haven't been timed on a real phone | [Item 16](test-results/item-16-plant-search.md), [Item 37](test-results/item-37-performance.md) |
-| Security | All critical and high findings fixed and retested by Week 9 | No criticals. Both highs fixed in our code and retested locally. The hosted project doesn't have the fixes until 003 to 021 are run, and OWASP ZAP has only run signed out on a local build | [Items 25 to 27](test-results/item-25-27-security.md) |
+| Security | All critical and high findings fixed and retested by Week 9 | No criticals. Both highs fixed in our code and retested locally. The hosted project doesn't have the fixes until it's brought up to `main` ([hosted-setup.md](hosted-setup.md)), and OWASP ZAP has only run signed out on a local build | [Items 25 to 27](test-results/item-25-27-security.md) |
 | Privacy of locations | 0 public pages or responses show an exact point of an endangered plant | 0 on a local production build, signed out and as each role. Not checked on the hosted project | [Items 25 to 27](test-results/item-25-27-security.md) |
 | Functional correctness | 95% of required fields captured and shown correctly | Each field has test cases that pass, but we haven't worked out one percentage across both platforms. The mapping is [below](#scope-to-test-results) | Below |
 | GPS accuracy | Every synced record has a point and an accuracy, 90% within 10 m of a reference point | The first part is in the form and the upload. The reference point walk needs real phones outdoors and hasn't been done | [Item 8](test-results/item-8-gps.md) |
 | QR reliability | 95% of printed tags scan within 3 s, in sun and shade, and open with no signal | Opening a saved record with no signal works on the simulator. Printed tags outdoors with two phones haven't been tried | [Item 6](test-results/item-6-qr-scanner.md), [Item 12](test-results/item-12-qr.md) |
 | Reliability of sync | 0% data loss, up within 5 minutes of signal coming back, no duplicates | Nothing lost and no duplicates on the simulator. 80 and 85 s, each measured once. A connection cut part way through is only covered by the unit tests | [Item 10](test-results/item-10-sync.md) |
-| Compatibility | Android 10 and iOS 15 or newer, current Chrome, Edge, Safari and Firefox | Only the iOS simulator and one Chromium based browser so far. Expo SDK 57 needs iOS 16.4 or newer, so the proposal's iOS 15 can't be met, and we should change that target. This is item 43 as well | [Item 22](test-results/item-22-encryption.md) and other item results |
-| IoT monitoring | Alerts within 30 s, under 5% of readings missing over 24 hours | About 25 s by adding up the steps, not measured end to end. Nothing flashed to real hardware, and the 24 hour run hasn't happened | [Items 29](test-results/item-29-sensor-pipeline.md) to [31](test-results/item-31-threat-alerts.md) |
-| Maintainability | All backend APIs documented, a README for each module | `mobile/`, `web/`, `supabase/` and `iot/` each have a README. API docs are item 35 | READMEs |
+| Compatibility | Android 10 and iOS 16.4 or newer, current Chrome, Edge, Safari and Firefox. The proposal said iOS 15, but Expo SDK 57 needs 16.4 | Only the iOS simulator and one Chromium based browser so far, including the item 43 run. No Android phone or real iPhone yet | [Item 22](test-results/item-22-encryption.md), [Item 43](test-results/item-43-integration.md) and other item results |
+| IoT monitoring | Alerts within 30 s, under 5% of readings missing over 24 hours | Measured end to end on the stand-in with a simulated node: 0.8 s from the reading reaching the edge to it being in Supabase, and the sensors page checks every 15 s, so about 16 s at worst. The node's WiFi and the edge's internet link aren't in that. Nothing flashed to real hardware, and the 24 hour run hasn't happened | [Items 29](test-results/item-29-sensor-pipeline.md) to [31](test-results/item-31-threat-alerts.md), [Item 43](test-results/item-43-integration.md) |
+| Maintainability | All backend APIs documented, a README for each module | `mobile/`, `web/`, `supabase/` and `iot/` each have a README. The [API reference](api-reference.md) covers the Supabase API, `edge-com`, the sensor messages and the website's own routes | READMEs, [API reference](api-reference.md) |
 
 ## Kinds of test
 
-| Kind | What it covers | How to run it | Count on 1 Nov |
+| Kind | What it covers | How to run it | Count on 18 Nov |
 | --- | --- | --- | --- |
-| Phone unit and screen tests | Forms, rules, SQLite, the sync engine, photos, QR, encryption. Jest with sql.js in place of SQLite | `cd mobile && npm test` | 33 suites, 744 tests |
-| Database tests | The real SQL files on PGlite, signing in as each role, and the stand-in itself | `cd supabase/tests && npm test` | 76 suites, 411 tests |
-| Website checks | Types, lint and a production build. The website has no unit tests, so its behaviour is covered by the database tests and by hand | `cd web && npm run lint && npm run build` | No count |
-| By hand, end to end | The phone on the iOS simulator and the website in a browser, both against the stand-in with made up data | The steps are in each results page | About 40 results pages |
+| Phone unit and screen tests | Forms, rules, SQLite, the sync engine, photos, QR, encryption. Jest with sql.js in place of SQLite | `cd mobile && npm test` | 53 suites, 1,145 tests |
+| Database tests | The real SQL files on PGlite, signing in as each role, and the stand-in itself | `cd supabase/tests && npm test` | 92 suites, 456 tests |
+| Website checks | Types, lint, unit tests for the helpers that don't need a browser (ecology, sensor GPS, the sign in limit and the health check) and a production build. The pages themselves are covered by the database tests and by hand | `cd web && npm run lint && npm test && npm run build` | 25 tests |
+| By hand, end to end | The phone on the iOS simulator and the website in a browser, both against the stand-in with made up data. [Item 43](test-results/item-43-integration.md) ran the phone, website and edge device together | The steps are in each results page | 46 results pages |
 | Security | Access checks as each role, headers, cookies, photo metadata, packages. Scope and tools are in the [assessment plan](security/vulnerability-assessment-plan.md) | The commands in the [results](test-results/item-25-27-security.md) | Findings are kept private until hosted is fixed |
 | IoT | Compiling the sensor node sketch, and a simulated ESP32 that sends through the real edge device to Supabase and can fake floods, rain, a moved node and movement | `arduino-cli compile` and `iot-edge fake-thing` (`iot/edge-device/tools/fake-thing.py`), see [item 28](test-results/item-28-iot-framework.md) and [item 29](test-results/item-29-sensor-pipeline.md) | Compile only for the hardware |
 | CI | Lint, types, unit tests, Expo Doctor, website build and SQL tests on every push and pull request | GitHub Actions | 3 jobs |
@@ -60,15 +61,16 @@ the tests caught it. A bug we find by hand gets a test along with its fix.
 | --- | --- | --- |
 | Umer's Mac | All local testing | macOS, Node 22, Xcode 26.5 |
 | iOS simulator | Phone by hand | iPhone 17 Pro on iOS 26.5, Expo Go for SDK 57, plus a development build for SQLCipher |
-| Stand-in | Local Supabase in its place | `supabase/tests/stand-in.js`, the same SQL on PGlite, in memory. Test accounts use `@example.test` |
+| Stand-in | Local Supabase in its place, and our staging for now ([deployment.md](deployment.md)) | `supabase/tests/stand-in.js`, the same SQL on PGlite, in memory. Test accounts use `@example.test` |
+| Edge device on the Mac | Item 43's sensor path | Python 3.12, Mosquitto 2.1.4 on port 1884, and `fake-thing.py` in place of a node |
 | GitHub Actions | CI | `ubuntu-latest`, Node 22 |
 
 Still needed:
 
 - Two Android phones (Android 10 or newer) and one iPhone, each with a passcode
 - Chrome, Edge, Safari and Firefox, on desktop and on a phone screen
-- The hosted Supabase project with 003 to 021 run, and the website redeployed from `main`, since the
-  live site is older than that
+- The hosted Supabase project brought up to `main` and the website redeployed from `main`
+  ([hosted-setup.md](hosted-setup.md)), since the live site is older than that
 - An ESP32 node and edge device with their sensors, for the flash, the alert timing and the 24 hour
   run
 - A printer and laminate for the QR tags
@@ -102,7 +104,9 @@ The Basic Functionalities in the Scope, and where each one is tested.
 | IoT | Real time sensing and data storage | [Item 28](test-results/item-28-iot-framework.md), [Item 29](test-results/item-29-sensor-pipeline.md) |
 | IoT | Threat detection and alerts | [Item 31](test-results/item-31-threat-alerts.md) |
 | IoT | Monitoring dashboard | [Item 30](test-results/item-30-monitoring-dashboard.md) |
-| IoT | GPS based tracking, ecological analysis | Items 32 and 33, after Sprint #2 |
+| IoT | GPS based tracking, ecological analysis | [Items 32 and 33](test-results/item-32-33-sensor-maps-ecology.md) |
+| Whole system | A record from the phone to the public site, and a sensor alert to the dashboard | [Item 43](test-results/item-43-integration.md) |
+| Whole system | Speed with 10,000 records | [Item 37](test-results/item-37-performance.md) |
 | Innovation | Limits of current methods, improved workflow | [Item 38](innovation/ground-truthing-limitations.md), [Item 39](innovation/improved-workflow.md). Testing it is items 40 and 41 |
 
 ## Usability test for Week 10

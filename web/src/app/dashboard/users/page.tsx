@@ -21,15 +21,13 @@ const ROLES: DbRole[] = ["researcher", "botanist", "conservation_officer", "admi
 
 // What each role can do. These match the Row Level Security rules in
 // supabase/006_role_based_access.sql (item 4), so the database checks them
-// itself and not only the website.
+// itself and not only the website. The database also lets a botanist fix their
+// own record while it waits for review, but no screen does that yet, so it
+// isn't listed here.
 
 const PERMISSIONS: { label: string; roles: DbRole[] }[] = [
   {
     label: "Record plants in the mobile app",
-    roles: ["botanist", "conservation_officer", "admin"],
-  },
-  {
-    label: "Fix their own records while they wait for review",
     roles: ["botanist", "conservation_officer", "admin"],
   },
   {

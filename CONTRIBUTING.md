@@ -7,7 +7,7 @@
 3. Commit small and often, with a message that says what you did (`Add GPS capture to plant form`).
 4. When it works, open a **pull request** into `main` and put the item number in the title, for example `Item 6: QR code scanner`.
 5. **One other teammate reviews and approves** before it gets merged. This is part of our Definition of Done.
-6. **Wait for the green tick.** GitHub runs lint, typecheck, the unit tests and the website build on every pull request. If one fails, fix it before merging.
+6. **Wait for the green tick.** GitHub runs three jobs on every pull request and every push to `main`: Mobile app (lint, typecheck, unit tests and Expo Doctor), Web platform (lint, unit tests and the build) and Database (every SQL file on PGlite, then what each role can and can't do). If one fails, fix it before merging.
 7. Pull `main` before you start work each day so you're not building on old code.
 
 ## With GitHub Desktop

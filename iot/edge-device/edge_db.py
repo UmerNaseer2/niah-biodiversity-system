@@ -36,7 +36,7 @@ ALERT_TYPES = {"SATURATED", "DRY", "HEAVY", "RAIN", "MOVED", "NO_ECHO", "MOTION"
 DEFAULT_ALERTS = ["SATURATED", "HEAVY", "MOVED", "NO_ECHO", "MOTION"]
 
 # Calibration and alert settings used until Supabase sends a node's own values
-# (public.nodes). The edge needs them only to spot an alert early and send it first;
+# (public.iot_nodes). The edge needs them only to spot an alert early and send it first;
 # Supabase decides alerts and their ends itself. alert_confirm_readings is 1 because
 # the node already sends at once when a condition starts and debounces it itself
 # (ultrasonic: 3 checks in a row; soil and rain: hysteresis).
@@ -250,7 +250,7 @@ CREATE TABLE IF NOT EXISTS rejected (
     reason      TEXT
 );
 
--- Each node's calibration as last received from Supabase (public.nodes).
+-- Each node's calibration as last received from Supabase (public.iot_nodes).
 CREATE TABLE IF NOT EXISTS calibration (
     node_id        TEXT PRIMARY KEY,
     soil_dry_raw   INTEGER NOT NULL,

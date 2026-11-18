@@ -664,7 +664,9 @@ Deno.serve(async (req: Request) => {
       console.warn(`edge-com: ${(e as Error).message}, so nothing from this batch was kept`);
       return reply(req, 429, { error: (e as Error).message });
     }
+    // The reason goes to the function's logs only. The database's own message can name tables and
+    // checks, and this answer can reach a caller before its token has been checked.
     console.error("edge-com failed:", e);
-    return reply(req, 500, { error: `server error: ${(e as Error).message}` });
+    return reply(req, 500, { error: "server error" });
   }
 });
