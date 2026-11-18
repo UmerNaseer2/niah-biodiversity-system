@@ -88,12 +88,14 @@ with it.
 | --- | --- | --- | --- | --- |
 | `records` (table) | One row per tagged plant from the field | Field staff read their own, staff read all | Field staff add their own as `waiting`. Botanists edit their own while waiting. Staff review, edit and delete any record | Phone uploads and reads back status. Dashboard records and review pages |
 | `records_public` (view) | Published records only. The exact spot only for a species that is LC or NT, not protected in Sarawak and not set to rough area only. Other records get the middle of a grid square and the day, not the time (019) | Anyone | Nobody | Public pages, `/tag/<code>`, the phone's visitor download |
-| `records_staff` (view) | Every record with its exact point | Staff | Nobody | Most dashboard pages, `report_counts` |
+| `records_staff` (view) | Every record with its exact point | Staff | Nobody | Most dashboard pages, `report_counts`, the plants near an alert on the phone |
+| `record_visits_public` (view) | Which published records are visits (`id`) and the first record of their plant (`visit_of`), only when both are approved (028) | Anyone | Nobody | `/tag/<code>` later visits, the phone's visitor download |
 | `deleted_records` (table) | The ID of every deleted record, with who and when | Staff | Only its trigger | No app reads it. The phone reacts to the `deleted_records_pkey` error it causes |
 | `record_history` (table) | Every change to a record, with the old and new value of each column | Staff | Only its trigger | The record edit page |
 
 What a phone can send when it adds a record is limited by a column grant: `id, species_name,
-species_slug, common_name, height_m, condition, notes, gps, photo_count, recorded_at`. Triggers fill
+species_slug, common_name, height_m, condition, notes, gps, photo_count, recorded_at, visit_of`. A
+visit is a record whose `visit_of` is its plant's first record (028). Triggers fill
 in the tag code, who sent it and who reviewed it, so nobody can send someone else's name. The phone
 inserts without asking for the row back, then reads `id, status, review_notes` for its own records
 to show the review status (`mobile/src/sync/supabase-api.ts`).
@@ -147,7 +149,7 @@ only) and two days in park time, either of which can be null.
 | `iot_nodes` (table) | Each sensor node, the device it sends through, its calibration and alert settings | Staff | Admins | Sensors and Devices pages, `edge-com` |
 | `iot_readings` (table) | Every reading, as raw values | Staff | Only `edge-com` | Sensors pages |
 | `iot_boots` (table) | One row each time a node powers up, with its position and its first and last reading | Staff | Only `edge-com` | Sensors pages |
-| `iot_alerts` (table) | One row for each problem on a node | Staff | `edge-com` raises them. Staff acknowledge, resolve and send a patrol through the functions below | Sensors pages, the alert count in the dashboard menu |
+| `iot_alerts` (table) | One row for each problem on a node | Staff | `edge-com` raises them. Staff acknowledge, resolve and send a patrol through the functions below | Sensors pages, the alert count in the dashboard menu, the phone's Home tab |
 | `iot_alert_state` (table) | `edge-com`'s working state for each node and condition | Nobody through the API | Only `edge-com` | `edge-com` |
 | `iot_commands` (table) | Commands for nodes (locate beep on or off, reset the distance baseline) | Staff | Staff add one with `node_id` and `command`. After that only `edge-com` moves it along | Sensors pages, `edge-com` |
 | `iot_node_status` (view) | Each node's latest reading, its soil and rain percent, open alerts and position | Staff | Nobody | Sensors pages, ecology CSV |
@@ -181,14 +183,15 @@ All of these are only open to signed in users (`authenticated`). Call them with
 | --- | --- | --- |
 | `iot_check_alerts()` | Staff | Raises any QUIET alerts that are due, then returns `{ "urgent": n, "open": n }` for open alerts that haven't cleared and didn't come from a backlog |
 | `iot_acknowledge_alert(alert bigint)` | Staff | Marks an alert acknowledged. Returns `{ id, status }`. Doing it twice changes nothing |
+| `find_plant_by_tag(code text)` | Field staff | Finds a plant by its tag code, typed in any case, so a phone can add a visit to a plant another phone recorded (029). A visit's code gives its plant. Returns the plant's first record (`id, tag_code, species_name, common_name, species_slug, condition, recorded_at, status`) with `visit_count, last_visit_at, last_visit_condition`. Never the spot, notes, photos, review notes or who recorded it. No rows when nothing has that code or it isn't a tag code |
 | `iot_resolve_alert(alert bigint)` | Staff | Marks an alert resolved and updates the node's status. Returns `{ id, status }` |
 | `iot_dispatch_patrol(alert bigint, notes text default null)` | Staff | Records that a patrol was sent, and acknowledges the alert. Notes are cut to 500 characters. Returns `{ ok, message }`, with `ok` false if the alert is gone, resolved or already has a patrol |
 | `iot_make_device_token(device text)` | Admins | Makes a new token for an edge device and returns `{ device_id, token, token_made_at }`. The token is only shown this once, and the old one stops working |
 | `report_counts(scope, from_day, to_day)` | Anyone signed in, but only staff get real numbers | See [Reports](#reports) |
 
-When the caller isn't allowed, the IoT functions raise error `42501`, except `iot_dispatch_patrol`,
-which returns `ok: false`. Acknowledging or resolving an alert that doesn't exist raises "There's no
-alert" with its number.
+When the caller isn't allowed, the IoT functions and `find_plant_by_tag` raise error `42501`,
+except `iot_dispatch_patrol`, which returns `ok: false`. Acknowledging or resolving an alert that
+doesn't exist raises "There's no alert" with its number.
 
 Some functions are only helpers for policies and checks: `has_any_role`, `species_photos_ok` and
 `iot_raw_pct` (turns a raw soil or rain value into a percent with the node's calibration).

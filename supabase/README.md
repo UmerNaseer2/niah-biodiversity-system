@@ -41,12 +41,14 @@ kept, and you can fix the problem and run it again.
 | `026_iot_gps_mapping.sql` | Each node's position (latitude and longitude) for the map, shown in `iot_node_status`, and sending a patrol to an alert, which officers and admins do from the Sensors page | 32 | Yes |
 | `027_iot_daily_summary.sql` | Each node's lowest, average and highest temperature, humidity and soil moisture for today and the 6 days before, by park time, for the Sensors page. Officers and admins only | 30 | Yes |
 | `028_record_visits.sql` | Visits to a plant that already has a record. A visit is a new record with `visit_of` set to the plant's first record, so the first record stays as it was. Deleting the first record keeps its visits as records on their own. The public sees which records are visits through `record_visits_public`, only when both records are approved, and a visit only shows its exact spot when the first record would too | 40 | Yes |
+| `029_find_plant_by_tag.sql` | `find_plant_by_tag`, so field staff can find a plant by its tag code when another phone recorded it and add a visit to it. It only gives back the plant's name, condition, date, review status and visits, never the spot, notes, photos or who recorded it | 40 | Yes |
 
 On 18 Nov 2026 `tests/check-hosted.js` (below) found 001 on the hosted project and nothing after it
-(002 can't be seen from outside). Run 003, 004, 005, 006, 007, 008, 009, 010,
-011, 012, 013, 014, 015, 016_1 to 017, 019, 020, 021, 022 to 027 and 028 next, one file at a time, in
-that order, and don't stop part way. On a new project, run 001 and 002 first. There's no 018 file: the number was held for the phone's photos, and they
-didn't need one. The website's species pages (add, edit and delete) and its public pages need 007,
+(002 can't be seen from outside). Run 003, 004, 005, 006, 007, 008, 009, 010, 011, 012, 013, 014,
+015, 016_1 to 017, 019, 020, 021, 022 to 027, 028 and 029 next, one file at a time, in that order,
+and don't stop part way. On a new project, run 001 and 002 first. There's no 018 file: the number
+was held for the phone's photos, and they didn't need one. The website's species pages (add, edit
+and delete) and its public pages need 007,
 and 007 stops on its first line if 006 isn't there. Until then the public pages say "This page
 didn't load". Without 009 the plant pages show no photos. Without 010 a phone that hadn't synced a
 record can upload it again after an officer deletes it. Without 011 the website turns down every
@@ -68,7 +70,9 @@ so. Changing roles still works. 021 stops on its first line if 020 isn't there. 
 once 021 is in, so earlier changes aren't in it. Without 022 nothing limits how many readings an
 edge device can add. 022 stops on its first line if 021 isn't there. Without 028 the phone keeps
 its visits waiting to upload and tries again later, and the website shows no visits. 028 stops on
-its first line if 027 isn't there. 003 is fine to run even if it
+its first line if 027 isn't there. Without 029 a staff phone only finds plants recorded on that
+phone and published ones, and a tag from another phone says "Couldn't look up the plant". 029
+stops on its first line if 028 isn't there. 003 is fine to run even if it
 turns out to be there already. The history only starts once 013 is in, so changes made before
 that aren't in it.
 
@@ -190,13 +194,16 @@ npm test
   function (items 28 to 31),
   `tests/public-details.test.js` checks 019, `tests/record-photo-access.test.js` checks 020,
   `tests/role-changes.test.js` checks 021, `tests/iot-limit.test.js` checks 022 through
-  `edge-com` (item 26) and `tests/visits.test.js` checks 028 (item 40).
+  `edge-com` (item 26), `tests/visits.test.js` checks 028 (item 40) and
+  `tests/find-plant.test.js` checks 029 (item 40).
 - `tests/check-hosted.js` says which SQL files a Supabase project has, using only its URL and
   anon key, and whether `edge-com` is deployed with JWT verification off. It only reads: it asks
-  for no rows of a table or column each file adds and never calls a function. A file that only
-  changes policies or functions can't be seen from outside, but from 006 on each file needs the one
-  before it, so a later file being there says the earlier ones are too. `npm run check-hosted` runs
-  it with the keys in `web/.env.local`, and it ends by listing the files to run next.
+  for no rows of a table or column each file adds. For 029 it asks to run `find_plant_by_tag`,
+  which the anon key isn't allowed to do, so the database turns it away before it runs. A file
+  that only changes policies or functions can't be seen from outside, but from 006 on each file
+  needs the one before it, so a later file being there says the earlier ones are too.
+  `npm run check-hosted` runs it with the keys in `web/.env.local`, and it ends by listing the
+  files to run next.
   [`docs/hosted-setup.md`](../docs/hosted-setup.md) has the rest of the steps.
   `tests/check-hosted.test.js` checks it against the stand-in.
 - `tests/stand-in.js` is a stand-in for our Supabase project that runs on your computer, for
