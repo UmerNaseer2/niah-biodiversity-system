@@ -4,6 +4,7 @@ import { Icon } from "@/components/icon";
 import { PageHeader } from "@/components/page-header";
 import { requireStaff } from "@/lib/auth";
 import {
+  NEAR_NODE_M,
   RISK_LABELS,
   buildZoneEcologies,
   summarizeEcologicalStatus,
@@ -13,12 +14,13 @@ import { formatDateTime, parkTime, plural } from "@/lib/format";
 import { ALERT_COLUMNS, NODE_COLUMNS, alertFromRow, nodeFromRow } from "@/lib/iot";
 import { checkAlerts, sqlIsMissing } from "@/lib/iot-db";
 import { recordFromRow } from "@/lib/records-staff";
+import { notSetUp, SENSOR_FILES } from "@/lib/setup-hint";
 import { readAll } from "@/lib/supabase/read-all";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "Ecology" };
 
-const RECORD_COLUMNS = "id, tag_code, species_slug, species_name, common_name, notes, condition, recorded_at, status";
+const RECORD_COLUMNS = "id, species_slug, species_name, common_name, gps, condition, recorded_at, status";
 
 const RISK_BADGES: Record<MicroclimateRisk, string> = {
   optimal: "bg-forest-soft text-forest-deep",
@@ -98,7 +100,8 @@ export default async function EcologyPage() {
       <div className="space-y-12">
         {header}
         <Problem>
-          The sensor tables aren’t on this database yet. Run the sensor SQL files in supabase/README.md first.
+          The sensor tables aren’t on this database yet, so there are no zones to show.{" "}
+          {notSetUp(me.role, SENSOR_FILES)}
         </Problem>
       </div>
     );
@@ -190,7 +193,9 @@ export default async function EcologyPage() {
         </div>
         <p className="mt-1 max-w-2xl text-moss">
           Each zone shows the average of its nodes’ newest readings, the plants recorded near it, and a
-          rating from the table at the bottom of the page.
+          rating from the table at the bottom of the page. A plant counts as near a zone when it was
+          recorded within {NEAR_NODE_M} m of one of the zone’s nodes. Nodes with no GPS spot are left out
+          of this.
         </p>
 
         <div className="mt-6 space-y-6">
@@ -252,7 +257,13 @@ export default async function EcologyPage() {
                         Plants recorded near here ({zone.plantSpecies.length})
                       </h4>
                       {zone.plantSpecies.length === 0 ? (
-                        <p className="mt-2 text-sm text-moss">No plant records mention this zone yet.</p>
+                        <p className="mt-2 text-sm text-moss">
+                          {zone.nodes.length === 0
+                            ? "This zone has no nodes yet, so no plants can be matched to it."
+                            : zone.nodes.some((n) => n.latitude !== null && n.longitude !== null)
+                              ? `No plants recorded within ${NEAR_NODE_M} m of a node here yet.`
+                              : "None of the nodes here has a GPS spot yet, so no plants can be matched to this zone."}
+                        </p>
                       ) : (
                         <ul className="mt-2 flex flex-wrap gap-2 text-sm">
                           {zone.plantSpecies.map((plant) => (

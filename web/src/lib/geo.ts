@@ -41,6 +41,22 @@ export function roughCentre(lat: number, lng: number) {
 
 const METRES_PER_DEGREE = 111_320;
 
+const EARTH_RADIUS_M = 6_371_000;
+
+/** How far apart two points are in metres, along the ground (the haversine formula) */
+export function metresBetween(
+  a: { lat: number; lng: number },
+  b: { lat: number; lng: number },
+) {
+  const radians = (degrees: number) => (degrees * Math.PI) / 180;
+  const dLat = radians(b.lat - a.lat);
+  const dLng = radians(b.lng - a.lng);
+  const h =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(radians(a.lat)) * Math.cos(radians(b.lat)) * Math.sin(dLng / 2) ** 2;
+  return 2 * EARTH_RADIUS_M * Math.asin(Math.min(1, Math.sqrt(h)));
+}
+
 /** "about 450 m south east of park HQ", only for plants whose spot is public */
 export function fromHq(lat: number, lng: number) {
   const north = (lat - PARK_HQ.lat) * METRES_PER_DEGREE;
