@@ -41,7 +41,8 @@ kept, and you can fix the problem and run it again.
 | `026_iot_gps_mapping.sql` | Each node's position (latitude and longitude) for the map, shown in `iot_node_status`, and sending a patrol to an alert, which officers and admins do from the Sensors page | 32 | Yes |
 | `027_iot_daily_summary.sql` | Each node's lowest, average and highest temperature, humidity and soil moisture for today and the 6 days before, by park time, for the Sensors page. Officers and admins only | 30 | Yes |
 
-As of 16 Oct 2026 the hosted project has 001 and 002. Run 003, 004, 005, 006, 007, 008, 009, 010,
+On 18 Nov 2026 `tests/check-hosted.js` (below) found 001 on the hosted project and nothing after it
+(002 can't be seen from outside). Run 003, 004, 005, 006, 007, 008, 009, 010,
 011, 012, 013, 014, 015, 016_1 to 017, 019, 020, 021 and 022 to 027 next, one file at a time, in
 that order, and don't stop part way. On a new project, run 001 and 002 first. There's no 018 file: the number was held for the phone's photos, and they
 didn't need one. The website's species pages (add, edit and delete) and its public pages need 007,
@@ -187,6 +188,14 @@ npm test
   `tests/public-details.test.js` checks 019, `tests/record-photo-access.test.js` checks 020,
   `tests/role-changes.test.js` checks 021 and `tests/iot-limit.test.js` checks 022 through
   `edge-com` (item 26).
+- `tests/check-hosted.js` says which SQL files a Supabase project has, using only its URL and
+  anon key, and whether `edge-com` is deployed with JWT verification off. It only reads: it asks
+  for no rows of a table or column each file adds and never calls a function. A file that only
+  changes policies or functions can't be seen from outside, but from 006 on each file needs the one
+  before it, so a later file being there says the earlier ones are too. `npm run check-hosted` runs
+  it with the keys in `web/.env.local`, and it ends by listing the files to run next.
+  [`docs/hosted-setup.md`](../docs/hosted-setup.md) has the rest of the steps.
+  `tests/check-hosted.test.js` checks it against the stand-in.
 - `tests/stand-in.js` is a stand-in for our Supabase project that runs on your computer, for
   trying the website without a real project. The
   [web README](../web/README.md#trying-sign-in-without-a-supabase-project) says how, and
