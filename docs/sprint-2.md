@@ -103,17 +103,21 @@ These are scheduled for Weeks 10 to 11 in the proposal, after the Sprint #2 revi
 
 ## Verification and documentation (items 34 to 37)
 
-- [ ] 34. Mobile-to-Web Data Sync Verification. Partly done. [Item 43](test-results/item-43-integration.md)
-  followed a record from the phone to the review queue and the public tag page on the stand-in, and
-  [item 10](test-results/item-10-sync.md) covers the sync itself. Not tried on hosted or a real phone yet
+- [ ] 34. Mobile-to-Web Data Sync Verification. Stand-in part done 18 Nov, see [test results](test-results/item-34-sync.md):
+  sync on sign in, reject and send back, a visit, approve, a new species, all between a simulator
+  and the website. The real phone and hosted checklist in the same file still needs running
 - [x] 35. API Documentation & Developer Guide. Done 18 Nov, see [API reference](api-reference.md)
 - [x] 36. User Documentation (Mobile & Web). Done 18 Nov, see [user guide](user-guide.md)
 - [x] 37. Performance Optimization & Load Testing. Done 18 Nov, see [test results](test-results/item-37-performance.md)
 
 ## Innovation, second half (items 40 and 41)
 
-- [ ] 40. Innovative Solution Implementation
-- [ ] 41. Validation & Testing of Innovation
+- [x] 40. Innovative Solution Implementation. Done 18 Nov: later visits to a plant, code only tags for
+  hidden plants, and the tagged plants near each sensor and alert. See
+  [what item 40 built](innovation/improved-workflow.md#what-item-40-built-and-whats-left). Tried on a
+  simulator and the stand-in only
+- [ ] 41. Validation & Testing of Innovation. Lab part done 18 Nov, see [lab checks](test-results/item-41-lab-checks.md).
+  Every target still needs measuring in the field
 
 ## Release (items 42 to 44)
 
