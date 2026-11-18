@@ -25,7 +25,7 @@ export type ReviewItem = {
   scientificName: string;
   /** The name on the record, only if it's a different plant from the linked species */
   nameDisagreesWith: string | null;
-  /** A common name the ranger typed, only if we don't have it for this species */
+  /** A common name the recorder typed, only if we don't have it for this species */
   newCommonName: string | null;
   /** Null while the plant isn't matched to a species yet */
   iucn: IucnCode | null;
@@ -63,7 +63,7 @@ function checksFor(item: ReviewItem) {
     checks.push({
       ok: false,
       text:
-        `The ranger typed the common name “${item.newCommonName}”, which we don’t ` +
+        `The recorder typed the common name “${item.newCommonName}”, which we don’t ` +
         "have for this species. It shows on the public page",
     });
   }
@@ -301,7 +301,7 @@ export function ReviewQueue({
                     {item.notes && (
                       <figure className="mt-5 border-l-4 border-line pl-4">
                         <figcaption className="text-sm text-moss">
-                          Ranger’s note
+                          Recorder’s note
                         </figcaption>
                         <blockquote className="whitespace-pre-line">{item.notes}</blockquote>
                       </figure>
@@ -375,7 +375,7 @@ export function ReviewQueue({
                           Why are you rejecting it?
                         </label>
                         <p id={`reason-${item.id}-hint`} className="text-sm text-moss">
-                          The ranger sees this on their phone after their next sync, so say what to fix.
+                          The person who recorded it sees this on their phone after their next sync, so say what to fix.
                         </p>
                         {reasonError && (
                           <p

@@ -33,7 +33,7 @@ export function tidyReason(reason: string) {
 }
 
 /** What a rejection with no reason says, in the page and in the action */
-export const REASON_MISSING = "Write a reason so the ranger knows what to fix.";
+export const REASON_MISSING = "Write a reason so the recorder knows what to fix.";
 
 /** Capitals and extra spaces don't count, so "Shorea  MACROPHYLLA" is the same name */
 function sameName(a: string, b: string) {
@@ -52,7 +52,7 @@ export function nameDisagrees(recordName: string, linkedScientificName: string) 
   return !sameName(recordName, linkedScientificName);
 }
 
-/** Whether a common name the ranger typed isn't one we have for the species */
+/** Whether a common name the recorder typed isn't one we have for the species */
 export function commonNameIsNew(commonName: string | null, known: string[]) {
   return Boolean(commonName) && !known.some((name) => sameName(name, commonName ?? ""));
 }

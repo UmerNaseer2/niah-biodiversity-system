@@ -103,7 +103,7 @@ export const MIGRATIONS: readonly string[] = [
   CREATE INDEX plant_records_recorded_at ON plant_records (recorded_at);`,
 
   // Version 5: what an officer decided about a record once it's on the server, read back when the
-  // phone syncs, so a ranger can see why a record was rejected even with no signal. Null means the
+  // phone syncs, so the recorder can see why a record was rejected even with no signal. Null means the
   // phone hasn't heard yet. sync_meta holds small things about syncing, like when it last worked.
   `ALTER TABLE plant_records ADD COLUMN review_status TEXT CHECK (
     review_status IS NULL OR review_status IN ('waiting', 'published', 'rejected')

@@ -15,7 +15,7 @@ import { getSpeciesList } from "@/lib/species-db";
 // The order things really happen in, so the numbers mean something
 const STEPS = [
   {
-    title: "A ranger tags it",
+    title: "Field staff tag it",
     text: "They nail a tag to the plant, scan it with our app and fill in the species, height, condition and GPS point.",
     where: "Mobile app",
   },
