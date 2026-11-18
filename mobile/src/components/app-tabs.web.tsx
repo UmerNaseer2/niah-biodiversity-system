@@ -15,12 +15,17 @@ import type { IconName } from '@/constants/icons';
 import { MaxContentWidth, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { plural } from '@/lib/format';
+import { useSensorAlerts } from '@/state/alerts-context';
 import { useRecords } from '@/state/records-context';
 
 // Native tabs don't run in the browser, so the web preview draws its own bottom bar that
 // looks close to the Android one. Keep the tabs in the same order as app-tabs.tsx.
 export default function AppTabs() {
   const { pendingCount, mode } = useRecords();
+  // Only an officer's or admin's phone checks for sensor alerts, so only they get this number.
+  const alerts = useSensorAlerts();
+  const alertCount = alerts.enabled ? alerts.total : 0;
+  const alertsNeed = alertCount === 1 ? 'needs' : 'need';
   // Visitors only read about plants, so the tabs for making and sending records are left out,
   // and only visitors get Plants and History.
   const visitor = mode === 'visitor';
@@ -31,7 +36,12 @@ export default function AppTabs() {
       <TabList asChild>
         <TabBar>
           <TabTrigger name="index" href="/" asChild>
-            <TabButton icon="home" label="Home" />
+            <TabButton
+              icon="home"
+              label="Home"
+              badge={alertCount}
+              badgeLabel={`${plural(alertCount, 'sensor alert')} ${alertsNeed} someone`}
+            />
           </TabTrigger>
           <TabTrigger name="scan" href="/scan" asChild>
             <TabButton icon="scan" label="Scan" />
@@ -43,7 +53,12 @@ export default function AppTabs() {
           )}
           {visitor ? null : (
             <TabTrigger name="records" href="/records" asChild>
-              <TabButton icon="records" label="My Records" badge={pendingCount} />
+              <TabButton
+                icon="records"
+                label="My Records"
+                badge={pendingCount}
+                badgeLabel={`${plural(pendingCount, 'record')} waiting to sync`}
+              />
             </TabTrigger>
           )}
           {visitor ? (
@@ -96,9 +111,11 @@ type TabButtonProps = TabTriggerSlotProps & {
   label: string;
   /** Number shown in a bubble on the icon. Hidden when 0. */
   badge?: number;
+  /** What a screen reader says about the bubble, like "2 records waiting to sync". */
+  badgeLabel?: string;
 };
 
-function TabButton({ icon, label, badge = 0, isFocused, ...props }: TabButtonProps) {
+function TabButton({ icon, label, badge = 0, badgeLabel, isFocused, ...props }: TabButtonProps) {
   const theme = useTheme();
   const color = isFocused ? theme.primary : theme.textSecondary;
 
@@ -107,7 +124,7 @@ function TabButton({ icon, label, badge = 0, isFocused, ...props }: TabButtonPro
       {...props}
       role="tab"
       aria-selected={isFocused}
-      aria-label={badge > 0 ? `${label}, ${plural(badge, 'record')} waiting to sync` : label}
+      aria-label={badge > 0 && badgeLabel ? `${label}, ${badgeLabel}` : label}
       style={({ pressed }) => [styles.tab, pressed && styles.pressed]}>
       <View style={[styles.iconPill, isFocused && { backgroundColor: theme.primarySoft }]}>
         <Icon name={icon} size={22} color={color} />

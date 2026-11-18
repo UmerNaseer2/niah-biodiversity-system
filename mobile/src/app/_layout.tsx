@@ -5,6 +5,7 @@ import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { AccountProvider } from '@/state/account-context';
 import { PublicCopyProvider } from '@/state/public-copy-context';
+import { SensorAlertsProvider } from '@/state/alerts-context';
 import { RecordsProvider, useRecords } from '@/state/records-context';
 import { SyncProvider } from '@/state/sync-context';
 
@@ -68,7 +69,9 @@ export default function RootLayout() {
         <RecordsProvider>
           <SyncProvider>
             <PublicCopyProvider>
-              <RootStack tint={colors.primary} />
+              <SensorAlertsProvider>
+                <RootStack tint={colors.primary} />
+              </SensorAlertsProvider>
             </PublicCopyProvider>
           </SyncProvider>
         </RecordsProvider>
