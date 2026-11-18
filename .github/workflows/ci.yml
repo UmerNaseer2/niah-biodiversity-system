@@ -128,3 +128,22 @@ jobs:
         # Runs our SQL files in order on PGlite (Postgres built for WebAssembly), then checks what
         # each kind of user can and can't do. No Supabase project or keys needed.
         run: npm test
+
+  edge:
+    name: Edge device
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: iot/edge-device
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Unit tests
+        # The runner's own Python 3 (3.12 on Ubuntu 24.04), in a venv so pip can install
+        # requirements.txt. The tests use a fake edge-com, so no Supabase or MQTT broker is needed.
+        run: |
+          python3 -m venv "$RUNNER_TEMP/venv"
+          "$RUNNER_TEMP/venv/bin/pip" install --quiet -r requirements.txt
+          "$RUNNER_TEMP/venv/bin/python" -m unittest discover -s tests -v
