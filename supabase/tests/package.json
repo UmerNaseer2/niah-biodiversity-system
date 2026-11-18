@@ -6,7 +6,8 @@
   "type": "module",
   "scripts": {
     "test": "node --test",
-    "stand-in": "node stand-in.js"
+    "stand-in": "node stand-in.js",
+    "check-hosted": "node --env-file=../../web/.env.local check-hosted.js"
   },
   "devDependencies": {
     "@electric-sql/pglite": "0.5.8"
