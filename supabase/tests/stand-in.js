@@ -187,16 +187,23 @@ export async function startStandIn({
     if (!columns.has(row.table_name)) columns.set(row.table_name, new Set());
     columns.get(row.table_name).add(row.column_name);
   }
-  // ... and the functions in public that /rest/v1/rpc/ can call, with each argument's type
+  // ... and the functions in public that /rest/v1/rpc/ can call, with each argument's type and
+  // whether it gives back rows. A function that RETURNS TABLE lists its columns with its
+  // arguments, marked 't', so only the ones going in are kept.
   const functions = new Map();
   const listed = await db.query(
-    `SELECT p.proname AS name, p.proargnames AS args,
+    `SELECT p.proname AS name, p.proargnames AS args, p.proargmodes::text[] AS modes,
+       p.proretset AS rows,
        array(SELECT format_type(t, NULL) FROM unnest(p.proargtypes) AS t) AS types
      FROM pg_proc AS p JOIN pg_namespace AS n ON n.oid = p.pronamespace
      WHERE n.nspname = 'public' AND p.prokind = 'f'`,
   );
   for (const row of listed.rows) {
-    functions.set(row.name, new Map((row.args ?? []).map((arg, i) => [arg, row.types[i]])));
+    const inputs = (row.args ?? []).filter((_, i) => !row.modes || ['i', 'b'].includes(row.modes[i]));
+    functions.set(row.name, {
+      args: new Map(inputs.map((arg, i) => [arg, row.types[i]])),
+      rows: row.rows,
+    });
   }
 
   // PGlite has one connection, so requests take turns
@@ -1247,7 +1254,7 @@ async function rest(req, res, url, body, { auth, columns, db, functions, maxRows
 /**
  * Calls a function in public, like supabase.rpc(name, args) does. The stand-in only takes what
  * supabase.rpc() sends by default: a POST with the arguments by name in a JSON object. It sends
- * back the one value the function gives, so it doesn't do functions that give back rows.
+ * back the one value the function gives, or a list of rows for a function that gives back rows.
  */
 async function rpc(req, res, url, body, user, { db, functions, oneAtATime }) {
   if (req.method !== 'POST') {
@@ -1261,25 +1268,26 @@ async function rpc(req, res, url, body, user, { db, functions, oneAtATime }) {
   const known = IDENT.test(name) ? functions.get(name) : undefined;
   const names = Object.keys(args);
   // Only names the function really has get into the SQL
-  if (!known || !names.every((arg) => known.has(arg))) {
+  if (!known || !names.every((arg) => known.args.has(arg))) {
     throw new Refusal(404, 'PGRST202',
       `Could not find the function public.${name}(${names.join(', ')}) in the schema cache`);
   }
-  const list = names.map((arg, i) => `"${arg}" => $${i + 1}::${known.get(arg)}`).join(', ');
+  const list = names.map((arg, i) => `"${arg}" => $${i + 1}::${known.args.get(arg)}`).join(', ');
   const params = names.map((arg) =>
     args[arg] !== null && typeof args[arg] === 'object' ? JSON.stringify(args[arg]) : args[arg]);
 
+  const sql = known.rows
+    ? `SELECT * FROM public."${name}"(${list})`
+    : `SELECT public."${name}"(${list}) AS value`;
   let rows;
   try {
-    ({ rows } = await oneAtATime(() =>
-      asUser(db, user, (tx) => tx.query(`SELECT public."${name}"(${list}) AS value`, params)),
-    ));
+    ({ rows } = await oneAtATime(() => asUser(db, user, (tx) => tx.query(sql, params))));
   } catch (error) {
     if (typeof error.code !== 'string') throw error;
     throw new Refusal(statusFor(error.code, user !== null), error.code, error.message,
       error.detail ?? null, error.hint ?? null);
   }
-  return send(res, 200, rows[0].value);
+  return send(res, 200, known.rows ? rows : rows[0].value);
 }
 
 // ----- Storage -----

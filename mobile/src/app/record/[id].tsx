@@ -278,9 +278,17 @@ export default function RecordScreen() {
                 }
               />
             ) : (
-              <ThemedText type="small" themeColor="textSecondary">
-                The first record isn&apos;t on this phone.
-              </ThemedText>
+              <>
+                <ThemedText type="small" themeColor="textSecondary">
+                  The first record isn&apos;t on this phone.
+                </ThemedText>
+                <Button
+                  label="Look up the plant"
+                  icon="search"
+                  variant="outline"
+                  onPress={() => router.push({ pathname: '/plant/[tag]', params: { tag: plantTag } })}
+                />
+              </>
             )}
           </>
         ) : (

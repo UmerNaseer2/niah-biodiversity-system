@@ -5,6 +5,7 @@ import { deleteDatabaseAsync } from 'expo-sqlite';
 import { AccessibilityInfo, AppState, Linking } from 'react-native';
 
 import ScanScreen from '@/app/(tabs)/scan';
+import PlantScreen from '@/app/plant/[tag]';
 import RecordScreen from '@/app/record/[id]';
 import { DATABASE_NAME } from '@/db/database';
 import { openRecordsStore } from '@/db/records-store';
@@ -72,7 +73,12 @@ function TestLayout() {
 /** Opens the Scan screen once the records saved on the phone have loaded. */
 async function renderScan() {
   const app = renderRouter(
-    { _layout: TestLayout, scan: ScanScreen, 'record/[id]': RecordScreen },
+    {
+      _layout: TestLayout,
+      scan: ScanScreen,
+      'record/[id]': RecordScreen,
+      'plant/[tag]': PlantScreen,
+    },
     { initialUrl: '/scan' },
   );
   await screen.findByLabelText('Tag code');
@@ -248,27 +254,28 @@ describe('Scanning a tag', () => {
     expect(app.getPathname()).toBe('/scan');
   });
 
-  it('says so when no record on this phone has the tag', async () => {
+  it("opens the plant page to look up a tag that isn't on this phone", async () => {
+    // Someone else may have recorded it. The lookup itself is in server-plant.test.tsx, and this
+    // build isn't linked to a server.
     const app = await renderScan();
     scan('NNP-ABCDEF');
-    const message = 'No record with tag NNP-ABCDEF on this phone.';
-    expect(screen.getByRole('alert')).toHaveTextContent(message);
-    expect(AccessibilityInfo.announceForAccessibility).toHaveBeenCalledWith(message);
-    expect(app.getPathname()).toBe('/scan');
+    expect(app.getPathname()).toBe('/plant/NNP-ABCDEF');
+    expect(await screen.findByText("Can't look up plants")).toBeVisible();
+    expect(screen.queryByRole('alert')).toBeNull();
   });
 
   it('reads a problem out once while the QR code stays in view', async () => {
     await renderScan();
-    scan('NNP-ABCDEF');
+    scan('Hello from Niah');
     for (let i = 0; i < 20; i++) {
       letTimePass(100);
-      scan('NNP-ABCDEF');
+      scan('Hello from Niah');
     }
     expect(AccessibilityInfo.announceForAccessibility).toHaveBeenCalledTimes(1);
 
     // Pointing the camera at it again reads it out again, even though the text is the same.
     letTimePass(RESCAN_AFTER_MS);
-    scan('NNP-ABCDEF');
+    scan('Hello from Niah');
     expect(AccessibilityInfo.announceForAccessibility).toHaveBeenCalledTimes(2);
   });
 
@@ -356,7 +363,7 @@ describe('Scanning a tag', () => {
 describe('Typing the tag code', () => {
   it('finds the record from a code typed in any case, with or without NNP', async () => {
     const app = await renderScan();
-    const findButton = screen.getByRole('button', { name: 'Find record' });
+    const findButton = screen.getByRole('button', { name: 'Find plant' });
     expect(findButton).toBeDisabled();
 
     fireEvent.changeText(tagCodeBox(), ' 3f2a9c ');
@@ -367,13 +374,22 @@ describe('Typing the tag code', () => {
     expect(tagCodeBox()).toHaveDisplayValue('');
   });
 
-  it('says so when no record has the typed code, until the code changes', async () => {
+  it("says so when what's typed isn't a tag code, until it changes", async () => {
     await renderScan();
-    fireEvent.changeText(tagCodeBox(), 'NNP-ABCDEF');
-    fireEvent(tagCodeBox(), 'submitEditing');
-    expect(screen.getByRole('alert')).toHaveTextContent('No record with that tag on this phone.');
-
     fireEvent.changeText(tagCodeBox(), 'NNP-ABCDE');
+    fireEvent(tagCodeBox(), 'submitEditing');
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      "That isn't a tag code. They look like NNP-3F2A9C.",
+    );
+
+    fireEvent.changeText(tagCodeBox(), 'NNP-ABCDEF');
     expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it('opens the plant page to look up a typed code that isn\'t on this phone', async () => {
+    const app = await renderScan();
+    fireEvent.changeText(tagCodeBox(), 'abcdef');
+    fireEvent(tagCodeBox(), 'submitEditing');
+    expect(app.getPathname()).toBe('/plant/NNP-ABCDEF');
   });
 });

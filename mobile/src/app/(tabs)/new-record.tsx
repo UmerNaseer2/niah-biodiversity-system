@@ -23,7 +23,7 @@ import { useGpsCapture } from '@/hooks/use-gps-capture';
 import { usePhotoCapture } from '@/hooks/use-photo-capture';
 import { useTheme } from '@/hooks/use-theme';
 import { conditionLabel, plural } from '@/lib/format';
-import { tagCodeFor } from '@/lib/id';
+import { isRecordId, tagCodeFor } from '@/lib/id';
 import {
   checkRecordForm,
   MAX_COMMON_NAME_LENGTH,
@@ -41,15 +41,30 @@ const NOTES_COUNTDOWN = 100;
 
 const SAVE_FAILED = "Couldn't save the record on this phone. Try again.";
 
+// Clears what Add a visit put in the params, so the form is for a new plant again.
+const NOT_A_VISIT = { visitOf: undefined, plantSpecies: undefined, plantCommonName: undefined };
+
 export default function NewRecordScreen() {
   const router = useRouter();
   const theme = useTheme();
   const { addRecord, getRecord, species: speciesList } = useRecords();
   // Add a visit on a record's page opens this form with the plant's first record. A visit is a
-  // new record about the same plant, so the first record stays the way it was.
-  const params = useLocalSearchParams<{ visitOf?: string }>();
+  // new record about the same plant, so the first record stays the way it was. A plant from the
+  // plant info or from the server isn't one of this phone's records, so its ID is used as it is
+  // and its names come along in the params. Those are always first records, and the server
+  // checks that again when the visit uploads.
+  const params = useLocalSearchParams<{
+    visitOf?: string;
+    plantSpecies?: string;
+    plantCommonName?: string;
+  }>();
   const visitTo = params.visitOf ? getRecord(params.visitOf) : undefined;
-  const visitOf = visitTo ? firstRecordId(visitTo) : undefined;
+  let visitOf: string | undefined;
+  if (visitTo) {
+    visitOf = firstRecordId(visitTo);
+  } else if (isRecordId(params.visitOf)) {
+    visitOf = params.visitOf.toLowerCase();
+  }
   const plantTag = visitOf ? (getRecord(visitOf)?.tagCode ?? tagCodeFor(visitOf)) : undefined;
   const gps = useGpsCapture({ active: useIsFocused() });
   const photos = usePhotoCapture();
@@ -74,8 +89,8 @@ export default function NewRecordScreen() {
     setFilledFor(visitOf);
     if (visitOf) {
       const plant = getRecord(visitOf) ?? visitTo;
-      setSpecies(plant?.speciesName ?? '');
-      setCommonName(plant?.commonName ?? '');
+      setSpecies(plant?.speciesName ?? params.plantSpecies ?? '');
+      setCommonName(plant?.commonName ?? params.plantCommonName ?? '');
       setHeightText('');
       setCondition('healthy');
       setNotes('');
@@ -128,7 +143,7 @@ export default function NewRecordScreen() {
 
   /** Turns the form back into a normal new record, for when it isn't a visit after all. */
   function stopVisit() {
-    router.setParams({ visitOf: undefined });
+    router.setParams(NOT_A_VISIT);
     resetForm();
   }
 
@@ -167,7 +182,7 @@ export default function NewRecordScreen() {
         photos.paths,
       );
       if (visitOf) {
-        router.setParams({ visitOf: undefined });
+        router.setParams(NOT_A_VISIT);
       }
       resetForm();
       router.push({ pathname: '/record/[id]', params: { id: record.id } });

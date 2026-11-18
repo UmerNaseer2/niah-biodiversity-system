@@ -2,6 +2,7 @@ import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 
 import { Screen } from '@/components/screen';
+import { addVisitParams, ServerPlant } from '@/components/server-plant';
 import { SpeciesPhoto } from '@/components/species-photo';
 import { SpeciesSections } from '@/components/species-sections';
 import { ThemedText } from '@/components/themed-text';
@@ -20,15 +21,27 @@ const NO_SPECIES = "The field team hasn't matched this plant to a species on our
 /**
  * A tagged plant from the plant info saved on this phone, so it opens with no signal. It shows the
  * same things as the tag page on the website, apart from where the plant is and the photos the
- * field team took of it.
+ * field team took of it. Field staff can add a visit from here, and a plant that isn't in the
+ * plant info gets looked up on the server for them, since someone else may have recorded it.
  */
 export default function PlantScreen() {
   const router = useRouter();
   const { tag } = useLocalSearchParams<{ tag: string }>();
-  const { findPublicByTag, publicSpecies, publicCopyAt, publicPhotos } = useRecords();
+  const { findPublicByTag, publicSpecies, publicCopyAt, publicPhotos, mode } = useRecords();
+  // Like the tabs and the Scan screen, anyone who isn't in visitor mode is staff.
+  const staff = mode !== 'visitor';
   // Changes when the app comes back to the front, which redraws the "today" in Info from.
   const now = useNow();
   const record = findPublicByTag(tag);
+
+  if (!record && staff) {
+    return (
+      <Screen>
+        {/* The key starts the lookup again from the top for another tag. */}
+        <ServerPlant key={tag} tag={tag} />
+      </Screen>
+    );
+  }
 
   if (!record) {
     return (
@@ -118,6 +131,16 @@ export default function PlantScreen() {
         />
         <InfoRow label="Recorded" value={formatParkDate(record.recordedAt)} />
       </Card>
+
+      {staff ? (
+        <Button
+          label="Add a visit"
+          icon="newRecord"
+          onPress={() =>
+            router.dismissTo({ pathname: '/new-record', params: addVisitParams(record) })
+          }
+        />
+      ) : null}
 
       {photo?.file ? (
         <Card title="Photo" icon="library">

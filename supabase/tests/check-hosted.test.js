@@ -26,7 +26,7 @@ async function check(url, key = ANON_KEY) {
 /**
  * A made up project that only knows the tables and columns it's given, and answers the way
  * PostgREST does: PGRST205 for a table it doesn't have and 42703 for a column it doesn't have.
- * edge-com isn't deployed on it.
+ * It has no functions, so it answers PGRST202 for each one. edge-com isn't deployed on it.
  */
 async function fakeProject(tables) {
   const server = createServer((req, res) => {
@@ -36,6 +36,7 @@ async function fakeProject(tables) {
       res.end(JSON.stringify(body));
     };
     if (url.pathname.startsWith('/functions/v1/')) return answer(404, { code: 'NOT_FOUND' });
+    if (url.pathname.startsWith('/rest/v1/rpc/')) return answer(404, { code: 'PGRST202' });
     const table = url.pathname.slice('/rest/v1/'.length);
     const column = url.searchParams.get('select');
     if (!tables[table]) return answer(404, { code: 'PGRST205' });
@@ -66,8 +67,9 @@ test('the stand-in has every file, with edge-com deployed the right way', async 
   const { code, out } = await check(standIn.url);
   assert.equal(code, 0, out);
   assert.match(out, /^028 +in$/m);
-  // 019 can't be seen from outside, but 028 can't be in without it
-  assert.match(out, /^019 +in \(028 is in and needs it\)$/m);
+  assert.match(out, /^029 +in$/m);
+  // 019 can't be seen from outside, but 029 can't be in without it
+  assert.match(out, /^019 +in \(029 is in and needs it\)$/m);
   assert.match(out, /edge-com deployed, with JWT verification off/);
   assert.match(out, /Every SQL file is in\./);
 });
@@ -98,9 +100,9 @@ test('a project with only 001 and 002 gets every file from 003 on, and not 002 a
     assert.match(out, /edge-com not deployed/);
     const list = out.match(/in this order: (.*)\./)[1].split(', ');
     assert.equal(list[0], '003');
-    assert.equal(list.at(-1), '028');
+    assert.equal(list.at(-1), '029');
     assert.ok(!list.includes('002'));
-    assert.equal(list.length, 28);
+    assert.equal(list.length, 29);
   } finally {
     project.close();
   }

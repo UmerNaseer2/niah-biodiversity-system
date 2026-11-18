@@ -406,7 +406,7 @@ describe('Staff scanning a tag', () => {
   it("opens the saved plant info for a tag that isn't one of their records", async () => {
     await savePlantInfo('staff');
     const app = await renderApp();
-    expect(screen.getByRole('button', { name: 'Find record' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Find plant' })).toBeVisible();
     scan('NNP-E1A2B3');
     expect(app.getPathname()).toBe('/plant/NNP-E1A2B3');
     expect(await screen.findByRole('heading', { name: 'Raffles pitcher plant' })).toBeVisible();
@@ -420,14 +420,21 @@ describe('Staff scanning a tag', () => {
     expect(screen.getByRole('heading', { name: 'Eusideroxylon zwageri' })).toBeVisible();
   });
 
-  it('says so when neither the records nor the plant info have the tag', async () => {
+  it('looks the tag up on the server when neither the records nor the plant info have it', async () => {
+    // This build isn't linked to a server, so the page says it can't look it up.
     await savePlantInfo('staff');
     const app = await renderApp();
     scan('NNP-A1B2C3');
-    const message = 'No record with tag NNP-A1B2C3 on this phone.';
-    expect(screen.getByRole('alert')).toHaveTextContent(message);
-    expect(AccessibilityInfo.announceForAccessibility).toHaveBeenCalledWith(message);
-    expect(app.getPathname()).toBe('/scan');
+    expect(app.getPathname()).toBe('/plant/NNP-A1B2C3');
+    expect(await screen.findByText("Can't look up plants")).toBeVisible();
+    expect(AccessibilityInfo.announceForAccessibility).not.toHaveBeenCalled();
+  });
+
+  it('can add a visit to a plant from the plant info', async () => {
+    await savePlantInfo('staff');
+    await renderApp();
+    scan('NNP-E1A2B3');
+    expect(await screen.findByRole('button', { name: 'Add a visit' })).toBeVisible();
   });
 
   it("doesn't keep their scans in History", async () => {
