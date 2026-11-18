@@ -15,6 +15,7 @@ import {
   type ReportScope,
 } from "@/lib/reports";
 import { loadExactDownloads, loadReport } from "@/lib/reports-db";
+import { ifItKeepsHappening } from "@/lib/setup-hint";
 import { BarTable } from "./bar-table";
 import { DownloadList } from "./download-list";
 import { PrintButton } from "./print-button";
@@ -131,9 +132,8 @@ export default async function ReportsPage({
           className="mt-8 flex max-w-2xl items-start gap-2.5 rounded-xl border-2 border-bad bg-sheet p-4 font-bold text-bad"
         >
           <Icon name="alert" className="mt-0.5 size-4 shrink-0" />
-          The records didn’t load. Refresh the page, and if it keeps happening,
-          ask an administrator to check the database is up to date
-          (supabase/README.md).
+          The records didn’t load. Refresh the page, and if it keeps happening,{" "}
+          {ifItKeepsHappening(session.role)}
         </p>
         {/* The list comes from its own table, so it can still load */}
         {downloadList}

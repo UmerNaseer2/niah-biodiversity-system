@@ -81,9 +81,9 @@ export function People({
           <p className="mt-3 flex max-w-2xl gap-2.5 rounded-xl border border-line bg-sheet p-4 text-sm text-moss">
             <Icon name="info" className="mt-0.5 size-4 shrink-0 text-forest" />
             <span>
-              You can change roles here, but invites, deactivating and the last
-              sign in need Supabase’s service role key on the server, and this
-              server can’t use it yet (web/README.md).
+              You can change roles here. Inviting people, deactivating accounts
+              and the last sign in aren’t set up on this server yet, and
+              web/README.md says how to set them up.
             </span>
           </p>
         )}

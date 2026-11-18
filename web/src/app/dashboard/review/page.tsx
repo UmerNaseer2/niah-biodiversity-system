@@ -7,6 +7,7 @@ import { formatCoords, formatDateTime } from "@/lib/format";
 import type { IucnCode } from "@/lib/iucn";
 import { recordFromRow, type StaffRecord } from "@/lib/records-staff";
 import { commonNameIsNew, nameDisagrees } from "@/lib/review";
+import { ifItKeepsHappening } from "@/lib/setup-hint";
 import { speciesFromRow } from "@/lib/species-db";
 import { createClient } from "@/lib/supabase/server";
 import { ReviewQueue, type ReviewItem } from "./review-queue";
@@ -24,7 +25,8 @@ const RECENT = 10;
 const SHOWN = 50;
 
 export default async function ReviewPage() {
-  if (!(await requireStaff())) return null;
+  const me = await requireStaff();
+  if (!me) return null;
 
   // Both views only answer officers and admins (supabase/006 and 007).
   // Oldest first, so nothing sits in the queue for too long.
@@ -68,9 +70,8 @@ export default async function ReviewPage() {
           className="mt-8 flex max-w-2xl items-start gap-2.5 rounded-xl border-2 border-bad bg-sheet p-4 font-bold text-bad"
         >
           <Icon name="alert" className="mt-0.5 size-4 shrink-0" />
-          The review queue didn’t load. Refresh the page, and if it keeps
-          happening, ask an administrator to check the database is up to date
-          (supabase/README.md).
+          The review queue didn’t load. Refresh the page, and if it keeps happening,{" "}
+          {ifItKeepsHappening(me.role)}
         </p>
       </div>
     );

@@ -6,6 +6,7 @@ import { EditHistory } from "@/components/edit-history";
 import { PageHeader } from "@/components/page-header";
 import { requireStaff } from "@/lib/auth";
 import { loadHistory } from "@/lib/history";
+import { ifItKeepsHappening } from "@/lib/setup-hint";
 import { speciesFromRow } from "@/lib/species-db";
 import { valuesFromSpecies } from "@/lib/species-form";
 import { mainPhoto } from "@/lib/species-photos";
@@ -18,7 +19,8 @@ export const metadata: Metadata = { title: "Edit a species" };
 export default async function EditSpeciesPage({
   params,
 }: PageProps<"/dashboard/species/[slug]/edit">) {
-  if (!(await requireStaff())) return null;
+  const me = await requireStaff();
+  if (!me) return null;
 
   // Slugs are only lowercase letters, numbers and hyphens, so anything else
   // can't be a species and doesn't go to the database
@@ -56,9 +58,8 @@ export default async function EditSpeciesPage({
           className="mt-8 flex max-w-2xl items-start gap-2.5 rounded-xl border-2 border-bad bg-sheet p-4 font-bold text-bad"
         >
           <Icon name="alert" className="mt-0.5 size-4 shrink-0" />
-          The species didn’t load. Refresh the page, and if it keeps happening,
-          ask an administrator to check the database is up to date
-          (supabase/README.md).
+          The species didn’t load. Refresh the page, and if it keeps happening,{" "}
+          {ifItKeepsHappening(me.role)}
         </p>
       </div>
     );
@@ -85,7 +86,7 @@ export default async function EditSpeciesPage({
         version={String(data.updated_at ?? "")}
       />
       <PhotoManager slug={slug} name={name} photos={species.photos} />
-      <EditHistory history={history} what="species" />
+      <EditHistory history={history} what="species" role={me.role} />
     </div>
   );
 }

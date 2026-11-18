@@ -29,8 +29,9 @@ function whyRoleRefused(error: { code?: string }) {
 }
 
 const TRY_AGAIN = "Nothing was changed. Try again, and if it keeps happening, check the server’s logs.";
+// Only administrators get this far (adminOnly), so it can name the setup steps
 const NEEDS_KEY =
-  "This server doesn’t have Supabase’s service role key, so it can’t do this yet (web/README.md).";
+  "Nothing was changed. Managing accounts isn’t set up on this server yet, and web/README.md says how to set it up.";
 
 /**
  * Anyone can send a request straight to a server action, so this checks who is

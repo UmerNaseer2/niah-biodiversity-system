@@ -4,6 +4,7 @@ import { Icon } from "@/components/icon";
 import { ConditionBadge, LatinName } from "@/components/plant-bits";
 import { MOST_DOTS, ParkMap, type MapPoint, type MapSensor } from "@/components/park-map";
 import { requireStaff } from "@/lib/auth";
+import { ifItKeepsHappening, SENSOR_FILES, whatToRun } from "@/lib/setup-hint";
 import { ALERT_LEVEL } from "@/lib/alert-level";
 import { formatDateTime, formatLongDate, parkNow, parkTime, plural } from "@/lib/format";
 import { ALERT_COLUMNS, ALERT_WORDS, alertFromRow, alertOrder } from "@/lib/iot";
@@ -213,8 +214,8 @@ export default async function OverviewPage() {
           >
             <Icon name="alert" className="mt-0.5 size-4 shrink-0" />
             The plant records didn’t load, so this page leaves them out.
-            Refresh the page, and if it keeps happening, ask an administrator
-            to check the database is up to date (supabase/README.md).
+            Refresh the page, and if it keeps happening,{" "}
+            {ifItKeepsHappening(me.role)}
           </p>
         )}
       </header>
@@ -256,8 +257,9 @@ export default async function OverviewPage() {
               <div className="min-w-0 flex-1">
                 <p className="font-bold">Sensors aren’t set up in this database yet</p>
                 <p className="text-sm text-moss">
-                  There’s nothing to show about them until an administrator runs the
-                  sensor steps in supabase/README.md.
+                  {me.role === "admin"
+                    ? `There’s nothing to show about them yet. ${whatToRun(SENSOR_FILES)}`
+                    : "There’s nothing to show about them until an administrator sets them up."}
                 </p>
               </div>
             </li>

@@ -8,6 +8,7 @@ import { requireStaff } from "@/lib/auth";
 import { plural } from "@/lib/format";
 import { RECORD_ID } from "@/lib/record-form";
 import { recordFromRow, STATUS_LABEL } from "@/lib/records-staff";
+import { ifItKeepsHappening } from "@/lib/setup-hint";
 import { createClient } from "@/lib/supabase/server";
 import { DeleteRecordForm } from "./delete-record-form";
 
@@ -16,7 +17,8 @@ export const metadata: Metadata = { title: "Delete a record" };
 export default async function DeleteRecordPage({
   params,
 }: PageProps<"/dashboard/records/[id]/delete">) {
-  if (!(await requireStaff())) return null;
+  const me = await requireStaff();
+  if (!me) return null;
 
   // Record IDs are UUIDs, so anything else can't be a record and doesn't go
   // to the database
@@ -54,9 +56,8 @@ export default async function DeleteRecordPage({
           className="mt-8 flex max-w-2xl items-start gap-2.5 rounded-xl border-2 border-bad bg-sheet p-4 font-bold text-bad"
         >
           <Icon name="alert" className="mt-0.5 size-4 shrink-0" />
-          The record didn’t load. Refresh the page, and if it keeps happening,
-          ask an administrator to check the database is up to date
-          (supabase/README.md).
+          The record didn’t load. Refresh the page, and if it keeps happening,{" "}
+          {ifItKeepsHappening(me.role)}
         </p>
       </div>
     );
