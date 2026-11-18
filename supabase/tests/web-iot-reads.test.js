@@ -55,3 +55,28 @@ describe('the sensor pages on the website', () => {
     });
   }
 });
+
+describe('the plants near each node on the Sensors page', () => {
+  const source = readFileSync(new URL('../../web/src/lib/nearby-plants.ts', import.meta.url), 'utf8');
+
+  test('NEARBY_PLANT_COLUMNS only asks records_staff for columns it has', async () => {
+    const match = source.match(/export const NEARBY_PLANT_COLUMNS =\s*"([^"]+)"/);
+    assert.ok(match, 'nearby-plants.ts has no NEARBY_PLANT_COLUMNS');
+    const list = match[1].split(',').map((column) => column.trim());
+    const rows = await selectAs(db, officer, `SELECT ${list.join(', ')} FROM public.records_staff LIMIT 1`);
+    assert.ok(rows.length > 0, 'the sample records should be there');
+    assert.deepEqual(Object.keys(rows[0]).sort(), [...list].sort());
+  });
+
+  test('a json spot compares as numbers, which the box around a node relies on', async () => {
+    // As text, "113.78" would come before "99" and nothing would be found
+    const rows = await selectAs(
+      db,
+      officer,
+      `SELECT count(*)::int AS n FROM public.records_staff
+        WHERE gps->'lng' >= $1::jsonb AND gps->'lng' <= $2::jsonb`,
+      ['99', '114'],
+    );
+    assert.ok(rows[0].n > 0);
+  });
+});

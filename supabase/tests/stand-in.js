@@ -975,8 +975,16 @@ function selectFrom(select, column) {
     .join(', ');
 }
 
+// A filter on one key of a json column, like gps->lat=gte.3.81. With -> the value is compared as
+// json, so numbers compare as numbers, the same as PostgREST. ->> compares it as text.
+const JSON_PATH = /^([a-z_][a-z0-9_]*)(->>?)([a-z_][a-z0-9_]*)$/;
+
 /** Turns filters like id=eq.123 into SQL, with their values as $1 style parameters. */
-function whereFrom(searchParams, column, params) {
+function whereFrom(searchParams, plainColumn, params) {
+  const column = (name) => {
+    const path = JSON_PATH.exec(name);
+    return path ? `${plainColumn(path[1])}${path[2]}'${path[3]}'` : plainColumn(name);
+  };
   const where = [];
   for (const [name, value] of searchParams) {
     if (NOT_FILTERS.has(name)) continue;

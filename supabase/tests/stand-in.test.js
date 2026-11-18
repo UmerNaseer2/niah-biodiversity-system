@@ -323,6 +323,43 @@ describe('reading as each account', () => {
     assert.equal(read.status, 405);
   });
 
+  test('the sensors page finds records in a box around a node, comparing the spot as numbers', async () => {
+    const { access_token: token } = await sessionFor(officer);
+    // The same request web/src/app/dashboard/sensors/page.tsx makes, with the columns from
+    // web/src/lib/nearby-plants.ts
+    const box = (south, north, west, east) =>
+      call(
+        '/rest/v1/records_staff?select=id,tag_code,species_name,common_name,status,gps' +
+          `&status=neq.rejected&gps->lat=gte.${south}&gps->lat=lte.${north}` +
+          `&gps->lng=gte.${west}&gps->lng=lte.${east}&limit=500`,
+        { token },
+      );
+    const near = await box(3.8143, 3.8161, 113.7782, 113.78);
+    assert.equal(near.status, 200);
+    assert.ok(near.body.some((row) => row.id === exactRecord));
+    for (const row of near.body) {
+      assert.notEqual(row.status, 'rejected');
+      assert.ok(row.gps.lat >= 3.8143 && row.gps.lat <= 3.8161, row.id);
+      assert.ok(row.gps.lng >= 113.7782 && row.gps.lng <= 113.78, row.id);
+    }
+    // As text, "113.78" comes before "99", so a text compare would find nothing here
+    const wide = await box(3.8143, 3.8161, 99, 114);
+    assert.equal(wide.status, 200);
+    assert.ok(wide.body.some((row) => row.id === exactRecord));
+    // And as text "3.8" comes after "10" and before "9", so it would find everything here
+    const none = await box(10, 9, 113, 114);
+    assert.equal(none.status, 200);
+    assert.deepEqual(none.body, []);
+
+    // Only a plain key after the arrow, on a column the view has
+    for (const name of ['gps->lat;x', 'gps->>lat->x', 'nope->lat', "gps->'lat'"]) {
+      const refused = await call(`/rest/v1/records_staff?select=id&${encodeURIComponent(name)}=gte.1`, {
+        token,
+      });
+      assert.equal(refused.status, 400, name);
+    }
+  });
+
   test("people who aren't signed in can't read the tables or the staff views", async () => {
     const names = ['records', 'species', 'profiles', 'iot_nodes', 'records_staff', 'species_staff'];
     for (const name of names) {
