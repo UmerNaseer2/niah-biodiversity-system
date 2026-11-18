@@ -79,9 +79,14 @@ export const staffScreens: Screen[] = [
     works: "Counts of the plant records in Supabase by IUCN status, condition, species and month, filtered by date. It prints or saves as a PDF, and the server builds the CSV download after checking the role.",
   },
   {
+    title: "Ecology",
+    path: "/dashboard/ecology",
+    works: "Each zone of the park rated from its sensor nodes' newest readings and the alerts going on, with the plants recorded near it. The server builds the CSV download after checking the role.",
+  },
+  {
     title: "Sensors",
     path: "/dashboard/sensors",
-    works: "Real readings and threat alerts from Supabase, checking again every 15 seconds while the page is open. Officers and admins can acknowledge and resolve alerts.",
+    works: "Real readings and threat alerts from Supabase and a map of where the nodes are, checking again every 15 seconds while the page is open. Officers and admins can acknowledge and resolve alerts and send a patrol.",
   },
   {
     title: "Sensor devices",

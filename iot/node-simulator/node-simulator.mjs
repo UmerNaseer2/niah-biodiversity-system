@@ -206,7 +206,7 @@ async function main() {
         stop(`The database turned this device down: ${body?.message ?? status}. Check the device ID and the token.`);
       }
       if (status === 404) {
-        stop('iot_add_readings is not there, so 016_iot_readings.sql has not been run on this database.');
+        stop('iot_add_readings is not there, so 016_4_iot_readings.sql has not been run on this database.');
       }
       if (status !== 200) {
         stop(`The database answered ${status}: ${body?.message ?? 'no reason given'}`);

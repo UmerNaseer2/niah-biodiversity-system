@@ -132,11 +132,18 @@ export async function addNode(input: unknown): Promise<DeviceResult> {
   const checked = checkNewNode(input);
   if (!checked.ok) return checked;
 
-  const { nodeId, name, zone, deviceId } = checked.value;
+  const { nodeId, name, zone, deviceId, latitude, longitude } = checked.value;
   const supabase = await createClient();
   const { error } = await supabase
     .from("iot_nodes")
-    .insert({ node_id: nodeId, name, zone, edge_device_id: deviceId });
+    .insert({
+      node_id: nodeId,
+      name,
+      zone,
+      edge_device_id: deviceId,
+      latitude: latitude ?? null,
+      longitude: longitude ?? null,
+    });
   if (error) {
     if (error.code === "23503") {
       return { ok: false, message: "That device isn’t in the database any more. Reload the page." };

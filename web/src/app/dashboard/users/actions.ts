@@ -52,9 +52,12 @@ async function adminOnly(): Promise<{ id: string } | { message: string }> {
 
 /** Where the link in an invite comes back to. Supabase's allow list checks it again. */
 async function welcomeLink() {
+  const site = process.env.SITE_URL?.trim().replace(/\/+$/, "");
+  if (site) return `${site}/welcome`;
+
   const sent = await headers();
   const origin = sent.get("origin");
-  return origin ? `${origin}/welcome` : undefined;
+  return origin ? `${origin.replace(/\/+$/, "")}/welcome` : undefined;
 }
 
 function whyEmailFailed(error: { code?: string; status?: number; message: string }) {

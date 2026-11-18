@@ -881,6 +881,67 @@ describe('nodes going quiet', () => {
   });
 });
 
+describe('sending a patrol', () => {
+  async function urgentAlert() {
+    const node = await newNode();
+    await send(node, [{ ago: 60, motion: 1 }]);
+    const [alert] = await alertsFor(node);
+    return { node, id: alert.id };
+  }
+  const dispatch = (user, id, notes = null) => call(user, 'public.iot_dispatch_patrol($1, $2)', [id, notes]);
+
+  test('an officer or admin sends one, which also acknowledges the alert', async () => {
+    for (const user of [officer, admin]) {
+      const { node, id } = await urgentAlert();
+      assert.deepEqual(await dispatch(user, id, '  Check the fence line  '), { ok: true, message: 'Patrol team dispatched.' });
+      const [alert] = await alertsFor(node);
+      assert.equal(alert.status, 'acknowledged');
+      assert.equal(alert.acknowledged_by, user.id);
+      assert.equal(alert.acknowledged_by_name, user.name);
+      assert.equal(alert.dispatched_by, user.id);
+      assert.equal(alert.dispatched_by_name, user.name);
+      assert.equal(alert.patrol_notes, 'Check the fence line');
+      assert.ok(alert.dispatched_at);
+    }
+  });
+
+  test('the first patrol and the first person to acknowledge stay on it', async () => {
+    const { node, id } = await urgentAlert();
+    await call(officer, 'public.iot_acknowledge_alert($1)', [id]);
+    assert.equal((await dispatch(admin, id)).ok, true);
+    assert.deepEqual(await dispatch(officer, id), { ok: false, message: 'A patrol has already been sent for this alert.' });
+    const [alert] = await alertsFor(node);
+    assert.equal(alert.acknowledged_by_name, 'Park officer');
+    assert.equal(alert.dispatched_by, admin.id);
+  });
+
+  test('a resolved alert or one that does not exist gets a clear answer', async () => {
+    const { id } = await urgentAlert();
+    await call(officer, 'public.iot_resolve_alert($1)', [id]);
+    assert.deepEqual(await dispatch(officer, id), { ok: false, message: 'This alert has already been resolved.' });
+    assert.equal((await dispatch(officer, 987654321)).ok, false);
+  });
+
+  test('long notes are cut to 500 characters and empty ones are left out', async () => {
+    const { node, id } = await urgentAlert();
+    await dispatch(officer, id, 'x'.repeat(2000));
+    assert.equal((await alertsFor(node))[0].patrol_notes.length, 500);
+    const other = await urgentAlert();
+    await dispatch(officer, other.id, '   ');
+    assert.equal((await alertsFor(other.node))[0].patrol_notes, null);
+  });
+
+  test('anyone else is turned down and the alert stays as it was', async () => {
+    const { node, id } = await urgentAlert();
+    await assert.rejects(dispatch(null, id), { code: '42501' }, 'anon');
+    for (const user of [visitor, researcher, botanist]) {
+      assert.equal((await dispatch(user, id)).ok, false, who(user));
+    }
+    const [alert] = await alertsFor(node);
+    assert.deepEqual([alert.status, alert.dispatched_at], ['open', null]);
+  });
+});
+
 describe('the count for the staff menu', () => {
   const count = () => call(officer, 'public.iot_check_alerts()');
   const change = (before, after) => ({ urgent: after.urgent - before.urgent, open: after.open - before.open });
@@ -1306,6 +1367,7 @@ describe('who reads and changes what', () => {
     const forStaff = new Set([
       'iot_acknowledge_alert(bigint)',
       'iot_check_alerts()',
+      'iot_dispatch_patrol(bigint,text)',
       'iot_make_device_token(text)',
       'iot_raw_pct(integer,integer,integer)',
       'iot_resolve_alert(bigint)',
@@ -1382,7 +1444,7 @@ describe('the status view for the Sensors page', () => {
     );
     const columns = new Set(rows.map((row) => row.column_name));
     for (const gone of ['battery_percent', 'temperature_c', 'humidity_percent', 'soil_moisture_percent',
-      'pir_movement_detected', 'tilt_alert', 'threat_details', 'latitude', 'longitude']) {
+      'pir_movement_detected', 'tilt_alert', 'threat_details']) {
       assert.ok(!columns.has(gone), gone);
     }
   });
@@ -1413,14 +1475,21 @@ describe('nothing from a node reaches the public', () => {
     assert.deepEqual(rows, [{ view_name: 'iot_node_status' }]);
   });
 
-  test("a node's position is only in iot_boots, which only officers and admins read", async () => {
+  test("a node's position is only where officers and admins read it", async () => {
     const { rows } = await db.query(
       `SELECT DISTINCT table_name FROM information_schema.columns
        WHERE table_schema = 'public' AND table_name LIKE 'iot\\_%' AND column_name IN ('latitude', 'longitude')
        ORDER BY table_name`,
     );
-    // The edge devices have a position too: they sit at a ranger station, not by a plant
-    assert.deepEqual(rows.map((row) => row.table_name), ['iot_boots', 'iot_devices']);
+    // iot_boots has where the node says it is at power-up. iot_nodes has the spot an admin typed in
+    // (026), which the map uses until the node sends one, and iot_node_status shows it. The edge
+    // devices have a position too: they sit at a ranger station, not by a plant.
+    assert.deepEqual(rows.map((row) => row.table_name), ['iot_boots', 'iot_devices', 'iot_node_status', 'iot_nodes']);
+    for (const user of [visitor, researcher, botanist]) {
+      for (const table of ['iot_boots', 'iot_nodes', 'iot_node_status']) {
+        assert.deepEqual(await selectAs(db, user, `SELECT latitude FROM public.${table}`), [], `${who(user)} ${table}`);
+      }
+    }
   });
 });
 

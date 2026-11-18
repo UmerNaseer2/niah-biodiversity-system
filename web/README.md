@@ -33,11 +33,12 @@ and `/dashboard` sends you back to `/login`. A production build (`npm run build`
 project URL to start with `https://` (item 23), and treats any other URL as not set up.
 
 Set `SITE_URL` to the site's own address as well, and set it before the build, because some pages
-with a tag on them get built ahead of time. It goes in the QR code on the tags drawn on the website
+with a tag on them get built ahead of time. It is also the base address used by account invite and
+password links, which return to `/welcome`. It goes in the QR code on the tags drawn on the website
 (item 12), so a phone camera can open the plant's page. It has to be `https://`, except for
-`http://localhost` and `http://127.0.0.1` when trying it out. Without it the QR codes only hold the
-tag code, which the phone app's Scan tab can still read. The phone app has its own
-`EXPO_PUBLIC_SITE_URL`, and both should hold the same address.
+`http://localhost` and `http://127.0.0.1` when trying it out. Without it, invite links use the
+request origin and QR codes only hold the tag code, which the phone app's Scan tab can still read.
+The phone app has its own `EXPO_PUBLIC_SITE_URL`, and both should hold the same address.
 
 With Supabase set up, the public pages read it on every visit, so new species and newly approved
 records show up without a new build. They read the `species_public` and `records_public` views, so
@@ -121,20 +122,20 @@ src/
       review/           the review queue: approve or reject records from the mobile app, and send one back
       species/          the species table, new/ to add one, and [slug]/edit and [slug]/delete
       reports/          counts, charts and the print view, and csv/ for the download
-      sensors/          alerts, the map, the sensor nodes and their history, commands, and devices/ for tokens and positions (admins)
+      sensors/          alerts, the sensor nodes and their history, commands, devices/ for tokens, and GPS mapping
+      ecology/          microclimate analysis, Vapor Pressure Deficit, habitat risk profiles, and CSV export
       users/            who has an account and what each role can do
   components/           shared pieces: park map, tree tag, photo gallery, icons...
   data/                 mock species and records, plus the screen list
   lib/                  Supabase and sign in, species and record form checks, photos, IUCN labels, the location grid, report counts and the CSV
 ```
 
-## Planned features
+## Completed features (Sprint 2 & Post-Sprint 2)
 
-Still to build on the website. The item numbers match the proposal and `docs/sprint-1.md`.
+Item numbers match the proposal and `docs/sprint-2.md`.
 
-| Item | What goes in | Where |
-| --- | --- | --- |
-| 32 | Sensors on the park and overview maps. `ParkMap` already takes them, with `mapStateOf()` from `src/lib/iot.ts` for each one's look, and the Sensors page has its own map. Alerts only show on the dashboard for now, and nothing is sent to a patrol team. | Overview, park map |
+- **Item 32: IoT Device Tracking & GPS Mapping** (`/dashboard` and `/dashboard/sensors`): Live GPS coordinates on sensor nodes, interactive spatial map visualization alongside plant observations, and patrol team dispatch action on urgent threat alerts.
+- **Item 33: Ecological Data Storage & Analysis Module** (`/dashboard/ecology`): Microclimate analysis (temperature, humidity, soil moisture, Vapor Pressure Deficit / VPD), zone habitat risk profiles, and CSV export route (`/dashboard/ecology/csv`).
 
 ## Notes for the team
 
