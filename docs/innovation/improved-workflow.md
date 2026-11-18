@@ -5,8 +5,9 @@ limitation (L1 to L12) from [the analysis](ground-truthing-limitations.md).
 
 **Status: this is a design.** Some steps are built and tested on simulators, a browser and a local
 stand-in database. That now includes items 10, 11, 12, 22 and 28 to 31, and from item 40 the
-revisit records, code only tags and the plants near each sensor. Some are still new work. We have no field results, and every target below is
-not yet measured in the field.
+revisit records, code only tags, the plants near each sensor, finding a plant recorded on another
+phone, visits in the visitor's offline copy and sensor alerts on the phone. Some are still new
+work. We have no field results, and every target below is not yet measured in the field.
 
 ## Current and proposed, step by step
 
@@ -23,8 +24,8 @@ silent, we say so.
 | 6 | Get the data in | Typed into a database later | Phone uploads when it has signal. Retrying can't create a duplicate | L3, L5, L6 | Built (items 3 and 10), simulator and stand-in only |
 | 7 | Check | The Scope doesn't describe this | Officer approves, or rejects with a reason that goes back to the phone | L7, L8 | Built (items 10 and 19), simulator and stand-in only |
 | 8 | Publish | The Scope says access to up to date information is limited | Only approved records go public. Threatened, protected and unknown plants get a rough area automatically | L5, L9 | Built, stand-in only |
-| 9 | Between visits | The Scope doesn't describe this | Sensors near selected plants. An alert names the plant and someone goes to check | L11 | Dashboards built (items 28 to 31), simulated sensors only. Each alert now lists the tagged plants within 100 m of its node, built on the website and tried on the stand-in only. Notification is new work |
-| 10 | Revisit | The Scope doesn't describe this | Scan the tag, see the plant's history with no signal, add a new visit record instead of overwriting | L4, L8, L11 | Built (items 6 and 40), tried on a simulator and the stand-in in [item 34](../test-results/item-34-sync.md), not tried in the field. Finding a plant recorded on another phone is new work |
+| 9 | Between visits | The Scope doesn't describe this | Sensors near selected plants. An alert names the plant and someone goes to check | L11 | Dashboards built (items 28 to 31), simulated sensors only. Each alert now lists the tagged plants within 100 m of its node, built on the website and tried on the stand-in only. Officers and admins now see alerts on the phone's Home tab while the app is open, and the nearby plants open the plant page, tried on a simulator and the stand-in only. Push notifications while the app is closed are new work |
+| 10 | Revisit | The Scope doesn't describe this | Scan the tag, see the plant's history with no signal, add a new visit record instead of overwriting | L4, L8, L11 | Built (items 6 and 40), tried on a simulator and the stand-in in [item 34](../test-results/item-34-sync.md), not tried in the field. A staff phone can now find a plant another phone recorded and add a visit to it (`029_find_plant_by_tag.sql`), tried on a simulator and the stand-in only |
 
 ### Current workflow
 
@@ -116,14 +117,14 @@ step 5 doesn't work as drawn.
 | L1 Unknown accuracy | Accuracy is required and stored, and the officer sees it | Doesn't make a poor fix better. Untested under canopy |
 | L2 Paper lost | Saved to the phone straight away | Phone loss before upload, with the records file encrypted since item 22 and only tested on a simulator |
 | L3 Double handling | Typed once, with checks, and no duplicates on retry | Phone can't edit after upload |
-| L4 Tags not tied to a record | Tag code comes from the record's ID, and a scan opens it offline | Scan only finds records on that phone. Tag life unknown |
+| L4 Tags not tied to a record | Tag code comes from the record's ID, and a scan opens it offline | A plant from another phone needs signal to look up. Tag life unknown |
 | L5 Long gap | Upload on signal, then the website | The wait may move to the review queue |
 | L6 No signal | Everything in the forest works offline | Sign in and species list updates depend on item 10 |
 | L7 Wrong names | Review before public, with checks shown | Officer sees a photo, not the plant |
 | L8 No trail | Who and when stamps, edit history, and visits added rather than overwritten | Trail doesn't prove someone was right. Visits are built but not tried in the field |
 | L9 Locations leak | Automatic rough area, hidden unless known safe | Wrong name can still show an exact spot. SFC sets the size |
 | L10 Tags mark the plant | Code only tag or no tag for protected plants | SFC's choice. Without a tag, a revisit relies on GPS and notes |
-| L11 Nothing between visits | Alert sends someone to a named plant | Each alert lists the tagged plants near its node, but telling someone isn't built. False alarms and radio range are open |
+| L11 Nothing between visits | Alert sends someone to a named plant | Each alert lists the tagged plants near its node, and the phone shows alerts while the app is open. Push while it's closed, who responds, false alarms and radio range are open |
 | L12 Labour and cost | No typing up, if the trial supports that. Sensors only on selected plants | No cost data. Upkeep not planned |
 
 ## What's actually innovative
@@ -244,12 +245,20 @@ Built, and tried on a simulator, a browser and the stand-in only:
   visit from the phone to the website and back.
 - Code only tags for protected, threatened and unknown species, using the same rule as the rough
   area on the map.
+- A staff phone finding a plant another phone recorded, by its tag code, and adding a visit to it
+  (`supabase/029_find_plant_by_tag.sql`). The phone only gets the plant's name, condition, date and
+  visits, not the spot, notes or photos. It needs signal.
+- Later visits in the visitor's downloaded copy. The plant page lists them, and Home and Plants
+  count each plant once.
+- Sensor alerts on the phone for officers and admins. Home shows them with what to do and the
+  nearby plants, the phone checks every minute while it's open, and a new urgent alert buzzes and
+  gets read out. I'm on it marks the alert like Acknowledge on the website.
 
 Still to do:
 
-- A way to tell field staff about an alert, and a decision on who responds. We have no ranger role.
-- A second phone finding a plant it didn't record, and the history of a plant in the visitor's
-  downloaded copy.
+- Push notifications, so an alert reaches a phone while the app is closed.
+- A decision on who responds to an alert. We have no ranger role, and botanists can't read alerts.
+- The website's Plants list and species pages still count a visit as a separate plant.
 - SFC's decision on tags for protected plants, and how big the rough area should be.
 - The pre-printed tag decision, with item 12.
 

@@ -43,7 +43,7 @@ In the SQL Editor: **New query**, paste the whole file, **Run**. One file at a t
 the check printed. For a project with only 001 and 002 that's:
 
 003, 004, 005, 006, 007, 008, 009, 010, 011, 012, 013, 014, 015, 016_1, 016_2, 016_3, 016_4, 017,
-019, 020, 021, 022, 023, 024, 025, 026, 027, 028
+019, 020, 021, 022, 023, 024, 025, 026, 027, 028, 029
 
 - There's no 018.
 - Don't run 001 or 002 again. 002 writes the sample species back over any changes.

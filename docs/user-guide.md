@@ -140,6 +140,11 @@ date it was Recorded at the park) and a species photo. It never shows where the 
 no map. Press **More about this species** for the species page. "Info from" at the bottom says how
 old the saved copy is.
 
+When the field team has been back to check on a plant, the date says **First recorded** and a
+**Later visits** card lists each visit's date and the plant's condition then, newest first. "The
+facts above are from the first record." **Home** and **Plants** count each plant once, however many
+visits it has.
+
 The other tabs:
 
 - **Plants**: every species the field teams have recorded, with the same search and the same
@@ -322,8 +327,18 @@ A visit is a record of its own. It syncs and gets reviewed like any other record
 printed for it. The record page shows "Visit to NNP-..." at the top, and **History** lists the first
 record and every visit, newest first, with the one you're looking at marked "open now".
 
-This only works for plants recorded on this phone. A plant recorded on another phone can't be found
-here yet, so make a new record and write the old tag code in the notes.
+A plant recorded on another phone works too, as long as you have signal. Scan its tag, or type the
+code on the **Scan** tab and press **Find plant**. The app says "Looking up this plant" while it
+asks the server, then shows the plant with **This plant** (First recorded, Condition then, Visits,
+Last visit and Review) and **Add a visit**. "This phone only gets the plant's name and how it was
+doing, not where it is, the notes or the photos." Plants still waiting for review are found too.
+
+- "No plant with this tag" means no record has that code, on this phone or on the server. Check the
+  code on the tag. The record may also have been deleted.
+- "No signal" means the app couldn't ask the server. Press **Try again** once you have signal.
+
+A visit whose first record isn't on this phone says "The first record isn't on this phone." under
+**History**. Press **Look up the plant** to open it from the server.
 
 ### Editing or deleting a record
 
@@ -365,11 +380,39 @@ If the server finds another plant with the same code, the record shows **Couldn'
 swapped.
 
 On the **Scan** tab, staff can scan a tag to open their own record on this phone, even with no
-signal. "No record with tag NNP-3F2A9C on this phone." means the record was made on another phone.
+signal. A tag that isn't on this phone opens the plant page, which looks it up on the server (see
+[Visiting a plant again](#visiting-a-plant-again)). Typing something that isn't a tag code says
+"That isn't a tag code. They look like NNP-3F2A9C."
+
+### Sensor alerts on the phone
+
+Conservation officers and administrators see the sensor alerts that need someone at the top of
+**Home**, under **Sensor alerts**, and the **Home** tab shows how many there are. Botanists don't
+get them, because only officers and admins can read alerts.
+
+The phone checks once a minute while the app is open, and again when you come back to the app. It
+says when, like "Checked at 9:41 am. The phone checks every minute while the app is open." A new
+urgent alert makes the phone buzz, and VoiceOver or TalkBack reads it out if it's on. **Nothing
+comes through while the app is closed**, so keep checking the website's **Sensors** page too.
+
+Each alert shows the same things as the website: Urgent or Routine, the title, the node, when it
+started, what it means and "What to do". **Tagged plants within 100 m** lists the plants near the
+node, nearest first. Press one to open its plant page, where you can **Add a visit** once you've
+checked it.
+
+Press **I'm on it** to tell the others someone is dealing with it. It's the same as **Acknowledge**
+on the website: "Thanks. The website's Sensors page now shows someone is on it." **Dispatch
+patrol** and **Resolve** are only on the website.
+
+The phone lists 3 alerts at a time, urgent ones first. If there are more it says something like "2
+more alerts on the website's Sensors page." With no signal the alerts from the last check stay on
+screen with their time, like "No signal. These are from 9:41 am, and the phone tries again every
+minute."
 
 ### With no signal
 
-Everything above works with no signal, apart from signing in for the first time and syncing.
+Everything above works with no signal, apart from signing in for the first time, syncing, looking
+up a plant recorded on another phone and checking for sensor alerts.
 Records and photos wait on the phone until it can reach the server. If you press **Sync now** with
 no connection you see "Can't reach the server right now. Your records are safe on this phone and
 will go up once it can."
@@ -619,6 +662,10 @@ outage, so it may be long over.
 Each alert also lists the **Tagged plants within 100 m** of its node (see below), so you know which
 plants the patrol should check.
 
+Officers and admins also get these alerts on the phone app's **Home** tab while the app is open (see
+[Sensor alerts on the phone](#sensor-alerts-on-the-phone)). **I'm on it** there is the same as
+**Acknowledge** here.
+
 "An alert also ends by itself when the readings go back to normal, and then it moves to the list
 below this one", under "Ended by themselves, not resolved yet". Resolve those too once you've
 checked them.
@@ -833,3 +880,5 @@ couldn't start. Try again, or type the tag code below." means you can still type
 - **"That alert is gone. Reload the page to see the ones left."** Someone else resolved it first.
 - **"The last check didn't get through, so what you see may be out of date."** Check your
   connection. The page keeps trying.
+- **The phone still shows an alert that was resolved on the website.** The phone checks once a
+  minute while the app is open. Wait a minute, or close the app and open it again.
