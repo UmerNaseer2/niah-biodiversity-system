@@ -65,9 +65,9 @@ after(() => standIn.close());
 test('the stand-in has every file, with edge-com deployed the right way', async () => {
   const { code, out } = await check(standIn.url);
   assert.equal(code, 0, out);
-  assert.match(out, /^027 +in$/m);
-  // 019 can't be seen from outside, but 027 can't be in without it
-  assert.match(out, /^019 +in \(027 is in and needs it\)$/m);
+  assert.match(out, /^028 +in$/m);
+  // 019 can't be seen from outside, but 028 can't be in without it
+  assert.match(out, /^019 +in \(028 is in and needs it\)$/m);
   assert.match(out, /edge-com deployed, with JWT verification off/);
   assert.match(out, /Every SQL file is in\./);
 });
@@ -98,9 +98,9 @@ test('a project with only 001 and 002 gets every file from 003 on, and not 002 a
     assert.match(out, /edge-com not deployed/);
     const list = out.match(/in this order: (.*)\./)[1].split(', ');
     assert.equal(list[0], '003');
-    assert.equal(list.at(-1), '027');
+    assert.equal(list.at(-1), '028');
     assert.ok(!list.includes('002'));
-    assert.equal(list.length, 27);
+    assert.equal(list.length, 28);
   } finally {
     project.close();
   }

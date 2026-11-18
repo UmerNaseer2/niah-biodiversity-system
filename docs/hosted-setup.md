@@ -43,7 +43,7 @@ In the SQL Editor: **New query**, paste the whole file, **Run**. One file at a t
 the check printed. For a project with only 001 and 002 that's:
 
 003, 004, 005, 006, 007, 008, 009, 010, 011, 012, 013, 014, 015, 016_1, 016_2, 016_3, 016_4, 017,
-019, 020, 021, 022, 023, 024, 025, 026, 027
+019, 020, 021, 022, 023, 024, 025, 026, 027, 028
 
 - There's no 018.
 - Don't run 001 or 002 again. 002 writes the sample species back over any changes.
@@ -52,7 +52,8 @@ the check printed. For a project with only 001 and 002 that's:
   straight away.
 - If 005 stops with a check error like `records_gps_check`, a record already there breaks one of
   its rules. Fix or delete that record and run 005 again.
-- If 006 ever has to be run again later, 007, 008, 016_2 and 019 have to be run again after it.
+- If 006 ever has to be run again later, 007, 008, 016_2, 019 and 028 have to be run again after
+  it. If 007 or 019 is run again, run 028 again after it.
 
 ## 5. Deploy edge-com
 

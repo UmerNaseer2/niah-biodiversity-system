@@ -12,7 +12,7 @@ Supabase. It goes with the three high-level design diagrams in this folder:
 [iot]: IoT%20Plant%20Protection%20-%20High-level%20design.png
 
 The SQL that builds all of this is in [`supabase/`](../../supabase/README.md), run in order from 001
-to 027. There's no 018 file, because the phone's photos didn't need one. Everything below is what
+to 028. There's no 018 file, because the phone's photos didn't need one. Everything below is what
 those files make, so if they change, this page changes too.
 
 ## How the parts talk to each other
@@ -56,6 +56,7 @@ erDiagram
   auth_users ||--|| profiles : "has one"
   profiles |o--o{ records : "submitted"
   species |o--o{ records : "matched to"
+  records |o--o{ records : "later visits (028)"
   iot_devices |o--o{ iot_nodes : "sends for"
   iot_devices ||--o{ iot_readings : "delivered"
   iot_nodes ||--o{ iot_readings : "took"
@@ -111,6 +112,7 @@ erDiagram
     uuid submitted_by FK "filled in by a trigger (005)"
     timestamptz uploaded_at
     timestamptz updated_at "set by a trigger when a record is edited (008)"
+    uuid visit_of FK "the plant's first record, empty unless it's a visit (028)"
   }
   iot_nodes {
     text node_id PK "like NNP-IOT-01"
@@ -220,7 +222,7 @@ tables, and the tables that only keep a log: `role_changes`, `record_history`, `
 | `role_changes` | One line for every role change, with who made it, when, and a copy of the person's email and name (021). Admins can read it | Nobody through the API, admins included. A trigger on `profiles` adds each line |
 | `species` | The plant knowledge base: names, family, IUCN status, Sarawak protection, text for the public pages | Conservation officers and admins |
 | `species_history` | One line for every change to a species: who saved it, when, and each changed column before and after (013). The species edit page shows it. Officers and admins can read it | Nobody through the API. A trigger on `species` adds each line, and the lines go when the species is deleted |
-| `records` | One row per tagged plant from the field, with its GPS point, condition, photos and review status | Field teams add their own as waiting. Officers and admins review, edit and delete any record |
+| `records` | One row per tagged plant from the field, with its GPS point, condition, photos and review status. A later visit to the same plant is a new row whose `visit_of` is the plant's first record, so the first record stays as it was. It's one level: a visit always points at the first record, never at another visit, and a trigger checks that. Deleting the first record keeps its visits as records on their own (028) | Field teams add their own as waiting. Officers and admins review, edit and delete any record |
 | `record_history` | The same for records (013), shown on the record edit page. Where a plant is never goes in here, only whether it had a spot before and after. Officers and admins can read it | Nobody through the API. A trigger on `records` adds each line, and the lines go when the record is deleted |
 | `deleted_records` | The ID of every deleted record, with who deleted it and when, and nothing else about the plant (010). A phone can't upload a record with one of these IDs again. Officers and admins can read it | Nobody through the API. A trigger adds the ID when a record is deleted |
 | `exact_location_downloads` | One line for every reports CSV downloaded with exact spots: who, when, the filters and how many exact spots it had, but no coordinates (011). Admins can read it | Officers and admins add their own line, which the website does before it sends the file. Nobody changes or removes one |
@@ -247,9 +249,10 @@ who shouldn't see it.
 | --- | --- | --- |
 | `species_public` | Anyone, signed in or not | Species for the public pages, without coordinates or photos |
 | `species_photos_public` | Anyone, signed in or not | Each species' photos, for the plant pages (009). They're public anyway, since the bucket is |
-| `records_public` | Anyone, signed in or not | Published records only, with no notes and no names of who recorded or reviewed them. The exact spot only for a species that is LC or NT, not protected in Sarawak and not set to rough area only, on a record whose name matches that species. Everyone else gets the middle of a 0.004 degree grid square (about 440 m at Niah) and the day it was recorded, not the time (019) |
+| `records_public` | Anyone, signed in or not | Published records only, with no notes and no names of who recorded or reviewed them. The exact spot only for a species that is LC or NT, not protected in Sarawak and not set to rough area only, on a record whose name matches that species. Everyone else gets the middle of a 0.004 degree grid square (about 440 m at Niah) and the day it was recorded, not the time (019). A visit only shows its exact spot when its first record would too (028) |
+| `record_visits_public` | Anyone, signed in or not | The ID of each visit and its first record, only when both are published (028). The public tag page uses it to list a plant's visits |
 | `species_staff` | Conservation officers and admins | Every species column, for the dashboard forms |
-| `records_staff` | Conservation officers and admins | Every record with its exact point, for review and reports |
+| `records_staff` | Conservation officers and admins | Every record with its exact point, for review and reports, and `visit_of` for visits (028) |
 | `iot_node_status` | Conservation officers and admins | Each node's latest reading, its soil and rain percent, the state of each sensor, how many alerts are still going on, whether it's gone quiet and where it's placed (026). The Sensors and Ecology pages and the dashboard map use it |
 | `iot_daily_summary` | Conservation officers and admins | Each node's day in figures for today and the 6 days before, in park time: how many readings, and the lowest, average and highest temperature, humidity and soil moisture (027). The Sensors page shows them on each node's card |
 

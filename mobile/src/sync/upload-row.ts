@@ -10,6 +10,8 @@ export type { UploadProblem } from '@/types/plant-record';
  * One record the way the records table on Supabase takes it. Every column is there, with null for
  * an empty one. tag_code isn't sent, because the server works it out from the ID, and neither are
  * the status, recorded_by or the review columns, because only the server fills those in.
+ * visit_of is only sent with a visit, so a first record still goes up to a server that doesn't
+ * have the column yet (supabase/028_record_visits.sql adds it).
  */
 export type UploadRow = {
   id: string;
@@ -27,6 +29,7 @@ export type UploadRow = {
   } | null;
   photo_count: number;
   recorded_at: string;
+  visit_of?: string;
 };
 
 export function toUploadRow(record: PlantRecord): UploadRow {
@@ -49,6 +52,7 @@ export function toUploadRow(record: PlantRecord): UploadRow {
       : null,
     photo_count: record.photoCount,
     recorded_at: record.recordedAt,
+    ...(record.visitOf ? { visit_of: record.visitOf } : {}),
   };
 }
 
@@ -87,6 +91,11 @@ export function classifyUpload(error: UploadError | null): UploadOutcome {
       return { kind: 'problem', problem: 'tag-clash' };
     }
     return { kind: 'problem', problem: 'rejected' };
+  }
+  // 23503 here means the plant's first record isn't on the server yet. Records go up oldest
+  // first, so it's usually still on its way, or waiting on a problem of its own.
+  if (code === '23503' && message.includes('"records_visit_of_fkey"')) {
+    return { kind: 'retry' };
   }
   // 42501 is Postgres saying no: the account doesn't have the role, or isn't signed in.
   if (code === '42501') {

@@ -5,13 +5,22 @@ import { Icon } from "@/components/icon";
 import { EditHistory } from "@/components/edit-history";
 import { PageHeader } from "@/components/page-header";
 import { requireStaff } from "@/lib/auth";
-import { plural } from "@/lib/format";
+import { ConditionBadge } from "@/components/plant-bits";
+import { formatDateTime, plural } from "@/lib/format";
 import { loadHistory } from "@/lib/history";
 import { RECORD_ID } from "@/lib/record-form";
 import { recordPhotoLinks, type RecordPhoto } from "@/lib/record-photos";
-import { recordFromRow, STATUS_LABEL, valuesFromRecord } from "@/lib/records-staff";
+import {
+  recordFromRow,
+  STATUS_LABEL,
+  valuesFromRecord,
+  type StaffRecord,
+} from "@/lib/records-staff";
 import { ifItKeepsHappening } from "@/lib/setup-hint";
+import { sqlIsMissing } from "@/lib/sql-missing";
 import { createClient } from "@/lib/supabase/server";
+import { tagCode } from "@/lib/tags";
+import { newestVisitsFirst } from "@/lib/visits";
 import { RecordForm } from "../../record-form";
 
 export const metadata: Metadata = { title: "Edit a record" };
@@ -31,6 +40,26 @@ function noPhotosText(photoCount: number, photoFolder: string | null) {
     "yet. They go up after the record, the next time the account that sent " +
     "it is signed in on the phone with signal."
   );
+}
+
+/**
+ * Later visits to the plant whose first record this is, newest first, or null
+ * when they didn't load. A database without 028_record_visits.sql has none.
+ */
+async function loadVisits(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  id: string,
+): Promise<StaffRecord[] | null> {
+  const { data, error } = await supabase
+    .from("records_staff")
+    .select("*")
+    .eq("visit_of", id);
+  if (sqlIsMissing(error)) return [];
+  if (error) {
+    console.error("Loading the visits failed:", error.message);
+    return null;
+  }
+  return newestVisitsFirst(data.map(recordFromRow));
 }
 
 export default async function EditRecordPage({
@@ -84,11 +113,12 @@ export default async function EditRecordPage({
   if (!data) notFound();
 
   const record = recordFromRow(data);
-  const [photos, history] = await Promise.all([
+  const [photos, history, visits] = await Promise.all([
     record.photoFolder
       ? recordPhotoLinks(supabase, record.photoFolder, record.id)
       : ([] as RecordPhoto[]),
     loadHistory(supabase, "record", record.id),
+    record.visitOf ? ([] as StaffRecord[]) : loadVisits(supabase, record.id),
   ]);
 
   return (
@@ -113,6 +143,65 @@ export default async function EditRecordPage({
         initial={valuesFromRecord(record)}
         version={String(data.updated_at ?? "")}
       />
+
+      <section
+        aria-labelledby="visits-heading"
+        className="mt-14 max-w-2xl border-t border-line pt-10"
+      >
+        <h2 id="visits-heading" className="text-2xl font-bold tracking-tight">
+          {record.visitOf ? "First record" : "Later visits"}
+        </h2>
+        {record.visitOf ? (
+          <p className="mt-1 text-moss">
+            This is a visit to{" "}
+            <Link
+              href={`/dashboard/records/${record.visitOf}/edit`}
+              className="font-mono font-bold text-forest hover:underline"
+            >
+              {tagCode(record.visitOf)}
+            </Link>
+            . It’s a record of its own, so editing it doesn’t change the first
+            record. The plant keeps the tag of its first record.
+          </p>
+        ) : visits === null ? (
+          <p className="mt-5 flex items-start gap-2.5 rounded-xl border-2 border-bad bg-sheet p-4 font-bold text-bad">
+            <Icon name="alert" className="mt-0.5 size-4 shrink-0" />
+            The visits didn’t load. Refresh the page to try again.
+          </p>
+        ) : visits.length > 0 ? (
+          <>
+            <p className="mt-1 text-moss">
+              The field team came back to this plant{" "}
+              {plural(visits.length, "time")}. Each visit is a record of its
+              own. Newest first.
+            </p>
+            <ul className="mt-5 divide-y divide-line rounded-xl border border-line bg-sheet">
+              {visits.map((visit) => (
+                <li key={visit.id}>
+                  <Link
+                    href={`/dashboard/records/${visit.id}/edit`}
+                    className="flex min-h-11 flex-wrap items-center gap-x-3 gap-y-1 p-4 hover:bg-paper"
+                  >
+                    <span className="font-mono text-sm font-bold">
+                      {visit.tagCode}
+                    </span>
+                    <span>{formatDateTime(visit.recordedAt)}</span>
+                    <ConditionBadge condition={visit.condition} />
+                    <span className="text-sm text-moss">
+                      {STATUS_LABEL[visit.status]}
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </>
+        ) : (
+          <p className="mt-5 rounded-xl border border-dashed border-line p-4 text-moss">
+            No visits to this plant yet. When the field team checks on it again,
+            the phone adds a visit here instead of changing this record.
+          </p>
+        )}
+      </section>
 
       <section
         aria-labelledby="field-photos-heading"

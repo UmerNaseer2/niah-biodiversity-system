@@ -1,4 +1,4 @@
-import { useIsFocused, useRouter } from 'expo-router';
+import { useIsFocused, useLocalSearchParams, useRouter } from 'expo-router';
 import { useRef, useState } from 'react';
 import {
   AccessibilityInfo,
@@ -23,6 +23,7 @@ import { useGpsCapture } from '@/hooks/use-gps-capture';
 import { usePhotoCapture } from '@/hooks/use-photo-capture';
 import { useTheme } from '@/hooks/use-theme';
 import { conditionLabel, plural } from '@/lib/format';
+import { tagCodeFor } from '@/lib/id';
 import {
   checkRecordForm,
   MAX_COMMON_NAME_LENGTH,
@@ -31,6 +32,7 @@ import {
   tidyName,
 } from '@/lib/record-form';
 import { findSpeciesByName, searchSpecies } from '@/lib/species-search';
+import { firstRecordId } from '@/lib/visits';
 import { useRecords } from '@/state/records-context';
 import { PLANT_CONDITIONS, type PlantCondition } from '@/types/plant-record';
 
@@ -42,7 +44,13 @@ const SAVE_FAILED = "Couldn't save the record on this phone. Try again.";
 export default function NewRecordScreen() {
   const router = useRouter();
   const theme = useTheme();
-  const { addRecord, species: speciesList } = useRecords();
+  const { addRecord, getRecord, species: speciesList } = useRecords();
+  // Add a visit on a record's page opens this form with the plant's first record. A visit is a
+  // new record about the same plant, so the first record stays the way it was.
+  const params = useLocalSearchParams<{ visitOf?: string }>();
+  const visitTo = params.visitOf ? getRecord(params.visitOf) : undefined;
+  const visitOf = visitTo ? firstRecordId(visitTo) : undefined;
+  const plantTag = visitOf ? (getRecord(visitOf)?.tagCode ?? tagCodeFor(visitOf)) : undefined;
   const gps = useGpsCapture({ active: useIsFocused() });
   const photos = usePhotoCapture();
 
@@ -59,6 +67,22 @@ export default function NewRecordScreen() {
   const [saveFailed, setSaveFailed] = useState(false);
   // Stops a quick second tap straight away, before the button has redrawn as disabled.
   const savingRef = useRef(false);
+  // Which plant the form was last filled in for. When Add a visit opens it for another plant,
+  // the form starts again with only that plant's species in it, since the rest is new each visit.
+  const [filledFor, setFilledFor] = useState<string | undefined>(undefined);
+  if (visitOf !== filledFor) {
+    setFilledFor(visitOf);
+    if (visitOf) {
+      const plant = getRecord(visitOf) ?? visitTo;
+      setSpecies(plant?.speciesName ?? '');
+      setCommonName(plant?.commonName ?? '');
+      setHeightText('');
+      setCondition('healthy');
+      setNotes('');
+      setTouched({ species: false, height: false });
+      setSaveFailed(false);
+    }
+  }
 
   const commonNameRef = useRef<TextInput>(null);
   const heightRef = useRef<TextInput>(null);
@@ -102,6 +126,12 @@ export default function NewRecordScreen() {
     }
   }
 
+  /** Turns the form back into a normal new record, for when it isn't a visit after all. */
+  function stopVisit() {
+    router.setParams({ visitOf: undefined });
+    resetForm();
+  }
+
   function resetForm() {
     setSpecies('');
     setCommonName('');
@@ -132,9 +162,13 @@ export default function NewRecordScreen() {
           condition,
           notes: notes.trim() || undefined,
           location: gps.location,
+          visitOf,
         },
         photos.paths,
       );
+      if (visitOf) {
+        router.setParams({ visitOf: undefined });
+      }
       resetForm();
       router.push({ pathname: '/record/[id]', params: { id: record.id } });
     } catch (error) {
@@ -157,6 +191,15 @@ export default function NewRecordScreen() {
       hasInputs
       title="New plant record"
       subtitle="Fill in what you can. Only the species and location are required.">
+      {visitOf ? (
+        <Card title={`Visit to ${plantTag}`} icon="history">
+          <ThemedText>
+            This saves a new record for the same plant. The first record stays as it is, and the
+            plant keeps its tag.
+          </ThemedText>
+          <Button label="Make a new plant record instead" variant="outline" onPress={stopVisit} />
+        </Card>
+      ) : null}
       <Card title="Plant" icon="leaf">
         <View style={styles.speciesGroup}>
           <Field

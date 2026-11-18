@@ -143,16 +143,25 @@ describe('openDatabase', () => {
         'species',
         'sync_meta',
       ]);
-      // Version 5 adds two columns, and nobody has heard from an officer yet.
+      // Version 5 adds two columns, and nobody has heard from an officer yet. Version 10 adds
+      // visit_of, and none of these are visits.
       expect(await db.getAllAsync('SELECT * FROM plant_records ORDER BY id')).toEqual(
         before.map((row) =>
-          Object.assign({}, row, { review_status: null, review_notes: null, uploaded_by: null }),
+          Object.assign({}, row, {
+            review_status: null,
+            review_notes: null,
+            uploaded_by: null,
+            visit_of: null,
+          }),
         ),
       );
       const indexes = await db.getAllAsync<{ name: string }>(
         "SELECT name FROM sqlite_master WHERE type = 'index' AND name NOT LIKE 'sqlite_%'",
       );
-      expect(indexes).toEqual([{ name: 'plant_records_recorded_at' }]);
+      expect(indexes).toEqual([
+        { name: 'plant_records_recorded_at' },
+        { name: 'plant_records_visit_of' },
+      ]);
 
       // The new problem goes in now, and the old rules still hold.
       await db.runAsync(
@@ -542,6 +551,58 @@ describe('version 9', () => {
           VALUES ('ficus-benjamina', 'Ficus benjamina', 'LC', 0, 2)`,
         ),
       ).rejects.toThrow('CHECK constraint failed');
+    } finally {
+      await db.closeAsync();
+    }
+  });
+});
+
+describe('version 10', () => {
+  const FIRST = '6b1e4d2a-7c3f-4e8b-9a5d-1f2e3c4b5a60';
+  const VISIT = 'c2d4f6a8-1b3d-4f5a-8c7e-9a0b1c2d3e40';
+
+  it('adds which record a visit is to and leaves the records as they were', async () => {
+    const old = await openDatabaseAsync(DATABASE_NAME);
+    await migrate(old, MIGRATIONS.slice(0, 9));
+    await old.runAsync(
+      `INSERT INTO plant_records (id, tag_code, species_name, condition, recorded_at)
+      VALUES ('${FIRST}', 'NNP-6B1E4D', 'Ficus sp.', 'healthy', '2026-10-16T01:13:02.000Z')`,
+    );
+    await old.closeAsync();
+
+    const db = await openDatabase();
+    try {
+      expect(await versionOf(db)).toBe(MIGRATIONS.length);
+      expect(await db.getAllAsync('SELECT id, visit_of FROM plant_records')).toEqual([
+        { id: FIRST, visit_of: null },
+      ]);
+      const indexes = await db.getAllAsync<{ name: string }>(
+        "SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'plant_records'",
+      );
+      expect(indexes.map((index) => index.name)).toContain('plant_records_visit_of');
+    } finally {
+      await db.closeAsync();
+    }
+  });
+
+  it("won't let a record be a visit to itself", async () => {
+    const db = await openDatabase();
+    try {
+      const add = (id: string, tagCode: string, visitOf: string | null) =>
+        db.runAsync(
+          `INSERT INTO plant_records (id, tag_code, species_name, condition, recorded_at, visit_of)
+          VALUES ($id, $tagCode, 'Ficus sp.', 'healthy', '2026-10-16T01:13:02.000Z', $visitOf)`,
+          { $id: id, $tagCode: tagCode, $visitOf: visitOf },
+        );
+      await expect(add(FIRST, 'NNP-6B1E4D', FIRST)).rejects.toThrow('CHECK constraint failed');
+      await add(FIRST, 'NNP-6B1E4D', null);
+      await add(VISIT, 'NNP-C2D4F6', FIRST);
+      expect(
+        await db.getAllAsync('SELECT id, visit_of FROM plant_records ORDER BY recorded_at, id'),
+      ).toEqual([
+        { id: FIRST, visit_of: null },
+        { id: VISIT, visit_of: FIRST },
+      ]);
     } finally {
       await db.closeAsync();
     }

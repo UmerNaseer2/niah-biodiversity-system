@@ -248,6 +248,39 @@ describe('getting a new tag', () => {
   });
 });
 
+describe('visits', () => {
+  const visit: PlantRecord = { ...newer, visitOf: older.id };
+
+  it('gives back which record a visit is to', async () => {
+    await store.saveRecord(older);
+    await store.saveRecord(visit);
+    expect(await store.loadRecords()).toEqual([visit, older]);
+  });
+
+  it('turns down a record that is a visit to itself', async () => {
+    await expect(store.saveRecord({ ...older, visitOf: older.id })).rejects.toThrow();
+    expect(await store.loadRecords()).toEqual([]);
+  });
+
+  it('keeps the visits as records on their own when the first record is removed', async () => {
+    await store.saveRecord(older);
+    await store.saveRecord(visit);
+    await store.saveUploadOutcome(older.id, { kind: 'problem', problem: 'deleted' });
+    await store.removeDeleted(older.id);
+    expect(await store.loadRecords()).toEqual([newer]);
+  });
+
+  it('moves the visits to the new ID when the first record gets a new tag', async () => {
+    const NEW_ID = 'f0e1d2c3-b4a5-4968-8776-655443322110';
+    await store.saveRecord(older);
+    await store.saveRecord(visit);
+    await store.saveUploadOutcome(older.id, { kind: 'problem', problem: 'tag-clash' });
+    await store.renewTag(older.id, NEW_ID, 'NNP-F0E1D2');
+    const saved = await store.loadRecords();
+    expect(saved.find((record) => record.id === visit.id)?.visitOf).toBe(NEW_ID);
+  });
+});
+
 describe('photos', () => {
   const ACCOUNT = 'aaaaaaaa-0000-4000-8000-000000000000';
 

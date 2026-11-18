@@ -185,6 +185,13 @@ export const MIGRATIONS: readonly string[] = [
   // (lib/tag-rule.ts). Species saved before this count as rough until the next download.
   `ALTER TABLE public_species
     ADD COLUMN rough_area_only INTEGER NOT NULL DEFAULT 1 CHECK (rough_area_only IN (0, 1));`,
+
+  // Version 10: a later visit to a plant is a new record that points at the plant's first record,
+  // so the first record keeps what was seen the first time. Null means it's a first record. No
+  // foreign key, for the same reason as record_photos, so the store keeps it right by hand when a
+  // record gets a new ID or is removed.
+  `ALTER TABLE plant_records ADD COLUMN visit_of TEXT CHECK (visit_of IS NULL OR visit_of <> id);
+  CREATE INDEX plant_records_visit_of ON plant_records (visit_of);`,
 ];
 
 /**

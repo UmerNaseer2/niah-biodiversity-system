@@ -1,9 +1,11 @@
 import type { Condition } from "./condition";
 import { parkTime } from "./format";
 import { roughCentre } from "./geo";
+import { sqlIsMissing } from "./sql-missing";
 import { publicClient } from "./supabase";
 import { readAll } from "./supabase/read-all";
 import { tagCode } from "./tags";
+import { newestVisitsFirst, visitIds } from "./visits";
 import {
   findPublishedByTag,
   publishedForSpecies,
@@ -164,4 +166,59 @@ export async function getPublishedByTag(code: string): Promise<PublicRecord | nu
     .maybeSingle();
   if (error) throw new Error(`Couldn't load tag ${code}: ${error.message}`);
   return data ? fromRow(data) : null;
+}
+
+// The sample data has no visits, and a database without 028_record_visits.sql has none either,
+// so both give an empty answer instead of an error.
+
+/**
+ * For an approved visit to a plant, the tag code of the plant's first record, which is the tag
+ * on the plant. Null for a first record or anything else.
+ */
+export async function getFirstRecordTag(id: string): Promise<string | null> {
+  const client = await publicClient();
+  if (!client) return null;
+
+  const link = await client
+    .from("record_visits_public")
+    .select("visit_of")
+    .eq("id", id)
+    .maybeSingle();
+  if (sqlIsMissing(link.error)) return null;
+  if (link.error) throw new Error(`Couldn't check for a visit: ${link.error.message}`);
+  if (!link.data?.visit_of) return null;
+
+  const firstId = String(link.data.visit_of);
+  const { data, error } = await client
+    .from("records_public")
+    .select("tag_code")
+    .eq("id", firstId)
+    .eq("status", "published")
+    .maybeSingle();
+  if (error) throw new Error(`Couldn't load the first record: ${error.message}`);
+  if (!data) return null;
+  return data.tag_code ? String(data.tag_code) : tagCode(firstId);
+}
+
+/** The approved visits to a plant, from the ID of its first record, newest first */
+export async function getPublishedVisits(firstId: string): Promise<PublicRecord[]> {
+  const client = await publicClient();
+  if (!client) return [];
+
+  const links = await client
+    .from("record_visits_public")
+    .select("id")
+    .eq("visit_of", firstId);
+  if (sqlIsMissing(links.error)) return [];
+  if (links.error) throw new Error(`Couldn't load the visits: ${links.error.message}`);
+  const ids = visitIds(links.data);
+  if (ids.length === 0) return [];
+
+  const { data, error } = await client
+    .from("records_public")
+    .select(COLUMNS)
+    .in("id", ids)
+    .eq("status", "published");
+  if (error) throw new Error(`Couldn't load the visits: ${error.message}`);
+  return newestVisitsFirst(data.map(fromRow));
 }

@@ -337,6 +337,57 @@ describe('getting a new tag', () => {
   });
 });
 
+describe('visits', () => {
+  const first = withId(full, 'aa000000-0000-4000-8000-0000000000a1');
+  const visit = withId(
+    { ...bare, syncStatus: 'pending', visitOf: first.id },
+    'bb000000-0000-4000-8000-0000000000b2',
+  );
+  const other = withId(bare, 'cc000000-0000-4000-8000-0000000000c3');
+
+  it('gives back which record a visit is to', async () => {
+    await store.saveRecord(first);
+    await store.saveRecord(visit);
+    const saved = await store.loadRecords();
+    expect(saved.find((record) => record.id === visit.id)).toEqual(visit);
+    expect(saved.find((record) => record.id === first.id)?.visitOf).toBeUndefined();
+  });
+
+  it('turns down a record that is a visit to itself', async () => {
+    await expect(store.saveRecord({ ...other, visitOf: other.id })).rejects.toThrow();
+    expect(await store.loadRecords()).toEqual([]);
+  });
+
+  it('keeps the visits as records on their own when the first record is removed', async () => {
+    await store.saveRecord({ ...first, uploadProblem: 'deleted' });
+    await store.saveRecord(visit);
+    await store.saveRecord(other);
+    await store.removeDeleted(first.id);
+    const saved = await store.loadRecords();
+    expect(saved.map((record) => record.id).sort()).toEqual([visit.id, other.id].sort());
+    expect(saved.find((record) => record.id === visit.id)?.visitOf).toBeUndefined();
+  });
+
+  it('moves the visits to the new ID when the first record gets a new tag', async () => {
+    const NEW_ID = 'dd000000-0000-4000-8000-0000000000d4';
+    await store.saveRecord(first);
+    await store.saveUploadOutcome(first.id, { kind: 'problem', problem: 'tag-clash' });
+    await store.saveRecord(visit);
+    await store.renewTag(first.id, NEW_ID, 'NNP-DD0000');
+    const saved = await store.loadRecords();
+    expect(saved.find((record) => record.id === visit.id)?.visitOf).toBe(NEW_ID);
+  });
+
+  it('keeps which record a visit is to after an officer decides on it', async () => {
+    const synced = { ...visit, syncStatus: 'synced' as const };
+    await store.saveRecord(first);
+    await store.saveRecord(synced);
+    await store.saveReviews([{ id: synced.id, status: 'published', notes: null }]);
+    const saved = await store.loadRecords();
+    expect(saved.find((record) => record.id === synced.id)?.visitOf).toBe(first.id);
+  });
+});
+
 describe('photos', () => {
   const ACCOUNT = 'aaaaaaaa-0000-4000-8000-000000000000';
   const OTHER_ACCOUNT = 'bbbbbbbb-0000-4000-8000-000000000000';

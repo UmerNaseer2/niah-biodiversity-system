@@ -4,8 +4,9 @@ Item 39. This is our proposed way of doing ground-truthing at Niah. Each change 
 limitation (L1 to L12) from [the analysis](ground-truthing-limitations.md).
 
 **Status: this is a design.** Some steps are built and tested on simulators, a browser and a local
-stand-in database. That now includes items 10, 11, 12, 22 and 28 to 31. Some are new work for item
-40. We have no field results, and every target below is not yet measured in the field.
+stand-in database. That now includes items 10, 11, 12, 22 and 28 to 31, and revisit records from
+item 40. Some are still new work for item 40. We have no field results, and every target below is
+not yet measured in the field.
 
 ## Current and proposed, step by step
 
@@ -23,7 +24,7 @@ silent, we say so.
 | 7 | Check | The Scope doesn't describe this | Officer approves, or rejects with a reason that goes back to the phone | L7, L8 | Built (items 10 and 19), simulator and stand-in only |
 | 8 | Publish | The Scope says access to up to date information is limited | Only approved records go public. Threatened, protected and unknown plants get a rough area automatically | L5, L9 | Built, stand-in only |
 | 9 | Between visits | The Scope doesn't describe this | Sensors near selected plants. An alert names the plant and someone goes to check | L11 | Dashboards built (items 28 to 31), simulated sensors only. Each alert now lists the tagged plants within 100 m of its node, built on the website and tried on the stand-in only. Notification is new work |
-| 10 | Revisit | The Scope doesn't describe this | Scan the tag, see the plant's history with no signal, add a new visit record instead of overwriting | L4, L8, L11 | Scan built. History and visit records are new work |
+| 10 | Revisit | The Scope doesn't describe this | Scan the tag, see the plant's history with no signal, add a new visit record instead of overwriting | L4, L8, L11 | Built (items 6 and 40), automated tests only, not tried in the field. Finding a plant recorded on another phone is new work |
 
 ### Current workflow
 
@@ -80,8 +81,8 @@ flowchart TD
     scan["Scan the tag"]
     history["See the plant's history"]
     visit["Add a new visit record"]
-    scan -.-> history
-    history -.-> visit
+    scan --> history
+    history --> visit
   end
 
   tag --> upload
@@ -90,7 +91,7 @@ flowchart TD
   exact -->|"later"| sensor
   rough -->|"later"| sensor
   person -.-> scan
-  visit -.-> upload
+  visit --> upload
 ```
 
 ## A gap we found: printing tags
@@ -119,7 +120,7 @@ step 5 doesn't work as drawn.
 | L5 Long gap | Upload on signal, then the website | The wait may move to the review queue |
 | L6 No signal | Everything in the forest works offline | Sign in and species list updates depend on item 10 |
 | L7 Wrong names | Review before public, with checks shown | Officer sees a photo, not the plant |
-| L8 No trail | Who and when stamps, edit history, and visits added rather than overwritten | Trail doesn't prove someone was right |
+| L8 No trail | Who and when stamps, edit history, and visits added rather than overwritten | Trail doesn't prove someone was right. Visits are built but not tried in the field |
 | L9 Locations leak | Automatic rough area, hidden unless known safe | Wrong name can still show an exact spot. SFC sets the size |
 | L10 Tags mark the plant | Code only tag or no tag for protected plants | SFC's choice. Without a tag, a revisit relies on GPS and notes |
 | L11 Nothing between visits | Alert sends someone to a named plant | Not built. False alarms and radio range are open |
@@ -236,7 +237,9 @@ These are our assumptions, not findings.
 - A link from a sensor node to plant records. It's officers and admins only, because it says where the
   plant is.
 - A way to tell field staff about an alert, and a decision on who responds. We have no ranger role.
-- Revisit records, plus the plant's history on the phone, so a second phone can find the record too.
+- Revisit records and the plant's history on the phone are built (`supabase/028_record_visits.sql`
+  and the phone's database version 10), with automated tests only. Still to do: a second phone
+  finding a plant it didn't record, and the history of a plant in the visitor's downloaded copy.
 - SFC's decision on tags for protected plants, and how big the rough area should be.
 - The pre-printed tag decision, with item 12.
 

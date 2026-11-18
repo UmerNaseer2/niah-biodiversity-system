@@ -473,7 +473,12 @@ export function RecordsProvider({ children }: { children: ReactNode }) {
       current.status === 'ready'
         ? {
             ...current,
-            saved: current.saved.filter((record) => record.id !== id),
+            // Visits to it stay, as records on their own, like on the server
+            saved: current.saved
+              .filter((record) => record.id !== id)
+              .map((record) =>
+                record.visitOf === id ? { ...record, visitOf: undefined } : record,
+              ),
             photos: current.photos.filter((photo) => photo.recordId !== id),
           }
         : current,
@@ -517,7 +522,9 @@ export function RecordsProvider({ children }: { children: ReactNode }) {
             saved: current.saved.map((record) =>
               record.id === id
                 ? { ...record, id: newRecordId, tagCode, uploadProblem: undefined }
-                : record,
+                : record.visitOf === id
+                  ? { ...record, visitOf: newRecordId }
+                  : record,
             ),
             photos: current.photos.map((photo) =>
               photo.recordId === id ? { ...photo, recordId: newRecordId } : photo,
