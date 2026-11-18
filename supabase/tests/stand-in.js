@@ -980,32 +980,103 @@ function whereFrom(searchParams, column, params) {
   const where = [];
   for (const [name, value] of searchParams) {
     if (NOT_FILTERS.has(name)) continue;
-    if (name === 'or' || name === 'and') {
-      throw new Refusal(400, 'PGRST100', 'The stand-in doesn’t do or() and and() filters');
+    if (name === 'or') {
+      where.push(`(${orFrom(value, column, params)})`);
+      continue;
     }
-    const negate = value.startsWith('not.');
-    const filter = negate ? value.slice('not.'.length) : value;
-    const dot = filter.indexOf('.');
-    const op = dot === -1 ? filter : filter.slice(0, dot);
-    const arg = dot === -1 ? null : filter.slice(dot + 1);
-    let sql;
-    if (FILTERS.has(op) && arg !== null) {
-      params.push(op.endsWith('like') ? arg.replaceAll('*', '%') : arg);
-      sql = `${column(name)} ${FILTERS.get(op)} $${params.length}`;
-    } else if (op === 'is' && ['null', 'true', 'false'].includes(arg)) {
-      sql = `${column(name)} IS ${arg.toUpperCase()}`;
-    } else if (op === 'in' && arg === '()') {
-      column(name);
-      sql = 'false';
-    } else if (op === 'in' && /^\(.+\)$/.test(arg ?? '')) {
-      const items = arg.slice(1, -1).split(',').map((item) => item.replace(/^"(.*)"$/, '$1'));
-      sql = `${column(name)} IN (${items.map((item) => `$${params.push(item)}`).join(', ')})`;
-    } else {
-      throw new Refusal(400, 'PGRST100', `The stand-in doesn’t understand ${name}=${value}`);
+    if (name === 'and') {
+      throw new Refusal(400, 'PGRST100', 'The stand-in doesn’t do and() filters');
     }
-    where.push(negate ? `NOT (${sql})` : sql);
+    where.push(oneFilter(name, value, column, params));
   }
   return where.length ? ` WHERE ${where.join(' AND ')}` : '';
+}
+
+/**
+ * Turns or=(a.ilike."%x%",b.eq.y) into SQL, like the Records search sends. Only one level: a
+ * nested or() or and() inside is turned down. A value in double quotes can have commas and
+ * brackets in it, and a backslash in there keeps the next character as it is, like the API.
+ */
+function orFrom(value, column, params) {
+  if (!value.startsWith('(') || !value.endsWith(')')) {
+    throw new Refusal(400, 'PGRST100', `The stand-in doesn’t understand or=${value}`);
+  }
+  const inside = value.slice(1, -1);
+  const items = [];
+  let item = { name: '', rest: '', quoted: null };
+  let i = 0;
+  const finish = () => {
+    if (!item.name) throw new Refusal(400, 'PGRST100', `The stand-in doesn’t understand or=${value}`);
+    items.push(item);
+    item = { name: '', rest: '', quoted: null };
+  };
+  let onName = true;
+  while (i < inside.length) {
+    const c = inside[i];
+    if (onName) {
+      if (c === '.') onName = false;
+      else if (c === '(' || c === ')' || c === ',') {
+        throw new Refusal(400, 'PGRST100', `The stand-in doesn’t understand or=${value}`);
+      } else item.name += c;
+      i += 1;
+    } else if (c === '"' && /\.$/.test(item.rest)) {
+      // A quoted value runs to the next quote that isn't escaped
+      let text = '';
+      i += 1;
+      while (i < inside.length && inside[i] !== '"') {
+        if (inside[i] === '\\' && i + 1 < inside.length) i += 1;
+        text += inside[i];
+        i += 1;
+      }
+      if (inside[i] !== '"') {
+        throw new Refusal(400, 'PGRST100', `The stand-in doesn’t understand or=${value}`);
+      }
+      item.quoted = text;
+      i += 1;
+      if (i < inside.length && inside[i] !== ',') {
+        throw new Refusal(400, 'PGRST100', `The stand-in doesn’t understand or=${value}`);
+      }
+    } else if (c === ',') {
+      finish();
+      onName = true;
+      i += 1;
+    } else if (c === '(' || c === ')') {
+      throw new Refusal(400, 'PGRST100', `The stand-in doesn’t understand or=${value}`);
+    } else {
+      item.rest += c;
+      i += 1;
+    }
+  }
+  finish();
+  return items
+    .map(({ name, rest, quoted }) =>
+      oneFilter(name, quoted === null ? rest : rest + quoted, column, params))
+    .join(' OR ');
+}
+
+/** One filter like id=eq.123 as SQL, with its value added to params. */
+function oneFilter(name, value, column, params) {
+  const negate = value.startsWith('not.');
+  const filter = negate ? value.slice('not.'.length) : value;
+  const dot = filter.indexOf('.');
+  const op = dot === -1 ? filter : filter.slice(0, dot);
+  const arg = dot === -1 ? null : filter.slice(dot + 1);
+  let sql;
+  if (FILTERS.has(op) && arg !== null) {
+    params.push(op.endsWith('like') ? arg.replaceAll('*', '%') : arg);
+    sql = `${column(name)} ${FILTERS.get(op)} $${params.length}`;
+  } else if (op === 'is' && ['null', 'true', 'false'].includes(arg)) {
+    sql = `${column(name)} IS ${arg.toUpperCase()}`;
+  } else if (op === 'in' && arg === '()') {
+    column(name);
+    sql = 'false';
+  } else if (op === 'in' && /^\(.+\)$/.test(arg ?? '')) {
+    const items = arg.slice(1, -1).split(',').map((item) => item.replace(/^"(.*)"$/, '$1'));
+    sql = `${column(name)} IN (${items.map((item) => `$${params.push(item)}`).join(', ')})`;
+  } else {
+    throw new Refusal(400, 'PGRST100', `The stand-in doesn’t understand ${name}=${value}`);
+  }
+  return negate ? `NOT (${sql})` : sql;
 }
 
 /** Turns order=recorded_at.desc,name.asc.nullslast into SQL. */
