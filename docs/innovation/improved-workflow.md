@@ -250,6 +250,8 @@ Built, and tried on a simulator, a browser and the stand-in only:
   visits, not the spot, notes or photos. It needs signal.
 - Later visits in the visitor's downloaded copy. The plant page lists them, and Home and Plants
   count each plant once.
+- The website's Plants list, species pages and Recently tagged on the home page also count each
+  plant once. An approved visit only shows on its plant's tag page.
 - Sensor alerts on the phone for officers and admins. Home shows them with what to do and the
   nearby plants, the phone checks every minute while it's open, and a new urgent alert buzzes and
   gets read out. I'm on it marks the alert like Acknowledge on the website.
@@ -258,7 +260,6 @@ Still to do:
 
 - Push notifications, so an alert reaches a phone while the app is closed.
 - A decision on who responds to an alert. We have no ranger role, and botanists can't read alerts.
-- The website's Plants list and species pages still count a visit as a separate plant.
 - SFC's decision on tags for protected plants, and how big the rough area should be.
 - The pre-printed tag decision, with item 12.
 

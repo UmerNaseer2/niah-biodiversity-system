@@ -89,7 +89,7 @@ with it.
 | `records` (table) | One row per tagged plant from the field | Field staff read their own, staff read all | Field staff add their own as `waiting`. Botanists edit their own while waiting. Staff review, edit and delete any record | Phone uploads and reads back status. Dashboard records and review pages |
 | `records_public` (view) | Published records only. The exact spot only for a species that is LC or NT, not protected in Sarawak and not set to rough area only. Other records get the middle of a grid square and the day, not the time (019) | Anyone | Nobody | Public pages, `/tag/<code>`, the phone's visitor download |
 | `records_staff` (view) | Every record with its exact point | Staff | Nobody | Most dashboard pages, `report_counts`, the plants near an alert on the phone |
-| `record_visits_public` (view) | Which published records are visits (`id`) and the first record of their plant (`visit_of`), only when both are approved (028) | Anyone | Nobody | `/tag/<code>` later visits, the phone's visitor download |
+| `record_visits_public` (view) | Which published records are visits (`id`) and the first record of their plant (`visit_of`), only when both are approved (028) | Anyone | Nobody | `/tag/<code>` later visits, leaving visits out of `/plants`, the species pages and the home page, the phone's visitor download |
 | `deleted_records` (table) | The ID of every deleted record, with who and when | Staff | Only its trigger | No app reads it. The phone reacts to the `deleted_records_pkey` error it causes |
 | `record_history` (table) | Every change to a record, with the old and new value of each column | Staff | Only its trigger | The record edit page |
 

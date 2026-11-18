@@ -5,7 +5,7 @@ import { sqlIsMissing } from "./sql-missing";
 import { publicClient } from "./supabase";
 import { readAll } from "./supabase/read-all";
 import { tagCode } from "./tags";
-import { newestVisitsFirst, visitIds } from "./visits";
+import { newestVisitsFirst, plantsPerSpecies, visitIds, withoutVisits } from "./visits";
 import {
   findPublishedByTag,
   publishedForSpecies,
@@ -84,7 +84,28 @@ function newestFirst(a: PublicRecord, b: PublicRecord) {
 // With Supabase set up, a failed query throws so the page shows its error
 // screen. Showing the sample data instead would hide that the database is down.
 
-/** How many approved records each species has, keyed by slug */
+type PublicClient = NonNullable<Awaited<ReturnType<typeof publicClient>>>;
+
+/**
+ * The IDs of the approved later visits to plants. A visit is the same plant again, so the
+ * public lists and counts leave these out and the plant's tag page shows them instead. A visit
+ * whose first record isn't approved isn't in here, so it shows as a plant of its own.
+ */
+async function publishedVisitIds(client: PublicClient): Promise<Set<string>> {
+  const { data, error } = await readAll((from, to) =>
+    client
+      .from("record_visits_public")
+      .select("id", { count: "exact" })
+      .order("id")
+      .range(from, to),
+  );
+  // A database without 028_record_visits.sql has no visits
+  if (sqlIsMissing(error)) return new Set();
+  if (error) throw new Error(`Couldn't load the visits: ${error.message}`);
+  return new Set(visitIds(data));
+}
+
+/** How many approved plants each species has, keyed by slug. Later visits don't count. */
 export async function getPublishedCounts(): Promise<Record<string, number>> {
   const client = await publicClient();
   if (!client) {
@@ -93,61 +114,69 @@ export async function getPublishedCounts(): Promise<Record<string, number>> {
     );
   }
 
-  const { data, error } = await readAll((from, to) =>
-    client
-      .from("records_public")
-      .select("species_slug", { count: "exact" })
-      .eq("status", "published")
-      .order("id")
-      .range(from, to),
-  );
+  const [{ data, error }, visits] = await Promise.all([
+    readAll((from, to) =>
+      client
+        .from("records_public")
+        .select("id, species_slug", { count: "exact" })
+        .eq("status", "published")
+        .order("id")
+        .range(from, to),
+    ),
+    publishedVisitIds(client),
+  ]);
   if (error) throw new Error(`Couldn't load the record counts: ${error.message}`);
-
-  const counts: Record<string, number> = {};
-  for (const row of data) {
-    // A plant with no species yet doesn't count towards any species
-    if (!row.species_slug) continue;
-    const slug = String(row.species_slug);
-    counts[slug] = (counts[slug] ?? 0) + 1;
-  }
-  return counts;
+  return plantsPerSpecies(data, visits);
 }
 
-/** The approved records of one species, newest first */
+/** The approved plants of one species, newest first, without the later visits */
 export async function getPublishedRecordsForSpecies(slug: string): Promise<PublicRecord[]> {
   const client = await publicClient();
   if (!client) return publishedForSpecies(slug).map(fromMock).sort(newestFirst);
 
-  const { data, error } = await readAll((from, to) =>
-    client
-      .from("records_public")
-      .select(COLUMNS, { count: "exact" })
-      .eq("species_slug", slug)
-      .eq("status", "published")
-      .order("recorded_at", { ascending: false })
-      .order("id")
-      .range(from, to),
-  );
+  const [{ data, error }, visits] = await Promise.all([
+    readAll((from, to) =>
+      client
+        .from("records_public")
+        .select(COLUMNS, { count: "exact" })
+        .eq("species_slug", slug)
+        .eq("status", "published")
+        .order("recorded_at", { ascending: false })
+        .order("id")
+        .range(from, to),
+    ),
+    publishedVisitIds(client),
+  ]);
   if (error) throw new Error(`Couldn't load the records for ${slug}: ${error.message}`);
-  return data.map(fromRow);
+  return withoutVisits(data.map(fromRow), visits);
 }
 
-/** The newest approved records, for the home page */
+/** The newest approved plants for the home page, without the later visits (they aren't new tags) */
 export async function getRecentPublished(limit = 4): Promise<PublicRecord[]> {
   const client = await publicClient();
   if (!client) return publishedRecords.map(fromMock).sort(newestFirst).slice(0, limit);
 
-  const { data, error } = await client
-    .from("records_public")
-    .select(COLUMNS)
-    .eq("status", "published")
-    .order("recorded_at", { ascending: false })
-    // Hidden plants all get midnight, so on a day this keeps them from
-    // following whatever order the database feels like
-    .order("id")
-    .limit(limit);
-  if (error) throw new Error(`Couldn't load the newest records: ${error.message}`);
-  return data.map(fromRow);
+  const visits = await publishedVisitIds(client);
+  // Enough rows to still have `limit` once the visits are left out, most of the time in one go
+  const size = Math.min(limit + visits.size, 100);
+  const recent: PublicRecord[] = [];
+  for (let from = 0; recent.length < limit; ) {
+    const { data, error } = await client
+      .from("records_public")
+      .select(COLUMNS)
+      .eq("status", "published")
+      .order("recorded_at", { ascending: false })
+      // Hidden plants all get midnight, so on a day this keeps them from
+      // following whatever order the database feels like
+      .order("id")
+      .range(from, from + size - 1);
+    if (error) throw new Error(`Couldn't load the newest records: ${error.message}`);
+    // No rows back means there are no more
+    if (!data.length) break;
+    recent.push(...withoutVisits(data.map(fromRow), visits));
+    from += data.length;
+  }
+  return recent.slice(0, limit);
 }
 
 /** The approved record with this tag code (like NNP-3F2A9C), or null */
