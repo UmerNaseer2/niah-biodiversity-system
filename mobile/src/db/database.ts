@@ -192,6 +192,12 @@ export const MIGRATIONS: readonly string[] = [
   // record gets a new ID or is removed.
   `ALTER TABLE plant_records ADD COLUMN visit_of TEXT CHECK (visit_of IS NULL OR visit_of <> id);
   CREATE INDEX plant_records_visit_of ON plant_records (visit_of);`,
+
+  // Version 11: the same link in the saved plant info, so a visitor's plant page can list the later
+  // visits with no signal. Null means it's a first record. Records saved before this have no links
+  // until the next download, so each visit shows as a plant of its own until then.
+  `ALTER TABLE public_records
+    ADD COLUMN visit_of TEXT CHECK (visit_of IS NULL OR visit_of <> id);`,
 ];
 
 /**

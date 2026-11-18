@@ -14,6 +14,7 @@ import { EMPTY_SPECIES_LIST, NOT_DELETED, openRecordsStore } from '@/db/records-
 import { tagCodeFor } from '@/lib/id';
 import { RecordsProvider, useRecords } from '@/state/records-context';
 import type { NewPlantRecord, PlantRecord } from '@/types/plant-record';
+import type { PublicRecord, PublicSpecies } from '@/types/public-copy';
 
 function wrapper({ children }: { children: ReactNode }) {
   return <RecordsProvider>{children}</RecordsProvider>;
@@ -549,6 +550,99 @@ describe('species list', () => {
       await expect(result.current.replaceSpecies([])).rejects.toThrow(EMPTY_SPECIES_LIST);
     });
     expect(result.current.species).toEqual(SPECIES_LIST);
+  });
+});
+
+describe('visits in the plant info', () => {
+  const pitcher: PublicSpecies = {
+    slug: 'nepenthes-rafflesiana',
+    scientificName: 'Nepenthes rafflesiana',
+    authority: 'Jack',
+    family: 'Nepenthaceae',
+    commonNames: [],
+    iucnCode: 'LC',
+    sarawakProtected: false,
+    summary: '',
+    about: '',
+    habitat: '',
+    uses: '',
+  };
+  const first: PublicRecord = {
+    id: '3f9a1c2e-5b7d-4e6f-8a9b-0c1d2e3f4a50',
+    tagCode: 'NNP-3F9A1C',
+    speciesName: 'Nepenthes rafflesiana',
+    condition: 'healthy',
+    recordedAt: '2026-10-20T02:30:00.000Z',
+  };
+  const visit = (id: string, tagCode: string, recordedAt: string): PublicRecord => ({
+    id,
+    tagCode,
+    speciesName: 'Nepenthes rafflesiana',
+    condition: 'damaged',
+    recordedAt,
+    visitOf: first.id,
+  });
+  const october = visit(
+    '7c1e9b3a-2d4f-4a6b-8c0d-1e2f3a4b5c60',
+    'NNP-7C1E9B',
+    '2026-10-28T01:00:00.000Z',
+  );
+  // Two visits on the same day, so the order falls back to the ID.
+  const novemberA = visit(
+    '1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c50',
+    'NNP-1A2B3C',
+    '2026-11-10T01:00:00.000Z',
+  );
+  const novemberB = visit(
+    '9e3a5c7b-4f6d-4b8a-9c2e-3f4a5b6c7d80',
+    'NNP-9E3A5C',
+    '2026-11-10T01:00:00.000Z',
+  );
+  const other: PublicRecord = {
+    id: '8d2e4f6a-1c3b-4d5e-9f7a-2b4c6d8e0f10',
+    tagCode: 'NNP-8D2E4F',
+    speciesName: 'Ficus sp.',
+    recordedAt: '2026-10-19T16:00:00.000Z',
+  };
+
+  async function withVisits() {
+    const hook = await renderRecords();
+    await act(async () => {
+      await hook.result.current.replacePublicCopy(
+        [pitcher],
+        [october, first, novemberB, other, novemberA],
+        '2026-11-12T00:00:00.000Z',
+      );
+    });
+    return hook;
+  }
+
+  it('lists each plant once, by its first record', async () => {
+    const { result } = await withVisits();
+    expect(result.current.publicRecords).toEqual([first, other]);
+  });
+
+  it("opens the plant's first record from the tag of a visit", async () => {
+    const { result } = await withVisits();
+    expect(result.current.findPublicByTag('NNP-7C1E9B')).toEqual(first);
+    expect(result.current.findPublicByTag('nnp-1a2b3c')).toEqual(first);
+    expect(result.current.findPublicByTag('NNP-3F9A1C')).toEqual(first);
+    expect(result.current.findPublicByTag('NNP-8D2E4F')).toEqual(other);
+    expect(result.current.findPublicByTag('NNP-000000')).toBeUndefined();
+  });
+
+  it("gives a plant's visits, newest first", async () => {
+    const { result } = await withVisits();
+    expect(result.current.publicVisitsOf(first.id)).toEqual([novemberA, novemberB, october]);
+    expect(result.current.publicVisitsOf(other.id)).toEqual([]);
+  });
+
+  it('keeps the visits after the app restarts', async () => {
+    const before = await withVisits();
+    before.unmount();
+    const { result } = await renderRecords();
+    expect(result.current.publicRecords).toEqual([first, other]);
+    expect(result.current.publicVisitsOf(first.id)).toHaveLength(3);
   });
 });
 

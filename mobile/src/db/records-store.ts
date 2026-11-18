@@ -265,6 +265,7 @@ type PublicRecordRow = {
   height_m: number | null;
   condition: PlantCondition | null;
   recorded_at: string;
+  visit_of: string | null;
 };
 
 /** One row of public_photos, with null for a photo that hasn't come down yet. */
@@ -390,6 +391,7 @@ function toPublicRecord(row: PublicRecordRow): PublicRecord {
     heightM: row.height_m ?? undefined,
     condition: row.condition ?? undefined,
     recordedAt: row.recorded_at,
+    visitOf: row.visit_of ?? undefined,
   };
 }
 
@@ -665,9 +667,9 @@ export async function openRecordsStore(): Promise<RecordsStore> {
         for (const record of records) {
           await txn.runAsync(
             `INSERT INTO public_records (id, tag_code, species_slug, species_name, common_name,
-              height_m, condition, recorded_at)
+              height_m, condition, recorded_at, visit_of)
             VALUES ($id, $tagCode, $speciesSlug, $speciesName, $commonName, $heightM, $condition,
-              $recordedAt)`,
+              $recordedAt, $visitOf)`,
             {
               $id: record.id,
               $tagCode: record.tagCode,
@@ -677,6 +679,7 @@ export async function openRecordsStore(): Promise<RecordsStore> {
               $heightM: record.heightM ?? null,
               $condition: record.condition ?? null,
               $recordedAt: record.recordedAt,
+              $visitOf: record.visitOf ?? null,
             },
           );
         }

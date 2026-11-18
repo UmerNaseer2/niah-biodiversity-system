@@ -7,6 +7,7 @@ import {
   type PublicCopyApi,
   type PublicCopyStore,
   type RecordsPublicRow,
+  type RecordVisitsRow,
   type SpeciesPhotosRow,
   type SpeciesPublicRow,
 } from '@/sync/public-copy';
@@ -121,11 +122,13 @@ function fakeServer(
   species: SpeciesPublicRow[] | null = [speciesRow()],
   records: RecordsPublicRow[] | null = [recordRow()],
   photos: SpeciesPhotosRow[] | null = [photosRow()],
+  visits: RecordVisitsRow[] | null = [],
 ) {
   return {
     online: jest.fn(async (): Promise<boolean> => true),
     fetchSpecies: jest.fn(async () => species),
     fetchRecords: jest.fn(async () => records),
+    fetchVisits: jest.fn(async () => visits),
     fetchPhotos: jest.fn(async () => photos),
     photoUrl: jest.fn(photoUrl),
   } satisfies PublicCopyApi;
@@ -349,6 +352,55 @@ describe('recordsFromServer', () => {
   });
 });
 
+describe('recordsFromServer with visits', () => {
+  const FIRST = tagged.id;
+  const VISIT = '7c1e9b3a-2d4f-4a6b-8c0d-1e2f3a4b5c60';
+  const LATER = '9e3a5c7b-4f6d-4b8a-9c2e-3f4a5b6c7d80';
+  const rows = [
+    recordRow(),
+    recordRow({ id: VISIT, tag_code: 'NNP-7C1E9B', condition: 'damaged' }),
+    recordRow({ id: LATER, tag_code: 'NNP-9E3A5C' }),
+  ];
+
+  it('links each visit to the first record of its plant', () => {
+    const records = recordsFromServer(rows, [
+      { id: VISIT, visit_of: FIRST },
+      { id: LATER, visit_of: FIRST },
+    ]);
+    expect(records.map((record) => record.visitOf)).toEqual([undefined, FIRST, FIRST]);
+    expect(records[1]).toEqual({
+      ...tagged,
+      id: VISIT,
+      tagCode: 'NNP-7C1E9B',
+      condition: 'damaged',
+      visitOf: FIRST,
+    });
+  });
+
+  it("doesn't link a visit to a first record that isn't in the copy", () => {
+    const records = recordsFromServer(rows, [{ id: VISIT, visit_of: 'not-in-the-copy' }]);
+    expect(records.every((record) => record.visitOf === undefined)).toBe(true);
+  });
+
+  it("doesn't link a visit to another visit, or a record to itself", () => {
+    const records = recordsFromServer(rows, [
+      { id: VISIT, visit_of: FIRST },
+      { id: LATER, visit_of: VISIT },
+      { id: FIRST, visit_of: FIRST },
+    ]);
+    expect(records.map((record) => record.visitOf)).toEqual([undefined, FIRST, undefined]);
+  });
+
+  it('skips a visit row with no ID or no first record', () => {
+    const records = recordsFromServer(rows, [
+      { id: null, visit_of: FIRST },
+      { id: VISIT, visit_of: null },
+      { id: LATER, visit_of: '' },
+    ]);
+    expect(records.every((record) => record.visitOf === undefined)).toBe(true);
+  });
+});
+
 describe('photosFromServer', () => {
   const slugs = new Set(['nepenthes-rafflesiana']);
 
@@ -490,6 +542,7 @@ describe('downloadPublicCopy', () => {
     expect(await downloadPublicCopy(server, phone, now)).toBe('offline');
     expect(server.fetchSpecies).not.toHaveBeenCalled();
     expect(server.fetchRecords).not.toHaveBeenCalled();
+    expect(server.fetchVisits).not.toHaveBeenCalled();
     expect(server.fetchPhotos).not.toHaveBeenCalled();
     expect(phone.replacePublicCopy).not.toHaveBeenCalled();
   });
@@ -534,6 +587,47 @@ describe('downloadPublicCopy', () => {
     const [photosAsked] = server.fetchPhotos.mock.invocationCallOrder;
     expect(photosAsked).toBeGreaterThan(recordsAsked);
     expect(server.photoUrl).toHaveBeenCalledWith(UPLOADED);
+  });
+
+  it('links the visits in the copy it saves', async () => {
+    const VISIT = '7c1e9b3a-2d4f-4a6b-8c0d-1e2f3a4b5c60';
+    const phone = fakePhone();
+    const server = fakeServer(
+      undefined,
+      [recordRow(), recordRow({ id: VISIT, tag_code: 'NNP-7C1E9B' })],
+      undefined,
+      [{ id: VISIT, visit_of: tagged.id }],
+    );
+    expect(await downloadPublicCopy(server, phone, now)).toBe('done');
+    expect(server.fetchVisits).toHaveBeenCalledTimes(1);
+    const [, records] = phone.replacePublicCopy.mock.calls[0];
+    expect(records).toEqual([
+      tagged,
+      { ...tagged, id: VISIT, tagCode: 'NNP-7C1E9B', visitOf: tagged.id },
+    ]);
+  });
+
+  // A server that hasn't had supabase/028_record_visits.sql run yet has no list of visits.
+  it("still saves the plant info, with no visits linked, when they couldn't be read", async () => {
+    const phone = fakePhone();
+    const server = fakeServer(undefined, undefined, undefined, null);
+    expect(await downloadPublicCopy(server, phone, now)).toBe('done');
+    expect(phone.replacePublicCopy).toHaveBeenCalledWith([pitcher], [tagged], DOWNLOADED, [
+      pitcherPhoto,
+    ]);
+    expect(console.warn).not.toHaveBeenCalled();
+  });
+
+  it('still saves the plant info, and warns, when reading the visits throws', async () => {
+    const server = fakeServer();
+    const broken = new Error('The visit list is broken');
+    server.fetchVisits.mockRejectedValue(broken);
+    const phone = fakePhone();
+    expect(await downloadPublicCopy(server, phone, now)).toBe('done');
+    expect(phone.replacePublicCopy).toHaveBeenCalledWith([pitcher], [tagged], DOWNLOADED, [
+      pitcherPhoto,
+    ]);
+    expect(console.warn).toHaveBeenCalledWith("Couldn't download the plant visits.", broken);
   });
 
   it("still saves the plant info when the photo lists couldn't be read", async () => {

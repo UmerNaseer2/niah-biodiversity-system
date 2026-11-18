@@ -378,6 +378,7 @@ describe('version 7', () => {
         'height_m',
         'condition',
         'recorded_at',
+        'visit_of',
       ]);
       expect(await columnsOf('public_species')).toEqual([
         'slug',
@@ -600,6 +601,59 @@ describe('version 10', () => {
       expect(
         await db.getAllAsync('SELECT id, visit_of FROM plant_records ORDER BY recorded_at, id'),
       ).toEqual([
+        { id: FIRST, visit_of: null },
+        { id: VISIT, visit_of: FIRST },
+      ]);
+    } finally {
+      await db.closeAsync();
+    }
+  });
+});
+
+describe('version 11', () => {
+  const FIRST = '3f9a1c2e-5b7d-4e6f-8a9b-0c1d2e3f4a50';
+  const VISIT = '7c1e9b3a-2d4f-4a6b-8c0d-1e2f3a4b5c60';
+
+  // Version 10 has no visit_of column, so a record saved there leaves it out.
+  const addPublicRecord = (db: SQLiteDatabase, id: string, tagCode: string, visitOf?: string) =>
+    visitOf === undefined
+      ? db.runAsync(
+          `INSERT INTO public_records (id, tag_code, species_name, recorded_at)
+          VALUES ($id, $tagCode, 'Nepenthes rafflesiana', '2026-10-20T02:30:00.000Z')`,
+          { $id: id, $tagCode: tagCode },
+        )
+      : db.runAsync(
+          `INSERT INTO public_records (id, tag_code, species_name, recorded_at, visit_of)
+          VALUES ($id, $tagCode, 'Nepenthes rafflesiana', '2026-10-20T02:30:00.000Z', $visitOf)`,
+          { $id: id, $tagCode: tagCode, $visitOf: visitOf },
+        );
+
+  it('keeps the plant info saved before it, with no visits linked until it downloads', async () => {
+    const old = await openDatabaseAsync(DATABASE_NAME);
+    await migrate(old, MIGRATIONS.slice(0, 10));
+    await addPublicRecord(old, FIRST, 'NNP-3F9A1C');
+    await old.closeAsync();
+
+    const db = await openDatabase();
+    try {
+      expect(await versionOf(db)).toBe(MIGRATIONS.length);
+      expect(await db.getAllAsync('SELECT id, visit_of FROM public_records')).toEqual([
+        { id: FIRST, visit_of: null },
+      ]);
+    } finally {
+      await db.closeAsync();
+    }
+  });
+
+  it("won't let a record in the plant info be a visit to itself", async () => {
+    const db = await openDatabase();
+    try {
+      await expect(addPublicRecord(db, FIRST, 'NNP-3F9A1C', FIRST)).rejects.toThrow(
+        'CHECK constraint failed',
+      );
+      await addPublicRecord(db, FIRST, 'NNP-3F9A1C');
+      await addPublicRecord(db, VISIT, 'NNP-7C1E9B', FIRST);
+      expect(await db.getAllAsync('SELECT id, visit_of FROM public_records ORDER BY id')).toEqual([
         { id: FIRST, visit_of: null },
         { id: VISIT, visit_of: FIRST },
       ]);

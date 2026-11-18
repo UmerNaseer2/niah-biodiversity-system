@@ -202,12 +202,13 @@ export async function openRecordsStore(): Promise<RecordsStore> {
             record.tagCode === '' ||
             record.speciesName === '' ||
             (record.heightM !== undefined && !(record.heightM > 0)) ||
-            (record.condition !== undefined && !PLANT_CONDITIONS.includes(record.condition)),
+            (record.condition !== undefined && !PLANT_CONDITIONS.includes(record.condition)) ||
+            record.visitOf === record.id,
         )
       ) {
         throw new Error(
-          'A record in the plant info has no tag or name, a repeated ID, or a bad height or ' +
-            'condition.',
+          'A record in the plant info has no tag or name, a repeated ID, a bad height or ' +
+            'condition, or is a visit to itself.',
         );
       }
       publicPhotos = keptPhotos(newPhotos, publicPhotos, slugs);

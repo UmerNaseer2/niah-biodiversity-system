@@ -107,7 +107,10 @@ type RecordsContextValue = {
   setMode: (mode: AppMode) => Promise<void>;
   /** The species the public website shows, from the last plant info download. */
   publicSpecies: PublicSpecies[];
-  /** The published records from the same download, without their locations. */
+  /**
+   * The tagged plants from the same download, without their locations. Only first records, since
+   * a later visit is the same plant. publicVisitsOf has the visits.
+   */
   publicRecords: PublicRecord[];
   /** When the plant info last came down (ISO 8601), or null if it never has. */
   publicCopyAt: string | null;
@@ -135,8 +138,13 @@ type RecordsContextValue = {
    * was downloading, and then the file isn't needed.
    */
   savePublicPhotoFile: (speciesSlug: string, url: string, file: string) => Promise<boolean>;
-  /** Finds a tag in the saved plant info, the same ways findByTag does. */
+  /**
+   * Finds a tag in the saved plant info, the same ways findByTag does. A visit's own code finds
+   * the plant's first record, since that's the code on the tag, like the website's tag page.
+   */
   findPublicByTag: (input: string) => PublicRecord | undefined;
+  /** The later visits to a plant in the saved plant info, by its first record's ID, newest first. */
+  publicVisitsOf: (id: string) => PublicRecord[];
   /** The tags a visitor scanned on this phone, newest first, each one once. */
   scans: ScanEntry[];
   /** Puts a tag at the top of History. If saving fails it throws and History stays as it was. */
@@ -344,7 +352,8 @@ export function RecordsProvider({ children }: { children: ReactNode }) {
   // The sample records only show in development builds. They're never saved, so the upload (which
   // only reads the database) can't send them anywhere.
   const records = [...state.saved, ...SAMPLE_RECORDS].sort(newestFirst);
-  const publicRecords = state.publicCopy.records;
+  const publicCopyRecords = state.publicCopy.records;
+  const publicRecords = publicCopyRecords.filter((record) => !record.visitOf);
 
   const pendingCount = records.filter((record) => record.syncStatus === 'pending').length;
   // Counted on its own instead of total minus pending, so records that fail to upload don't show
@@ -414,7 +423,17 @@ export function RecordsProvider({ children }: { children: ReactNode }) {
   }
 
   function findPublicByTag(input: string) {
-    return publicRecords.find((record) => matchesTag(record, input));
+    const found = publicCopyRecords.find((record) => matchesTag(record, input));
+    const firstId = found?.visitOf;
+    return (firstId && publicRecords.find((record) => record.id === firstId)) || found;
+  }
+
+  function publicVisitsOf(id: string) {
+    // Two from the same day (the server can cut the time to midnight) go by ID, the same order as
+    // the website, so the list doesn't move around between downloads.
+    return publicCopyRecords
+      .filter((record) => record.visitOf === id)
+      .sort((a, b) => b.recordedAt.localeCompare(a.recordedAt) || a.id.localeCompare(b.id));
   }
 
   function loadWaiting() {
@@ -657,6 +676,7 @@ export function RecordsProvider({ children }: { children: ReactNode }) {
         loadPublicPhotos,
         savePublicPhotoFile,
         findPublicByTag,
+        publicVisitsOf,
         scans: state.scans,
         saveScan,
         clearScans,

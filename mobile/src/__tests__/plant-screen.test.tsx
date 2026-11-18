@@ -100,6 +100,25 @@ const STRANGLER_PLANT: PublicRecord = {
 
 const PLANTS = [PITCHER_PLANT, BENJAMINA_PLANT, FIG_PLANT, STRANGLER_PLANT];
 
+// Two later visits to the pitcher plant, newest first the way the plant info gives them.
+const PITCHER_VISITS: PublicRecord[] = [
+  {
+    id: '7c1e9b3a-2d4f-4a6b-8c0d-1e2f3a4b5c60',
+    tagCode: 'NNP-7C1E9B',
+    speciesName: 'Nepenthes rafflesiana',
+    condition: 'damaged',
+    recordedAt: '2026-11-10T02:00:00.000Z',
+    visitOf: PITCHER_PLANT.id,
+  },
+  {
+    id: '9e3a5c7b-4f6d-4b8a-9c2e-3f4a5b6c7d80',
+    tagCode: 'NNP-9E3A5C',
+    speciesName: 'Nepenthes rafflesiana',
+    recordedAt: '2026-10-28T01:00:00.000Z',
+    visitOf: PITCHER_PLANT.id,
+  },
+];
+
 // The pitcher plant species' main photo, saved on the phone under a made-up file name.
 const PITCHER_PHOTO: PublicPhoto = {
   speciesSlug: 'nepenthes-rafflesiana',
@@ -119,9 +138,11 @@ function setPlantInfo(
   publicCopyAt = DOWNLOADED,
   publicPhotos: PublicPhoto[] = [],
   mode: AppMode = 'visitor',
+  visits: PublicRecord[] = [],
 ) {
   jest.mocked(useRecords).mockReturnValue({
     findPublicByTag: (input: string) => PLANTS.find((plant) => matchesTag(plant, input)),
+    publicVisitsOf: (id: string) => visits.filter((visit) => visit.visitOf === id),
     publicSpecies: [PITCHER, BENJAMINA],
     publicCopyAt,
     publicPhotos,
@@ -260,6 +281,31 @@ describe('plant page', () => {
     expect(name).not.toHaveStyle({ fontStyle: 'italic' });
     expect(screen.getByText('Ficus sp.')).toHaveStyle({ fontStyle: 'italic' });
     expect(screen.getByText(NO_SPECIES)).toBeVisible();
+  });
+});
+
+describe('later visits', () => {
+  it("says when a plant was recorded, with no visits card when there's been no visit", async () => {
+    openPlant('NNP-E1A2B3');
+    expect(await screen.findByText('Recorded')).toBeVisible();
+    expect(screen.queryByText('First recorded')).toBeNull();
+    expect(screen.queryByRole('heading', { name: 'Later visits' })).toBeNull();
+  });
+
+  it('lists the later visits, newest first, under the first record', async () => {
+    setPlantInfo(DOWNLOADED, [], 'visitor', PITCHER_VISITS);
+    openPlant('NNP-E1A2B3');
+    expect(await screen.findByRole('heading', { name: 'Later visits' })).toBeVisible();
+    expect(screen.getByText('First recorded')).toBeVisible();
+    expect(screen.queryByText('Recorded')).toBeNull();
+    // The plant's own facts still come from the first record.
+    expect(screen.getByText('Healthy')).toBeVisible();
+    expect(screen.getByText('20 Oct 2026')).toBeVisible();
+    expect(screen.getByText(/came back to check on this plant 2 times\./)).toBeVisible();
+    const dates = screen.getAllByText(/^\d+ (Oct|Nov) 2026$/).map((row) => row.props.children);
+    expect(dates).toEqual(['20 Oct 2026', '10 Nov 2026', '28 Oct 2026']);
+    expect(screen.getByText('Damaged')).toBeVisible();
+    expect(screen.getByText('Not recorded')).toBeVisible();
   });
 });
 
