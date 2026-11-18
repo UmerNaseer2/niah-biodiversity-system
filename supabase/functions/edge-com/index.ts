@@ -230,7 +230,9 @@ function validateRow(input: unknown, nodeId: string, bootId: number, deviceId: s
     dist_cm: num(r, "dist_cm", 0, 1000, { leaveOut: leftOut }),
     baseline_cm: num(r, "baseline_cm", 0, 1000, { leaveOut: leftOut }),
     beep_on: flag(r, "beep_on", leftOut),
-    rssi: num(r, "rssi", -127, 0, { int: true, leaveOut: leftOut }),
+    // The node sends rssi 0 when it has no WiFi, so 0 is stored as no reading (null), the same as
+    // edge_db.py does on the edge. The database still allows -127 to 0.
+    rssi: num(r, "rssi", -127, 0, { int: true, leaveOut: leftOut }) || null,
     motion: flag(r, "motion", leftOut),
   };
 }
