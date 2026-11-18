@@ -18,11 +18,11 @@ silent, we say so.
 | 2 | Identify | Plant gets identified. The Scope doesn't say how | Pick from the species list with suggestions and take photos. A name not on the list is allowed, and stays hidden from the public by default | L3, L7, L9 | Form built (item 7), photos built (item 11), simulator only |
 | 3 | Record | Written on paper | Saved on the phone, no signal needed | L2, L3, L6 | Built (item 9), simulator and browser only |
 | 4 | Location | The Scope doesn't say how | GPS with accuracy saved. A record can't be saved without it | L1 | Built (item 8), iOS simulator only |
-| 5 | Mark the plant | Physical label | QR tag tied to the record's ID. Protected plants get a code only tag or no tag, SFC decides | L4, L10 | Scanner built (item 6), printing built (item 12), printed tags not tried outdoors, tag choice is new work |
+| 5 | Mark the plant | Physical label | QR tag tied to the record's ID. Protected plants get a code only tag or no tag, SFC decides | L4, L10 | Scanner built (item 6), printing built (item 12), printed tags not tried outdoors. Code only tags for protected, threatened and unknown species are built on the website and the app, tried in a browser and a simulator only. No tag is still SFC's call |
 | 6 | Get the data in | Typed into a database later | Phone uploads when it has signal. Retrying can't create a duplicate | L3, L5, L6 | Built (items 3 and 10), simulator and stand-in only |
 | 7 | Check | The Scope doesn't describe this | Officer approves, or rejects with a reason that goes back to the phone | L7, L8 | Built (items 10 and 19), simulator and stand-in only |
 | 8 | Publish | The Scope says access to up to date information is limited | Only approved records go public. Threatened, protected and unknown plants get a rough area automatically | L5, L9 | Built, stand-in only |
-| 9 | Between visits | The Scope doesn't describe this | Sensors near selected plants. An alert names the plant and someone goes to check | L11 | Dashboards built (items 28 to 31), simulated sensors only. Link to a plant and notification are new work |
+| 9 | Between visits | The Scope doesn't describe this | Sensors near selected plants. An alert names the plant and someone goes to check | L11 | Dashboards built (items 28 to 31), simulated sensors only. Each alert now lists the tagged plants within 100 m of its node, built on the website and tried on the stand-in only. Notification is new work |
 | 10 | Revisit | The Scope doesn't describe this | Scan the tag, see the plant's history with no signal, add a new visit record instead of overwriting | L4, L8, L11 | Scan built. History and visit records are new work |
 
 ### Current workflow
@@ -72,7 +72,7 @@ flowchart TD
     named["Alert names the plant"]
     person["Someone goes to check"]
     sensor --> dash
-    dash -.-> named
+    dash --> named
     named -.-> person
   end
 
@@ -158,7 +158,7 @@ reviewed detection system has both high detection and low response time (Kamming
 
 | It fails if | Why that could happen | What we'd do |
 | --- | --- | --- |
-| A tag gives away a protected plant | A scan names the species at that spot, whatever the map hides. RAINFOR warns about markers that attract attention (Phillips et al., 2018, p. 5) | Code only tag or no tag. If SFC refuses tags on these plants, they rely on GPS and notes |
+| A tag gives away a protected plant | A scan names the species at that spot, whatever the map hides. RAINFOR warns about markers that attract attention (Phillips et al., 2018, p. 5) | Code only tag or no tag. The code only tag is built, using the same rule as the rough area on the map. If SFC refuses tags on these plants, they rely on GPS and notes |
 | A wrong name shows an exact spot | Goodwin et al. (2015) show how common wrong names are | Officer check, and SFC's list of hidden species. A name not matched to our species list stays hidden |
 | Officers can't keep up | Approve needs a person, and we don't know how much time they have | Measure the wait. A long queue brings the old delay back |
 | Alerts are mostly false | Wind and rain cause false triggers (Kamminga et al., 2018) | Count false alarms. If people stop trusting alerts, drop this step and keep the rest |
