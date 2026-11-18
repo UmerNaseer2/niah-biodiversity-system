@@ -320,7 +320,7 @@ The ranges are the same as the checks on `iot_readings`:
 | `hum_pct` | 0 to 100 |
 | `soil_raw`, `rain_raw` | 0 to 4095 |
 | `dist_cm`, `baseline_cm` | 0 to 1000 |
-| `rssi` | -127 to 0 |
+| `rssi` | -127 to 0. 0 means the node had no WiFi, so it is stored empty (null) |
 | `beep_on`, `motion` | 0 or 1 |
 
 What happens to things that don't fit:
@@ -346,7 +346,7 @@ none of it is.
 | 401 | `edge_id` or `x-edge-key` is missing or the wrong shape | `{ "error": "missing or malformed edge_id / x-edge-key" }` |
 | 401 | Unknown device, wrong token or a device that's turned off. All three get the same answer | `{ "error": "this device can't send readings" }` |
 | 405 | Not a `POST` | `{ "error": "use POST" }` |
-| 413 | Over 4 MB, or too many readings, updates or boots | `{ "error": ... }` |
+| 413 | Over 4 MB, or too many readings, updates or boots. `cloud-com.py` halves the batch and tries again. A single reading that still gets 413 is set aside like a 400, and the next upload goes back to the normal batch size | `{ "error": ... }` |
 | 429 | The device has sent more than 3,600 readings in the last hour. Nothing from the batch is kept | `{ "error": ... }` |
 | 500 | Something went wrong on the server | `{ "error": ... }` |
 
@@ -424,7 +424,7 @@ decoded, which is the easiest way to see what a node is sending.
 | 13 | `rain_raw` | uint16 | 0 to 4095 |
 | 15 | `dist` | uint16 | Millimetres, 65535 for no echo |
 | 17 | `baseline` | uint16 | Millimetres, 65535 if not set yet |
-| 19 | `rssi` | int8 | WiFi signal, 0 for no WiFi |
+| 19 | `rssi` | int8 | WiFi signal, 0 for no WiFi. The edge and `edge-com` both store 0 as empty (null) |
 | 20 | `flags` | uint8 | Bit 0 is the locate beep, bit 1 is motion |
 
 The edge keeps these in SQLite and `cloud-com.py` turns them into the `rows` that `edge-com` takes.
@@ -461,8 +461,8 @@ sensors/devices, ecology and users. Two of them return files:
 
 | Route | What it gives | Notes |
 | --- | --- | --- |
-| `GET /dashboard/reports/csv?scope=all&from=YYYY-MM-DD&to=YYYY-MM-DD&exact=1` | The reports CSV, with the same filters as the Reports page | `exact=1` adds the exact spots of threatened and protected plants. That file only downloads from the Reports page itself, and a row goes in `exact_location_downloads` first. 403 for an account that isn't staff, 503 when the database isn't answering |
-| `GET /dashboard/ecology/csv` | Each node's status and the open alerts as a CSV | Staff only, same answers as above |
+| `GET /dashboard/reports/csv?scope=all&from=YYYY-MM-DD&to=YYYY-MM-DD&exact=1` | The reports CSV, with the same filters as the Reports page | `exact=1` adds the exact spots of threatened and protected plants. That file only downloads from the Reports page itself, and a row goes in `exact_location_downloads` first. A signed out request is sent to the sign in page (`/login`) before the route runs. 403 for an account that isn't staff, 503 when the database isn't answering |
+| `GET /dashboard/ecology/csv` | Each node's status and the open alerts as a CSV | Staff only, same answers as above: a signed out request goes to the sign in page, 403 for an account that isn't staff, 503 when the database isn't answering |
 
 Everything a staff member changes (reviewing a record, editing a species, sending a command, changing
 a role) is a Next.js server action, not an API. Those live in the `actions.ts` files next to each
