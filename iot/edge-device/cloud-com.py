@@ -25,6 +25,11 @@ get the same answer and hold up everything behind it. So the batch is set aside:
 its readings stay in edge.db (table `rejected`, kept for retention_days) but are
 left out of uploads, and the next batch goes. `--requeue` puts them back in line.
 
+If Supabase says the batch is too big (HTTP 413), the edge sends half as many readings
+straight away, and halves again until a batch goes through. If even one reading on its
+own is too big, it's set aside like a refused batch. The next upload goes back to the
+normal batch_size.
+
 Run:     python3 cloud-com.py [--config /opt/iot-edge/config.toml]
 Other:   --once                 do one upload now, print what was sent and received, exit
          --status               show what is waiting in edge.db
@@ -60,6 +65,8 @@ SELECT_READINGS = ("SELECT id, node_id, boot_id, seq, ts, ts_source, received_at
 # Readings waiting to go up: not sent, and not in a batch Supabase refused
 QUEUED = "is_sent = 0 AND id NOT IN (SELECT reading_id FROM rejected)"
 REFUSED_STATUSES = (400, 422)   # the batch itself is wrong; sending it again won't help
+TOO_BIG_STATUS = 413            # the batch is too big; a smaller one may go through
+TOO_BIG = "too big"             # what send_batch() gives back when it should try a smaller batch
 
 
 def is_placeholder(value: str | None) -> bool:
@@ -87,7 +94,8 @@ class CloudCom:
         self.anon_key = c.get("anon_key", "")
         self.interval_s = int(c.get("upload_interval_s", 60))
         self.urgent_retry_s = int(c.get("urgent_retry_s", 10))
-        self.batch_size = max(1, min(int(c.get("batch_size", 500)), 1000))
+        self.normal_batch_size = max(1, min(int(c.get("batch_size", 500)), 1000))
+        self.batch_size = self.normal_batch_size     # smaller for a while after an HTTP 413
         self.retention_days = int(c.get("retention_days", 30))
         self.timeout_s = int(c.get("timeout_s", 20))
         self.gzip = bool(c.get("gzip", True))
@@ -146,6 +154,18 @@ class CloudCom:
     def sync_once(self, verbose: bool = False) -> tuple[bool, bool]:
         """Returns (succeeded, more_waiting). A refused batch counts as done (it is set aside)."""
         self.refused = False
+        try:
+            while True:
+                result = self.send_batch(verbose)
+                if result != TOO_BIG:
+                    return result
+        finally:
+            if self.batch_size != self.normal_batch_size:
+                log.info("back to batches of up to %d readings", self.normal_batch_size)
+                self.batch_size = self.normal_batch_size
+
+    def send_batch(self, verbose: bool = False):
+        """One POST. Returns (succeeded, more_waiting), or TOO_BIG to try again with a smaller batch."""
         body, rows, boots, update_versions = self.build_batch()
         urgent = [r for r in rows if r["urgent"]]
         data = json.dumps(body, separators=(",", ":")).encode()
@@ -177,7 +197,13 @@ class CloudCom:
             print(f"sent {len(wire)} bytes ({len(data)} before gzip) + ~{req_hdr} bytes of request "
                   f"headers in {took:.2f} s\nreply HTTP {resp.status_code}: {down} bytes + ~{resp_hdr} bytes of "
                   f"headers{': ' + json.dumps(reply) if reply else ''}")
-        if resp.status_code in REFUSED_STATUSES:
+        if resp.status_code == TOO_BIG_STATUS and len(rows) > 1:
+            self.batch_size = len(rows) // 2
+            log.warning("Supabase said the batch of %d readings was too big (HTTP 413). Trying again now "
+                        "with %d readings.", len(rows), self.batch_size)
+            return TOO_BIG
+        if resp.status_code in REFUSED_STATUSES or resp.status_code == TOO_BIG_STATUS:
+            # A 413 gets here when the batch has one reading or none, so it can't get any smaller.
             reason = reply.get("error", reply) if isinstance(reply, dict) else reply
             self.set_aside(resp.status_code, str(reason), rows, boots, update_versions)
             return True, False                 # carry on with the next batch at the normal interval
@@ -226,7 +252,8 @@ class CloudCom:
         return True, len(rows) >= self.batch_size
 
     def set_aside(self, status: int, reason: str, rows, boots, update_versions: dict):
-        """Supabase refused this batch as malformed. Take it out of the queue so the rest can go."""
+        """Supabase refused this batch (malformed, or too big with one reading). Take it out of the
+        queue so the rest can go."""
         self.refused = True
         now = db.now_iso()
         self.con.execute("BEGIN IMMEDIATE")
