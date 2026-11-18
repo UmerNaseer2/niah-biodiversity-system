@@ -239,7 +239,8 @@ CREATE TABLE IF NOT EXISTS boots (
     PRIMARY KEY (node_id, boot_id)
 );
 
--- Readings in a batch Supabase refused as malformed (HTTP 400/422). They stay in
+-- Readings in a batch Supabase refused as malformed (HTTP 400/422), or a single
+-- reading it said was too big (HTTP 413). They stay in
 -- readings with is_sent = 0 but are left out of uploads, so the readings behind them
 -- get through. Deleted with their reading after retention_days; `iot-edge requeue`
 -- puts them back in the queue (e.g. after fixing edge-com).

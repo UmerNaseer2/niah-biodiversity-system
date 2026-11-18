@@ -453,9 +453,9 @@ describe('New record screen', () => {
     await renderForm();
     fireEvent.changeText(speciesBox(), 'Shorea macrophylla');
     await startCapture();
-    sendFix(17.2);
+    sendFix(13.2);
     expect(screen.getByText('Improving the fix…')).toBeVisible();
-    expect(screen.getByText('±18 m · OK')).toBeVisible();
+    expect(screen.getByText('±14 m · OK')).toBeVisible();
     expect(saveButton()).toBeDisabled();
 
     fireEvent.press(screen.getByRole('button', { name: 'Use this location' }));
@@ -463,7 +463,7 @@ describe('New record screen', () => {
     expect(saveButton()).toBeEnabled();
 
     await saveAndOpen();
-    expect(newestRecord()?.location?.accuracyM).toBe(18);
+    expect(newestRecord()?.location?.accuracyM).toBe(14);
   });
 
   it('turns the GPS off when another screen opens on top', async () => {

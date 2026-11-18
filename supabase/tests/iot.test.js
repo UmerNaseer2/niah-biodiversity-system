@@ -405,6 +405,22 @@ describe('the readings edge-com stores', () => {
     for (const [name, value] of Object.entries(edges)) assert.equal(last[name], value, name);
   });
 
+  test('rssi 0 means the node had no WiFi, so it is kept as no reading', async () => {
+    const node = await newNode();
+    await send(node, [{ ago: 20, rssi: -127 }]);
+    let row = await nodeRow(node);
+    assert.equal(row.last_rssi, -127);
+
+    await send(node, [{ ago: 10, rssi: 0 }]);
+    const [weak, none] = await storedReadings(node);
+    assert.equal(weak.rssi, -127, 'the weakest signal is still a reading');
+    assert.equal(none.rssi, null);
+    // The rest of that reading is still kept
+    assert.equal(none.temp_c, 26);
+    row = await nodeRow(node);
+    assert.equal(row.last_rssi, null, 'the node shows no signal rather than 0');
+  });
+
   test('the database checks the ranges too, and says which value was wrong', async () => {
     const node = await newNode();
     const insert = (column, value) =>

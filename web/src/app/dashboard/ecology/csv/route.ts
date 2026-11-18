@@ -8,17 +8,8 @@ import {
   nodeFromRow,
   type SensorAlert,
 } from "@/lib/iot";
+import { refuse, refuseUnlessStaff } from "@/lib/staff-download";
 import { createClient } from "@/lib/supabase/server";
-
-function refuse(status: number, message: string) {
-  return new Response(message, {
-    status,
-    headers: {
-      "Content-Type": "text/plain; charset=utf-8",
-      "Cache-Control": "no-store",
-    },
-  });
-}
 
 function escapeCsvCell(value: unknown): string {
   if (value === null || value === undefined) return "";
@@ -34,16 +25,9 @@ function escapeCsvCell(value: unknown): string {
 }
 
 export async function GET() {
-  const session = await getSession();
-  if (session.status === "unavailable") {
-    return refuse(503, "The database isn’t answering. Try the download again in a minute.");
-  }
-  if (session.status !== "ok") {
-    return refuse(
-      session.status === "signed-out" ? 401 : 403,
-      "Only conservation officers and administrators can download ecological data.",
-    );
-  }
+  // The proxy already sends anyone signed out to the sign in page
+  const notStaff = refuseUnlessStaff(await getSession(), "ecological data");
+  if (notStaff) return notStaff;
 
   const supabase = await createClient();
   const [nodesResult, alertsResult] = await Promise.all([

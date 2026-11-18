@@ -1,5 +1,6 @@
 import { MOCK_RECORDS, SAMPLE_RECORDS } from '@/data/mock-records';
 import { SPECIES_LIST } from '@/data/species-list';
+import { isToday } from '@/lib/format';
 import { parseHeight } from '@/lib/height';
 import { tagCodeFor } from '@/lib/id';
 
@@ -31,6 +32,11 @@ describe('MOCK_RECORDS', () => {
       const option = SPECIES_LIST.find((species) => species.slug === record.speciesSlug);
       expect(option?.scientificName).toBe(record.speciesName);
     });
+  });
+
+  it('has records from today at the park, so the Home count has something in it', () => {
+    const today = MOCK_RECORDS.filter((record) => isToday(record.recordedAt));
+    expect(today.length).toBeGreaterThan(0);
   });
 
   it('has both pending and synced records so both tags show up on screen', () => {
