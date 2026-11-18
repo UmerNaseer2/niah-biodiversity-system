@@ -79,3 +79,5 @@ Sprint #1 backlog: [docs/sprint-1.md](docs/sprint-1.md)
 Sprint #2 backlog: [docs/sprint-2.md](docs/sprint-2.md)
 
 Test plan: [docs/test-plan.md](docs/test-plan.md)
+
+Staging, deploying and the health check: [docs/deployment.md](docs/deployment.md)

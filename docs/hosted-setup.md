@@ -107,3 +107,5 @@ On the live site:
 - On the app, sign in and sync. A record made on the phone shows on the website.
 
 Turn sign ups back on only if people need to sign up themselves.
+
+After this, [deployment.md](deployment.md) is the order to follow for each change that goes live.
