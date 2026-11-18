@@ -103,10 +103,12 @@ These are scheduled for Weeks 10 to 11 in the proposal, after the Sprint #2 revi
 
 ## Verification and documentation (items 34 to 37)
 
-- [ ] 34. Mobile-to-Web Data Sync Verification
-- [ ] 35. API Documentation & Developer Guide
-- [ ] 36. User Documentation (Mobile & Web)
-- [ ] 37. Performance Optimization & Load Testing
+- [ ] 34. Mobile-to-Web Data Sync Verification. Partly done. [Item 43](test-results/item-43-integration.md)
+  followed a record from the phone to the review queue and the public tag page on the stand-in, and
+  [item 10](test-results/item-10-sync.md) covers the sync itself. Not tried on hosted or a real phone yet
+- [x] 35. API Documentation & Developer Guide. Done 18 Nov, see [API reference](api-reference.md)
+- [x] 36. User Documentation (Mobile & Web). Done 18 Nov, see [user guide](user-guide.md)
+- [x] 37. Performance Optimization & Load Testing. Done 18 Nov, see [test results](test-results/item-37-performance.md)
 
 ## Innovation, second half (items 40 and 41)
 
@@ -115,6 +117,9 @@ These are scheduled for Weeks 10 to 11 in the proposal, after the Sprint #2 revi
 
 ## Release (items 42 to 44)
 
-- [ ] 42. Staging Environment Setup & Testing
-- [ ] 43. Final System Integration Testing
-- [ ] 44. Deployment to Production
+- [ ] 42. Staging Environment Setup & Testing. The stand-in is our staging for now and every test ran
+  on it. Vercel previews and a staging Supabase project are written up in
+  [deployment.md](deployment.md) but need the dashboards to set up
+- [x] 43. Final System Integration Testing. Done 18 Nov on the stand-in, see [test results](test-results/item-43-integration.md)
+- [ ] 44. Deployment to Production. The steps, going back and the `/health` check are in
+  [deployment.md](deployment.md). Waiting on hosted being brought up to `main` ([hosted-setup.md](hosted-setup.md))

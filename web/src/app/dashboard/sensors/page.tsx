@@ -983,7 +983,7 @@ export default async function SensorsPage() {
         </p>
         {dailyMissing && (
           <p className="mt-2 max-w-2xl text-sm text-moss">
-            The daily lowest, average and highest need 026_iot_daily_summary.sql, which this database
+            The daily lowest, average and highest need 027_iot_daily_summary.sql, which this database
             doesn’t have yet. Ask an administrator to run it, as in supabase/README.md.
           </p>
         )}

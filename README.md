@@ -81,3 +81,7 @@ Sprint #2 backlog: [docs/sprint-2.md](docs/sprint-2.md)
 Test plan: [docs/test-plan.md](docs/test-plan.md)
 
 Staging, deploying and the health check: [docs/deployment.md](docs/deployment.md)
+
+User guide for visitors, field teams, officers and admins: [docs/user-guide.md](docs/user-guide.md)
+
+API reference and developer guide: [docs/api-reference.md](docs/api-reference.md)

@@ -39,7 +39,7 @@ resend_after_s = 20                         # resend a command if the thing has 
 # conditions, they are uploaded at once, first in line, without waiting for
 # upload_interval_s. Supabase decides the alerts themselves and queues the
 # notifications. types and confirm_readings are used until Supabase sends the
-# node's own values (public.nodes); quick_window_s is the edge's own.
+# node's own values (public.iot_nodes); quick_window_s is the edge's own.
 # Possible types: SATURATED, DRY, HEAVY, RAIN, MOVED, NO_ECHO, MOTION (PIR sensor)
 types = ["SATURATED", "HEAVY", "MOVED", "NO_ECHO", "MOTION"]
 confirm_readings = 1                        # the node sends at once when a condition starts and
@@ -49,8 +49,8 @@ quick_window_s = 300                        # the same condition on the same nod
                                             # upload again only after this long
 
 [calibration]
-# Used for a node until Supabase sends that node's own values (table public.nodes,
-# change them there). Same defaults as schema.sql and the ESP32 sketch.
+# Used for a node until Supabase sends that node's own values (table public.iot_nodes,
+# change them there). Same defaults as supabase/016_2_iot_nodes.sql and the ESP32 sketch.
 soil_dry_raw = 4095
 soil_wet_raw = 1400
 soil_flood_pct = 85                         # at or above: SATURATED (flash-flood risk)
