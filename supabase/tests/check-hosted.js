@@ -46,6 +46,7 @@ const FILES = [
   { file: '025', table: 'iot_commands', column: '*' },
   { file: '026', table: 'iot_alerts', column: 'dispatched_at' },
   { file: '027', table: 'iot_daily_summary', column: '*' },
+  { file: '028', table: 'record_visits_public', column: '*' },
 ];
 
 // From 006 on, each file stops on its first line if the one before it isn't there, so a file

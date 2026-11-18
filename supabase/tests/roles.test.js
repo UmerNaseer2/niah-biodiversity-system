@@ -788,7 +788,12 @@ describe('views', () => {
 describe('part way through the SQL files', () => {
   // The files go on the hosted project one at a time, so every stopping point has to be safe on
   // its own, not just the end. This checks each one from 003 on.
-  const publicViews = ['records_public', 'species_photos_public', 'species_public'];
+  const publicViews = [
+    'record_visits_public',
+    'records_public',
+    'species_photos_public',
+    'species_public',
+  ];
 
   test('after each file, the API can only read the views, and anon only the public ones', async () => {
     for (let n = SQL_FILES.indexOf('003_profiles_read_own.sql') + 1; n <= SQL_FILES.length; n++) {
@@ -1108,14 +1113,15 @@ describe('running 006, 007 and 008 again', () => {
 
   test('ends up the same as the first time', async () => {
     const firstTime = await catalogs();
-    // 006 makes records_public, species_staff and records_staff again without what 007, 008 and
-    // 019 add to them, and its REVOKE on iot_nodes takes the column grants 016_2 adds, so they
-    // have to run again after it (see supabase/README.md).
+    // 006 makes records_public, species_staff and records_staff again without what 007, 008,
+    // 019 and 028 add to them, and its REVOKE on iot_nodes takes the column grants 016_2 adds, so
+    // they have to run again after it (see supabase/README.md).
     await db.exec(readSql('006_role_based_access.sql'));
     await db.exec(readSql('007_species_fixes.sql'));
     await db.exec(readSql('008_record_edits.sql'));
     await db.exec(readSql('016_2_iot_nodes.sql'));
     await db.exec(readSql('019_public_record_details.sql'));
+    await db.exec(readSql('028_record_visits.sql'));
     assert.deepEqual(await catalogs(), firstTime);
 
     const sql = 'SELECT gps FROM public.records_public WHERE id = $1';

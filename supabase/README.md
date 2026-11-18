@@ -16,8 +16,8 @@ kept, and you can fix the problem and run it again.
 | `003_profiles_read_own.sql` | Lets a signed in user read their own profile, so the website can see their role, and takes out an old view from 001 that nothing uses | 15 | Yes |
 | `004_security_hardening.sql` | Role checks on writes, the public views and the staff views | 4, 14, 15, 16 | No, it stops on the policies that are already there |
 | `005_phone_sync.sql` | Lets the phone upload records, and adds the private `record-photos` bucket | 3 | No, it stops on its first line and changes nothing |
-| `006_role_based_access.sql` | What each role can read and change, checked by the database: Row Level Security, column grants and a review trigger | 4 | Yes, then run 007, 008, 016_2 and 019 again. The public still can't see the exact spot of a plant set to rough area only in between |
-| `007_species_fixes.sql` | The rough area only switch for a species, the public views that use it, checked facts for the sample species, and a trigger that sets `updated_at` when a species is edited | 14 | Yes, then run 019 again, because this puts the older public view back |
+| `006_role_based_access.sql` | What each role can read and change, checked by the database: Row Level Security, column grants and a review trigger | 4 | Yes, then run 007, 008, 016_2, 019 and 028 again. The public still can't see the exact spot of a plant set to rough area only in between |
+| `007_species_fixes.sql` | The rough area only switch for a species, the public views that use it, checked facts for the sample species, and a trigger that sets `updated_at` when a species is edited | 14 | Yes, then run 019 and 028 again, because this puts the older public view back |
 | `008_record_edits.sql` | `updated_at` on records, set by a trigger when a record is edited, and the staff view that shows it | 17 | Yes |
 | `009_species_photos.sql` | Checks what goes in `species.photos`, the `species_photos_public` view for the plant pages, and lets officers and admins delete record photos | 18 | Yes |
 | `010_deleted_records.sql` | Keeps the ID of every deleted record, with who deleted it and when, so a phone can't upload it again | 3, 17 | Yes |
@@ -31,7 +31,7 @@ kept, and you can fix the problem and run it again.
 | `016_3_iot_device_tokens.sql` | A hash of each edge device's token, and `iot_make_device_token` for the Devices page | 28 | Yes. The tokens are kept |
 | `016_4_iot_readings.sql` | The readings, with raw values only, and `iot_raw_pct`, which turns a raw value into a percentage with a node's calibration | 28, 29 | Yes. The readings are kept |
 | `017_iot_alerts.sql` | The alerts, the check for nodes going quiet, acknowledging and resolving, each node's status, and the `iot_node_status` view for the Sensors page | 31 | Yes |
-| `019_public_record_details.sql` | Gives the public less about a plant whose spot is hidden: the day a record was made, not the time, and the spot stays hidden when a record's name disagrees with its species. The Reports counts follow the same rule | 26 | Yes |
+| `019_public_record_details.sql` | Gives the public less about a plant whose spot is hidden: the day a record was made, not the time, and the spot stays hidden when a record's name disagrees with its species. The Reports counts follow the same rule | 26 | Yes, then run 028 again, because this puts back the public view without its rule for visits |
 | `020_record_photo_access.sql` | Someone who loses their field staff role also loses their own record photos, and people who aren't signed in can't call the helper functions | 26 | Yes |
 | `021_role_changes.sql` | Keeps a list of every role change, with who made it and when, for the Users page, and makes sure administrators can't remove each other at the same moment and leave nobody. Only admins can read the list, and nobody can change it | 26 | Yes. The list is kept |
 | `022_iot_reading_limit.sql` | Limits each edge device to 3,600 readings an hour. An upload that would go over is refused with HTTP 429 and none of it is kept, so the device sends it again later | 26 | Yes. To change the limit, change the number in it and run it again |
@@ -40,10 +40,11 @@ kept, and you can fix the problem and run it again.
 | `025_iot_commands.sql` | Commands for the nodes (the locate beep and a baseline reset), which officers and admins send from the Sensors page | 31 | Yes |
 | `026_iot_gps_mapping.sql` | Each node's position (latitude and longitude) for the map, shown in `iot_node_status`, and sending a patrol to an alert, which officers and admins do from the Sensors page | 32 | Yes |
 | `027_iot_daily_summary.sql` | Each node's lowest, average and highest temperature, humidity and soil moisture for today and the 6 days before, by park time, for the Sensors page. Officers and admins only | 30 | Yes |
+| `028_record_visits.sql` | Visits to a plant that already has a record. A visit is a new record with `visit_of` set to the plant's first record, so the first record stays as it was. Deleting the first record keeps its visits as records on their own. The public sees which records are visits through `record_visits_public`, only when both records are approved, and a visit only shows its exact spot when the first record would too | 40 | Yes |
 
 On 18 Nov 2026 `tests/check-hosted.js` (below) found 001 on the hosted project and nothing after it
 (002 can't be seen from outside). Run 003, 004, 005, 006, 007, 008, 009, 010,
-011, 012, 013, 014, 015, 016_1 to 017, 019, 020, 021 and 022 to 027 next, one file at a time, in
+011, 012, 013, 014, 015, 016_1 to 017, 019, 020, 021, 022 to 027 and 028 next, one file at a time, in
 that order, and don't stop part way. On a new project, run 001 and 002 first. There's no 018 file: the number was held for the phone's photos, and they
 didn't need one. The website's species pages (add, edit and delete) and its public pages need 007,
 and 007 stops on its first line if 006 isn't there. Until then the public pages say "This page
@@ -65,7 +66,9 @@ record photos and the helper functions keep the access the earlier files gave th
 first line if 019 isn't there. Without 021 role changes aren't written down and the Users page says
 so. Changing roles still works. 021 stops on its first line if 020 isn't there. The list only starts
 once 021 is in, so earlier changes aren't in it. Without 022 nothing limits how many readings an
-edge device can add. 022 stops on its first line if 021 isn't there. 003 is fine to run even if it
+edge device can add. 022 stops on its first line if 021 isn't there. Without 028 the phone keeps
+its visits waiting to upload and tries again later, and the website shows no visits. 028 stops on
+its first line if 027 isn't there. 003 is fine to run even if it
 turns out to be there already. The history only starts once 013 is in, so changes made before
 that aren't in it.
 
@@ -186,8 +189,8 @@ npm test
   `tests/iot.test.js` checks the sensor files (016_1 to 017 and 023 to 027) and the `edge-com`
   function (items 28 to 31),
   `tests/public-details.test.js` checks 019, `tests/record-photo-access.test.js` checks 020,
-  `tests/role-changes.test.js` checks 021 and `tests/iot-limit.test.js` checks 022 through
-  `edge-com` (item 26).
+  `tests/role-changes.test.js` checks 021, `tests/iot-limit.test.js` checks 022 through
+  `edge-com` (item 26) and `tests/visits.test.js` checks 028 (item 40).
 - `tests/check-hosted.js` says which SQL files a Supabase project has, using only its URL and
   anon key, and whether `edge-com` is deployed with JWT verification off. It only reads: it asks
   for no rows of a table or column each file adds and never calls a function. A file that only
