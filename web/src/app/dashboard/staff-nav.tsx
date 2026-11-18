@@ -19,9 +19,12 @@ type StaffLink = {
 export function StaffNav({
   waiting,
   urgent,
+  isAdmin,
 }: {
   waiting: number;
   urgent: number;
+  /** Only admins manage accounts, so everyone else gets the page as "Team" */
+  isAdmin: boolean;
 }) {
   const links: StaffLink[] = [
     { href: "/dashboard", label: "Overview", icon: "home", exact: true },
@@ -51,7 +54,7 @@ export function StaffNav({
         </span>
       ),
     },
-    { href: "/dashboard/users", label: "Users and roles", icon: "users" },
+    { href: "/dashboard/users", label: isAdmin ? "Users and roles" : "Team", icon: "users" },
   ];
 
   return (
