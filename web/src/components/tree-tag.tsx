@@ -32,15 +32,18 @@ export function TreeTag({
   code,
   size = "md",
   swing = false,
+  codeOnly = false,
   className = "",
 }: {
   code: string;
   size?: keyof typeof SIZES;
   swing?: boolean;
+  /** The QR code holds only the tag code, with no link (lib/code-only-tag.ts) */
+  codeOnly?: boolean;
   className?: string;
 }) {
   const s = SIZES[size];
-  const qr = qrCode(tagQrText(code));
+  const qr = qrCode(tagQrText(code, { codeOnly }));
   return (
     <div
       className={`${s.width} ${swing ? "origin-[50%_0.9375rem] animate-tag-swing" : ""} ${className}`}
