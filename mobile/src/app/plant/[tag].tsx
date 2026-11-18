@@ -122,7 +122,7 @@ export default function PlantScreen() {
       {photo?.file ? (
         <Card title="Photo" icon="library">
           <ThemedText type="small" themeColor="textSecondary">
-            This photo shows the species, not this plant.
+            This photo shows the species, not this exact plant.
           </ThemedText>
           <SpeciesPhoto photo={photo} name={name} />
         </Card>
