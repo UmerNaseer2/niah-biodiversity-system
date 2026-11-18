@@ -43,6 +43,9 @@ export async function openRecordsStore(): Promise<RecordsStore> {
       if (saved.some((other) => other.id === record.id || other.tagCode === record.tagCode)) {
         throw new Error(`A record with the ID or tag code of ${record.tagCode} is already saved.`);
       }
+      if (record.visitOf === record.id) {
+        throw new Error("A record can't be a visit to itself.");
+      }
       saved.unshift(record);
       for (const [index, path] of photoPaths.entries()) {
         photos.push({ recordId: record.id, position: index + 1, path });
@@ -82,6 +85,12 @@ export async function openRecordsStore(): Promise<RecordsStore> {
           photos.splice(photo, 1);
         }
       }
+      // The server keeps visits to a deleted record as records on their own, so the phone does too
+      for (const [other, record] of saved.entries()) {
+        if (record.visitOf === id) {
+          saved[other] = { ...record, visitOf: undefined };
+        }
+      }
     },
     async loadSyncedIds() {
       return saved.filter((record) => record.syncStatus === 'synced').map((record) => record.id);
@@ -109,6 +118,12 @@ export async function openRecordsStore(): Promise<RecordsStore> {
       for (const photo of photos) {
         if (photo.recordId === id) {
           photo.recordId = newId;
+        }
+      }
+      // Visits to the plant follow its first record to the new ID
+      for (const [other, record] of saved.entries()) {
+        if (record.visitOf === id) {
+          saved[other] = { ...record, visitOf: newId };
         }
       }
     },

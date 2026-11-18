@@ -58,6 +58,11 @@ export type PlantRecord = {
   reviewNotes?: string;
   /** The account that sent the record to the server. The website looks for its photos there. */
   uploadedBy?: string;
+  /**
+   * The ID of the plant's first record, when this record is a later visit to the same plant.
+   * Always the first record, never another visit. Left out on a first record.
+   */
+  visitOf?: string;
 };
 
 /**
@@ -88,5 +93,12 @@ export type PhotoOutcome =
 /** What the New Record form fills in. The rest is set when the record is saved. */
 export type NewPlantRecord = Pick<
   PlantRecord,
-  'speciesName' | 'speciesSlug' | 'commonName' | 'heightM' | 'condition' | 'notes' | 'location'
+  | 'speciesName'
+  | 'speciesSlug'
+  | 'commonName'
+  | 'heightM'
+  | 'condition'
+  | 'notes'
+  | 'location'
+  | 'visitOf'
 >;

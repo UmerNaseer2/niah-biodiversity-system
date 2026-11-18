@@ -3,6 +3,7 @@ import { useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { LocationSummary } from '@/components/location-summary';
+import { PlantHistory } from '@/components/plant-history';
 import { QrTag } from '@/components/qr-tag';
 import { RecordPhotos } from '@/components/record-photos';
 import { Screen } from '@/components/screen';
@@ -14,6 +15,7 @@ import { SyncTag } from '@/components/ui/sync-badge';
 import { Spacing } from '@/constants/theme';
 import { announce } from '@/lib/announce';
 import { conditionLabel, formatHeight, formatRecordedAt } from '@/lib/format';
+import { tagCodeFor } from '@/lib/id';
 import { useRecords } from '@/state/records-context';
 import { uploadProblemMessage } from '@/sync/upload-row';
 
@@ -24,6 +26,9 @@ const REMOVE_FAILED = "Couldn't remove the record from this phone. Try again.";
 const RENEW_ASK =
   'This gives the record a new tag code. If you already put the old tag on the plant, it has to ' +
   'be swapped for the new one. Get a new tag?';
+// A visit's own code is never printed, so the plant keeps its tag either way.
+const RENEW_VISIT_ASK =
+  'This gives the visit a new code. The tag on the plant stays the same. Get a new code?';
 const RENEW_FAILED = "Couldn't change the tag code. Try again.";
 
 /**
@@ -94,17 +99,18 @@ function RemoveDeleted({ id }: { id: string }) {
  * Gives a record whose tag code is already taken on the server a new one. The tag code comes from
  * the record's ID, so the ID changes as well, and this asks first in case the old tag is on a plant.
  */
-function RenewTag({ id }: { id: string }) {
+function RenewTag({ id, visit }: { id: string; visit: boolean }) {
   const router = useRouter();
   const { renewTag } = useRecords();
   const [asking, setAsking] = useState(false);
   const [renewing, setRenewing] = useState(false);
   const [failed, setFailed] = useState(false);
   const busy = useRef(false);
+  const question = visit ? RENEW_VISIT_ASK : RENEW_ASK;
 
   function ask() {
     setAsking(true);
-    announce(RENEW_ASK);
+    announce(question);
   }
 
   async function renew() {
@@ -127,15 +133,21 @@ function RenewTag({ id }: { id: string }) {
   }
 
   if (!asking) {
-    return <Button label="Get a new tag" variant="outline" onPress={ask} />;
+    return (
+      <Button label={visit ? 'Get a new code' : 'Get a new tag'} variant="outline" onPress={ask} />
+    );
   }
 
   return (
     <View style={styles.ask}>
       <ThemedText type="smallBold" role="alert">
-        {RENEW_ASK}
+        {question}
       </ThemedText>
-      <Button label="Get a new tag" onPress={renew} disabled={renewing} />
+      <Button
+        label={visit ? 'Get a new code' : 'Get a new tag'}
+        onPress={renew}
+        disabled={renewing}
+      />
       <Button
         label="Not now"
         variant="outline"
@@ -156,6 +168,8 @@ export default function RecordScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { getRecord } = useRecords();
   const record = getRecord(id);
+  // A visit uses the tag already on the plant, which is its first record's.
+  const firstRecord = record?.visitOf ? getRecord(record.visitOf) : undefined;
 
   if (!record) {
     return (
@@ -177,11 +191,14 @@ export default function RecordScreen() {
     );
   }
 
+  const visitOf = record.visitOf;
+  const plantTag = visitOf ? (firstRecord?.tagCode ?? tagCodeFor(visitOf)) : record.tagCode;
+
   return (
     <Screen>
       <View style={styles.header}>
         <ThemedText type="overline" themeColor="primary">
-          Tag {record.tagCode}
+          {visitOf ? `Visit to ${plantTag}` : `Tag ${plantTag}`}
         </ThemedText>
         <ThemedText type="title" role="heading" style={styles.species}>
           {record.speciesName}
@@ -204,7 +221,9 @@ export default function RecordScreen() {
         <Card title="Couldn't upload" icon="warning">
           <ThemedText>{uploadProblemMessage(record.uploadProblem)}</ThemedText>
           {record.uploadProblem === 'deleted' ? <RemoveDeleted id={record.id} /> : null}
-          {record.uploadProblem === 'tag-clash' ? <RenewTag id={record.id} /> : null}
+          {record.uploadProblem === 'tag-clash' ? (
+            <RenewTag id={record.id} visit={visitOf !== undefined} />
+          ) : null}
         </Card>
       ) : null}
 
@@ -225,6 +244,8 @@ export default function RecordScreen() {
         <InfoRow label="Photos" value={String(record.photoCount)} />
       </Card>
 
+      <PlantHistory record={record} />
+
       <Card title="Location" icon="pin">
         {record.location ? (
           <LocationSummary location={record.location} />
@@ -242,7 +263,29 @@ export default function RecordScreen() {
       <RecordPhotos record={record} />
 
       <Card title="QR tag" icon="qr">
-        <QrTag record={record} />
+        {visitOf ? (
+          <>
+            <ThemedText>
+              This is a visit to {plantTag}, so it uses the tag already on the plant. There&apos;s
+              no new tag to print.
+            </ThemedText>
+            {firstRecord ? (
+              <Button
+                label="Open the first record"
+                variant="outline"
+                onPress={() =>
+                  router.push({ pathname: '/record/[id]', params: { id: firstRecord.id } })
+                }
+              />
+            ) : (
+              <ThemedText type="small" themeColor="textSecondary">
+                The first record isn&apos;t on this phone.
+              </ThemedText>
+            )}
+          </>
+        ) : (
+          <QrTag record={record} />
+        )}
         <View style={styles.recordId}>
           <ThemedText type="small" themeColor="textSecondary">
             Record ID

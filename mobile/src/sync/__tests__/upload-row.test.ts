@@ -48,6 +48,21 @@ describe('toUploadRow', () => {
       expect(row).not.toHaveProperty(column);
     }
   });
+
+  it('sends visit_of with a visit, pointing at the first record', () => {
+    const { record, row } = uploads[0];
+    const firstId = '3f2a9c4e-8b1d-4c6a-9e2f-7a1b5c3d9e01';
+    expect(toUploadRow({ ...record, visitOf: firstId })).toStrictEqual({
+      ...row,
+      visit_of: firstId,
+    });
+  });
+
+  it("leaves visit_of out of a first record, so it goes up to a server that doesn't have it", () => {
+    for (const { record } of uploads) {
+      expect(toUploadRow(record)).not.toHaveProperty('visit_of');
+    }
+  });
 });
 
 describe('classifyUpload', () => {
@@ -91,6 +106,34 @@ describe('classifyUpload', () => {
       error: {
         code: '23505',
         message: 'duplicate key value violates unique constraint "records_pkey_old"',
+      },
+      outcome: problem('rejected'),
+    },
+    {
+      // supabase/028_record_visits.sql: the plant's first record isn't on the server yet
+      about: 'a visit whose first record has not gone up yet',
+      error: {
+        code: '23503',
+        message:
+          'insert or update on table "records" violates foreign key constraint ' +
+          '"records_visit_of_fkey"',
+      },
+      outcome: retry,
+    },
+    {
+      // The one level rule in supabase/028_record_visits.sql
+      about: 'a visit that points at another visit',
+      error: {
+        code: '23514',
+        message: 'A visit has to point at the first record of the plant, not at another visit.',
+      },
+      outcome: problem('rejected'),
+    },
+    {
+      about: 'some other foreign key',
+      error: {
+        code: '23503',
+        message: 'insert or update on table "records" violates foreign key constraint "other"',
       },
       outcome: problem('rejected'),
     },

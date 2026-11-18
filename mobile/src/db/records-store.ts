@@ -219,6 +219,7 @@ type RecordRow = {
   review_status: ReviewStatus | null;
   review_notes: string | null;
   uploaded_by: string | null;
+  visit_of: string | null;
 };
 
 /** One row of record_photos. */
@@ -303,6 +304,7 @@ function toRecord(row: RecordRow): PlantRecord {
     reviewStatus: row.review_status ?? undefined,
     reviewNotes: row.review_notes ?? undefined,
     uploadedBy: row.uploaded_by ?? undefined,
+    visitOf: row.visit_of ?? undefined,
   };
 }
 
@@ -322,11 +324,11 @@ function insertRecord(on: SQLiteDatabase, record: PlantRecord) {
     `INSERT INTO plant_records (
       id, tag_code, species_name, species_slug, common_name, height_m, condition, notes,
       latitude, longitude, accuracy_m, captured_at, photo_count, recorded_at, sync_status,
-      upload_problem, uploaded_by
+      upload_problem, uploaded_by, visit_of
     ) VALUES (
       $id, $tagCode, $speciesName, $speciesSlug, $commonName, $heightM, $condition, $notes,
       $latitude, $longitude, $accuracyM, $capturedAt, $photoCount, $recordedAt, $syncStatus,
-      $uploadProblem, $uploadedBy
+      $uploadProblem, $uploadedBy, $visitOf
     )`,
     {
       $id: record.id,
@@ -346,6 +348,7 @@ function insertRecord(on: SQLiteDatabase, record: PlantRecord) {
       $syncStatus: record.syncStatus,
       $uploadProblem: record.uploadProblem ?? null,
       $uploadedBy: record.uploadedBy ?? null,
+      $visitOf: record.visitOf ?? null,
     },
   );
 }
@@ -466,6 +469,10 @@ export async function openRecordsStore(): Promise<RecordsStore> {
           throw new Error(NOT_DELETED);
         }
         await txn.runAsync('DELETE FROM record_photos WHERE record_id = $id', { $id: id });
+        // Visits to a deleted record stay as records on their own, the same as on the server.
+        await txn.runAsync('UPDATE plant_records SET visit_of = NULL WHERE visit_of = $id', {
+          $id: id,
+        });
       });
     },
 
@@ -500,6 +507,11 @@ export async function openRecordsStore(): Promise<RecordsStore> {
           throw new Error(NOT_TAG_CLASH);
         }
         await txn.runAsync('UPDATE record_photos SET record_id = $newId WHERE record_id = $id', {
+          $id: id,
+          $newId: newId,
+        });
+        // Visits to the plant follow its first record to the new ID
+        await txn.runAsync('UPDATE plant_records SET visit_of = $newId WHERE visit_of = $id', {
           $id: id,
           $newId: newId,
         });
