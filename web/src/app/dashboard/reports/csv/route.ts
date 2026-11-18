@@ -3,16 +3,7 @@ import { getSession } from "@/lib/auth";
 import { parkNow } from "@/lib/format";
 import { buildCsv, filtersFrom } from "@/lib/reports";
 import { loadReportRecords, recordExactDownload } from "@/lib/reports-db";
-
-function refuse(status: number, message: string) {
-  return new Response(message, {
-    status,
-    headers: {
-      "Content-Type": "text/plain; charset=utf-8",
-      "Cache-Control": "no-store",
-    },
-  });
-}
+import { refuse, refuseUnlessStaff } from "@/lib/staff-download";
 
 /**
  * The reports CSV (item 21), built here on the server so exact spots only go
@@ -24,16 +15,8 @@ function refuse(status: number, message: string) {
 export async function GET(request: NextRequest) {
   // The proxy already sends anyone signed out to the sign in page. This
   // checks the role too, like requireStaff does for the pages.
-  const session = await getSession();
-  if (session.status === "unavailable") {
-    return refuse(503, "The database isn’t answering. Try the download again in a minute.");
-  }
-  if (session.status !== "ok") {
-    return refuse(
-      session.status === "signed-out" ? 401 : 403,
-      "Only conservation officers and administrators can download reports.",
-    );
-  }
+  const notStaff = refuseUnlessStaff(await getSession(), "reports");
+  if (notStaff) return notStaff;
 
   const params = Object.fromEntries(request.nextUrl.searchParams);
   const filters = filtersFrom(params);
