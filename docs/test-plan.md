@@ -48,7 +48,7 @@ The targets are the ones in the proposal's Quality Management section.
 | Website checks | Types, lint and a production build. The website has no unit tests, so its behaviour is covered by the database tests and by hand | `cd web && npm run lint && npm run build` | No count |
 | By hand, end to end | The phone on the iOS simulator and the website in a browser, both against the stand-in with made up data | The steps are in each results page | About 40 results pages |
 | Security | Access checks as each role, headers, cookies, photo metadata, packages. Scope and tools are in the [assessment plan](security/vulnerability-assessment-plan.md) | The commands in the [results](test-results/item-25-27-security.md) | Findings are kept private until hosted is fixed |
-| IoT | Compiling both sketches, and a simulator that sends like an edge device, with 11 scenarios | `arduino-cli compile` and `iot/node-simulator/`, see [item 28](test-results/item-28-iot-framework.md) and [item 29](test-results/item-29-sensor-pipeline.md) | Compile only for the hardware |
+| IoT | Compiling the sensor node sketch, and a simulated ESP32 that sends through the real edge device to Supabase and can fake floods, rain, a moved node and movement | `arduino-cli compile` and `iot-edge fake-thing` (`iot/edge-device/tools/fake-thing.py`), see [item 28](test-results/item-28-iot-framework.md) and [item 29](test-results/item-29-sensor-pipeline.md) | Compile only for the hardware |
 | CI | Lint, types, unit tests, Expo Doctor, website build and SQL tests on every push and pull request | GitHub Actions | 3 jobs |
 
 A test that passes has to be able to fail, so for the SQL we changed a policy on purpose and checked

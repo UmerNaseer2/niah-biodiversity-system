@@ -156,7 +156,7 @@ export async function startStandIn({
   const sqlFiles = sqlThrough ? SQL_FILES.filter((file) => file.slice(0, 3) <= sqlThrough) : SQL_FILES;
   const db = await newDatabase(sqlFiles);
   await addTestData(db);
-  // edge-com needs every sensor file, 016_1 to 025. Without them it isn't there, like a project
+  // edge-com needs every sensor file, 016_1 to 027. Without them it isn't there, like a project
   // where it hasn't been deployed.
   const sensors = IOT_FILES.every((file) => sqlFiles.includes(file));
   let edgeCom = null;
@@ -237,7 +237,7 @@ export async function startStandIn({
   };
 }
 
-// The sensor files, 016_1 to 025
+// The sensor files, 016_1 to 027
 const IOT_FILES = SQL_FILES.filter((file) => file.includes('_iot_'));
 
 async function addTestDevice(db) {

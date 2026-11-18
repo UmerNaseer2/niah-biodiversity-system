@@ -1,4 +1,4 @@
-// Checks the sensor files, 016_1 to 017 and 023 to 025, and our edge-com function, which is the
+// Checks the sensor files, 016_1 to 017 and 023 to 027, and our edge-com function, which is the
 // only way readings get in: device tokens, what edge-com stores and leaves out, the alert rules
 // with each node's own settings, nodes going quiet, acknowledging and resolving, commands for the
 // nodes, calibration, who can read and change what, and that nothing from a node reaches the
@@ -881,6 +881,67 @@ describe('nodes going quiet', () => {
   });
 });
 
+describe('sending a patrol', () => {
+  async function urgentAlert() {
+    const node = await newNode();
+    await send(node, [{ ago: 60, motion: 1 }]);
+    const [alert] = await alertsFor(node);
+    return { node, id: alert.id };
+  }
+  const dispatch = (user, id, notes = null) => call(user, 'public.iot_dispatch_patrol($1, $2)', [id, notes]);
+
+  test('an officer or admin sends one, which also acknowledges the alert', async () => {
+    for (const user of [officer, admin]) {
+      const { node, id } = await urgentAlert();
+      assert.deepEqual(await dispatch(user, id, '  Check the fence line  '), { ok: true, message: 'Patrol team dispatched.' });
+      const [alert] = await alertsFor(node);
+      assert.equal(alert.status, 'acknowledged');
+      assert.equal(alert.acknowledged_by, user.id);
+      assert.equal(alert.acknowledged_by_name, user.name);
+      assert.equal(alert.dispatched_by, user.id);
+      assert.equal(alert.dispatched_by_name, user.name);
+      assert.equal(alert.patrol_notes, 'Check the fence line');
+      assert.ok(alert.dispatched_at);
+    }
+  });
+
+  test('the first patrol and the first person to acknowledge stay on it', async () => {
+    const { node, id } = await urgentAlert();
+    await call(officer, 'public.iot_acknowledge_alert($1)', [id]);
+    assert.equal((await dispatch(admin, id)).ok, true);
+    assert.deepEqual(await dispatch(officer, id), { ok: false, message: 'A patrol has already been sent for this alert.' });
+    const [alert] = await alertsFor(node);
+    assert.equal(alert.acknowledged_by_name, 'Park officer');
+    assert.equal(alert.dispatched_by, admin.id);
+  });
+
+  test('a resolved alert or one that does not exist gets a clear answer', async () => {
+    const { id } = await urgentAlert();
+    await call(officer, 'public.iot_resolve_alert($1)', [id]);
+    assert.deepEqual(await dispatch(officer, id), { ok: false, message: 'This alert has already been resolved.' });
+    assert.equal((await dispatch(officer, 987654321)).ok, false);
+  });
+
+  test('long notes are cut to 500 characters and empty ones are left out', async () => {
+    const { node, id } = await urgentAlert();
+    await dispatch(officer, id, 'x'.repeat(2000));
+    assert.equal((await alertsFor(node))[0].patrol_notes.length, 500);
+    const other = await urgentAlert();
+    await dispatch(officer, other.id, '   ');
+    assert.equal((await alertsFor(other.node))[0].patrol_notes, null);
+  });
+
+  test('anyone else is turned down and the alert stays as it was', async () => {
+    const { node, id } = await urgentAlert();
+    await assert.rejects(dispatch(null, id), { code: '42501' }, 'anon');
+    for (const user of [visitor, researcher, botanist]) {
+      assert.equal((await dispatch(user, id)).ok, false, who(user));
+    }
+    const [alert] = await alertsFor(node);
+    assert.deepEqual([alert.status, alert.dispatched_at], ['open', null]);
+  });
+});
+
 describe('the count for the staff menu', () => {
   const count = () => call(officer, 'public.iot_check_alerts()');
   const change = (before, after) => ({ urgent: after.urgent - before.urgent, open: after.open - before.open });
@@ -1306,6 +1367,7 @@ describe('who reads and changes what', () => {
     const forStaff = new Set([
       'iot_acknowledge_alert(bigint)',
       'iot_check_alerts()',
+      'iot_dispatch_patrol(bigint,text)',
       'iot_make_device_token(text)',
       'iot_raw_pct(integer,integer,integer)',
       'iot_resolve_alert(bigint)',
@@ -1382,8 +1444,31 @@ describe('the status view for the Sensors page', () => {
     );
     const columns = new Set(rows.map((row) => row.column_name));
     for (const gone of ['battery_percent', 'temperature_c', 'humidity_percent', 'soil_moisture_percent',
-      'pir_movement_detected', 'tilt_alert', 'threat_details', 'latitude', 'longitude']) {
+      'pir_movement_detected', 'tilt_alert', 'threat_details']) {
       assert.ok(!columns.has(gone), gone);
+    }
+  });
+
+  test('running 002 again leaves the nodes as they are', async () => {
+    const everyNode = 'SELECT * FROM public.iot_nodes ORDER BY node_id';
+    const before = (await db.query(everyNode)).rows;
+    await db.exec(readSql('002_seed_data.sql'));
+    assert.deepEqual((await db.query(everyNode)).rows, before);
+  });
+
+  test('the sample nodes from 002 start with no readings', async () => {
+    const fresh = await newDatabase();
+    try {
+      const { rows } = await fresh.query(
+        `SELECT n.node_id, n.status, n.last_heartbeat, n.edge_device_id, s.last_reading_at, s.quiet
+         FROM public.iot_nodes AS n JOIN public.iot_node_status AS s USING (node_id)
+         ORDER BY n.node_id`,
+      );
+      assert.deepEqual(rows, ['NNP-IOT-01', 'NNP-IOT-02', 'NNP-IOT-03'].map((node_id) => ({
+        node_id, status: 'online', last_heartbeat: null, edge_device_id: null, last_reading_at: null, quiet: false,
+      })));
+    } finally {
+      await fresh.close();
     }
   });
 
@@ -1391,6 +1476,86 @@ describe('the status view for the Sensors page', () => {
     for (const user of [visitor, researcher, botanist]) {
       assert.deepEqual(await selectAs(db, user, 'SELECT * FROM public.iot_node_status'), [], who(user));
     }
+  });
+});
+
+describe('the daily summary for the Sensors page (027)', () => {
+  const PARK_S = 8 * 3600;
+  const DAY_S = 24 * 3600;
+  /** Midnight park time, daysAgo days before today at the park, in seconds since 1970 */
+  const parkMidnight = (daysAgo) => Math.floor((testNow + PARK_S) / DAY_S) * DAY_S - PARK_S - daysAgo * DAY_S;
+  /** The park date of a time in seconds, like 2026-11-14 */
+  const parkDate = (seconds) => new Date((seconds + PARK_S) * 1000).toISOString().slice(0, 10);
+  const dayOf = (row) => new Date(row.day).toISOString().slice(0, 10);
+  const daysOf = async (node, user = officer) =>
+    (await selectAs(db, user, 'SELECT * FROM public.iot_daily_summary WHERE node_id = $1 ORDER BY day', [node])).map(
+      (row) => ({ ...row, day: dayOf(row) }),
+    );
+
+  test("the lowest, average and highest of each value, from that day's readings", async () => {
+    const node = await newNode();
+    const at = (hour) => testNow - (parkMidnight(2) + hour * 3600);
+    await send(node, [
+      { ago: at(10), temp_c: 20, hum_pct: 70, soil_raw: 4095 },
+      { ago: at(11), temp_c: 25, hum_pct: 80, soil_raw: 1400 },
+      { ago: at(12), temp_c: 30, hum_pct: 90 },
+      // A value the node didn't send is left out of that value's figures
+      { ago: at(13), temp_c: null, hum_pct: null, soil_raw: null },
+    ]);
+    const [day] = await daysOf(node);
+    const soilCalm = 55; // CALM's 2600 with the default calibration
+    assert.deepEqual(day, {
+      node_id: node,
+      day: parkDate(parkMidnight(2)),
+      readings: 4,
+      temp_min: 20,
+      temp_avg: 25,
+      temp_max: 30,
+      hum_min: 70,
+      hum_avg: 80,
+      hum_max: 90,
+      soil_min: 0,
+      soil_avg: Math.round(((0 + 100 + soilCalm) / 3) * 10) / 10,
+      soil_max: 100,
+    });
+  });
+
+  test('a day runs from midnight to midnight park time, and only the last 7 days are in it', async () => {
+    const node = await newNode();
+    await send(node, [
+      { ago: testNow - (parkMidnight(6) - 3600), temp_c: 10 }, // 11 pm, 7 days ago: too old
+      { ago: testNow - (parkMidnight(6) + 3600), temp_c: 11 }, // 1 am, 6 days ago
+      { ago: testNow - (parkMidnight(2) - 60), temp_c: 12 }, // 11:59 pm, 3 days ago
+      { ago: testNow - (parkMidnight(2) + 60), temp_c: 13 }, // 12:01 am, 2 days ago
+    ]);
+    assert.deepEqual(
+      (await daysOf(node)).map((row) => [row.day, row.readings, row.temp_max]),
+      [
+        [parkDate(parkMidnight(6)), 1, 11],
+        [parkDate(parkMidnight(3)), 1, 12],
+        [parkDate(parkMidnight(2)), 1, 13],
+      ],
+    );
+  });
+
+  test('soil follows a new calibration, for past days too', async () => {
+    const node = await newNode();
+    await send(node, [{ ago: testNow - (parkMidnight(1) + 12 * 3600) }]);
+    assert.equal((await daysOf(node))[0].soil_max, 55);
+    await asUser(db, admin, (tx) =>
+      tx.query('UPDATE public.iot_nodes SET soil_wet_raw = 2600 WHERE node_id = $1', [node]),
+    );
+    assert.equal((await daysOf(node))[0].soil_max, 100);
+  });
+
+  test('only officers and admins get rows, because it reads as whoever asks', async () => {
+    const node = await newNode();
+    await send(node, [{ ago: 60 }]);
+    for (const user of [officer, admin]) assert.equal((await daysOf(node, user)).length, 1, who(user));
+    for (const user of [botanist, researcher, visitor]) assert.deepEqual(await daysOf(node, user), [], who(user));
+    await assert.rejects(selectAs(db, null, 'SELECT * FROM public.iot_daily_summary'), notAllowed);
+    const { rows } = await db.query("SELECT reloptions FROM pg_class WHERE oid = 'public.iot_daily_summary'::regclass");
+    assert.deepEqual(rows[0].reloptions, ['security_invoker=true']);
   });
 });
 
@@ -1405,22 +1570,35 @@ describe('nothing from a node reaches the public', () => {
     assert.deepEqual(rows, []);
   });
 
-  test('no view other than the staff one reads the sensor tables', async () => {
+  test('no view other than the two staff ones reads the sensor tables, and both read as whoever asks', async () => {
     const { rows } = await db.query(
-      `SELECT DISTINCT view_name FROM information_schema.view_table_usage
-       WHERE table_schema = 'public' AND table_name LIKE 'iot\\_%'`,
+      `SELECT DISTINCT u.view_name, c.reloptions
+       FROM information_schema.view_table_usage AS u
+       JOIN pg_class AS c ON c.oid = format('public.%I', u.view_name)::regclass
+       WHERE u.table_schema = 'public' AND u.table_name LIKE 'iot\\_%'
+       ORDER BY u.view_name`,
     );
-    assert.deepEqual(rows, [{ view_name: 'iot_node_status' }]);
+    assert.deepEqual(rows, [
+      { view_name: 'iot_daily_summary', reloptions: ['security_invoker=true'] },
+      { view_name: 'iot_node_status', reloptions: ['security_invoker=true'] },
+    ]);
   });
 
-  test("a node's position is only in iot_boots, which only officers and admins read", async () => {
+  test("a node's position is only where officers and admins read it", async () => {
     const { rows } = await db.query(
       `SELECT DISTINCT table_name FROM information_schema.columns
        WHERE table_schema = 'public' AND table_name LIKE 'iot\\_%' AND column_name IN ('latitude', 'longitude')
        ORDER BY table_name`,
     );
-    // The edge devices have a position too: they sit at a ranger station, not by a plant
-    assert.deepEqual(rows.map((row) => row.table_name), ['iot_boots', 'iot_devices']);
+    // iot_boots has where the node says it is at power-up. iot_nodes has the spot an admin typed in
+    // (026), which the map uses until the node sends one, and iot_node_status shows it. The edge
+    // devices have a position too: they sit at a ranger station, not by a plant.
+    assert.deepEqual(rows.map((row) => row.table_name), ['iot_boots', 'iot_devices', 'iot_node_status', 'iot_nodes']);
+    for (const user of [visitor, researcher, botanist]) {
+      for (const table of ['iot_boots', 'iot_nodes', 'iot_node_status']) {
+        assert.deepEqual(await selectAs(db, user, `SELECT latitude FROM public.${table}`), [], `${who(user)} ${table}`);
+      }
+    }
   });
 });
 
@@ -1709,6 +1887,13 @@ describe('the stand-in’s made-up sensor data', () => {
       assert.ok(row.n > 100, row.node_id);
       assert.equal(row.placed, true, row.node_id);
     }
+  });
+
+  test('the daily summary has figures for each of the three nodes', async () => {
+    const { rows } = await standIn.db.query(
+      'SELECT DISTINCT node_id FROM public.iot_daily_summary WHERE temp_avg IS NOT NULL AND soil_avg IS NOT NULL ORDER BY node_id',
+    );
+    assert.equal(rows.length, 3);
   });
 
   test('one node of each kind for the Sensors page: urgent, routine and quiet', async () => {
