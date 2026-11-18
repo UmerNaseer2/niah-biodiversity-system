@@ -1,14 +1,10 @@
 import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
+import { sqlIsMissing } from "@/lib/sql-missing";
 
-/**
- * True when the error means newer SQL (016_1 to 027 here, 021 for the users page)
- * isn't in this database yet, rather than something going wrong today. The pages
- * say something different for each.
- */
-export function sqlIsMissing(error: { code?: string } | null) {
-  return ["PGRST202", "PGRST205", "42P01", "42883", "42703"].includes(error?.code ?? "");
-}
+// The sensor pages use this to tell newer SQL (016_1 to 027 here, 021 for the users page) not
+// being in the database yet from something going wrong today, and say something different for each.
+export { sqlIsMissing };
 
 /**
  * Has the database look for nodes that have gone quiet, and counts the alerts that need someone:
