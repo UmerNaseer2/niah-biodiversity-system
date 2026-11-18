@@ -22,3 +22,30 @@ export function newestVisitsFirst<T extends { id: string; recordedAt: string }>(
     (a, b) => b.recordedAt.localeCompare(a.recordedAt) || a.id.localeCompare(b.id),
   );
 }
+
+/** The records that aren't later visits, in the order they came. A visit is the same plant. */
+export function withoutVisits<T extends { id: string }>(
+  records: readonly T[],
+  visits: ReadonlySet<string>,
+): T[] {
+  return records.filter((record) => !visits.has(record.id));
+}
+
+/**
+ * How many plants each species has, keyed by slug, from rows of records_public. A later visit is
+ * the same plant again, so it doesn't count, and a plant with no species yet doesn't count
+ * towards any species.
+ */
+export function plantsPerSpecies(
+  rows: readonly { id?: unknown; species_slug?: unknown }[],
+  visits: ReadonlySet<string>,
+): Record<string, number> {
+  const counts: Record<string, number> = {};
+  for (const row of rows) {
+    if (!row.species_slug) continue;
+    if (typeof row.id === "string" && visits.has(row.id)) continue;
+    const slug = String(row.species_slug);
+    counts[slug] = (counts[slug] ?? 0) + 1;
+  }
+  return counts;
+}

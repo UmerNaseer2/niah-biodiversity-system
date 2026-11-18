@@ -250,7 +250,7 @@ who shouldn't see it.
 | `species_public` | Anyone, signed in or not | Species for the public pages, without coordinates or photos |
 | `species_photos_public` | Anyone, signed in or not | Each species' photos, for the plant pages (009). They're public anyway, since the bucket is |
 | `records_public` | Anyone, signed in or not | Published records only, with no notes and no names of who recorded or reviewed them. The exact spot only for a species that is LC or NT, not protected in Sarawak and not set to rough area only, on a record whose name matches that species. Everyone else gets the middle of a 0.004 degree grid square (about 440 m at Niah) and the day it was recorded, not the time (019). A visit only shows its exact spot when its first record would too (028) |
-| `record_visits_public` | Anyone, signed in or not | The ID of each visit and its first record, only when both are published (028). The public tag page uses it to list a plant's visits |
+| `record_visits_public` | Anyone, signed in or not | The ID of each visit and its first record, only when both are published (028). The public tag page uses it to list a plant's visits, and the Plants list, species pages and home page use it to count each plant once |
 | `species_staff` | Conservation officers and admins | Every species column, for the dashboard forms |
 | `records_staff` | Conservation officers and admins | Every record with its exact point, for review and reports, and `visit_of` for visits (028) |
 | `iot_node_status` | Conservation officers and admins | Each node's latest reading, its soil and rain percent, the state of each sensor, how many alerts are still going on, whether it's gone quiet and where it's placed (026). The Sensors and Ecology pages and the dashboard map use it |
