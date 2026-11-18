@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { RecordRow } from '@/components/record-row';
 import { Screen } from '@/components/screen';
+import { SensorAlertsCard } from '@/components/sensor-alerts-card';
 import { ThemedText } from '@/components/themed-text';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -37,6 +38,8 @@ function StaffHome() {
         total={records.length}
         photos={waitingPhotoCount + photoProblemCount}
       />
+
+      <SensorAlertsCard />
 
       <Card>
         <View style={styles.today}>

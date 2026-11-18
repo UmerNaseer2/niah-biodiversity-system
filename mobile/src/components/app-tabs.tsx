@@ -2,6 +2,7 @@ import { NativeTabs } from 'expo-router/unstable-native-tabs';
 import { Platform } from 'react-native';
 
 import { useTheme } from '@/hooks/use-theme';
+import { useSensorAlerts } from '@/state/alerts-context';
 import { useRecords } from '@/state/records-context';
 
 // Native tab bar for iOS and Android. The web preview uses app-tabs.web.tsx, so when you add
@@ -9,6 +10,9 @@ import { useRecords } from '@/state/records-context';
 export default function AppTabs() {
   const theme = useTheme();
   const { pendingCount, mode } = useRecords();
+  // Only an officer's or admin's phone checks for sensor alerts, so only they get this number.
+  const alerts = useSensorAlerts();
+  const alertCount = alerts.enabled ? alerts.total : 0;
   // Visitors only read about plants, so the tabs for making and sending records are hidden, and
   // only visitors get Plants and History. A phone that hasn't picked yet never gets here,
   // because the welcome page shows instead.
@@ -31,6 +35,9 @@ export default function AppTabs() {
       <NativeTabs.Trigger name="index">
         <NativeTabs.Trigger.Label>Home</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon sf={{ default: 'house', selected: 'house.fill' }} md="home" />
+        <NativeTabs.Trigger.Badge hidden={alertCount === 0}>
+          {String(alertCount)}
+        </NativeTabs.Trigger.Badge>
       </NativeTabs.Trigger>
 
       <NativeTabs.Trigger name="scan">
