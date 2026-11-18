@@ -52,6 +52,11 @@ export type PublicRecord = {
    * should only show the date.
    */
   recordedAt: string;
+  /**
+   * The ID of the plant's first record, when this record is a later visit to the plant. Left out
+   * for a first record. A visit is only linked when its first record is in the same copy.
+   */
+  visitOf?: string;
 };
 
 /** The plant info saved on the phone, and when it last came down. */

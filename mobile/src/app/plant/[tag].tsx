@@ -12,7 +12,13 @@ import { InfoRow } from '@/components/ui/info-row';
 import { IucnChip, ProtectedChip } from '@/components/ui/plant-chips';
 import { Spacing } from '@/constants/theme';
 import { useNow } from '@/hooks/use-now';
-import { conditionLabel, formatHeight, formatParkDate, formatRecordedAt } from '@/lib/format';
+import {
+  conditionLabel,
+  formatHeight,
+  formatParkDate,
+  formatRecordedAt,
+  plural,
+} from '@/lib/format';
 import { hasCommonName, plantName, speciesOf } from '@/lib/plant-info';
 import { useRecords } from '@/state/records-context';
 
@@ -27,7 +33,8 @@ const NO_SPECIES = "The field team hasn't matched this plant to a species on our
 export default function PlantScreen() {
   const router = useRouter();
   const { tag } = useLocalSearchParams<{ tag: string }>();
-  const { findPublicByTag, publicSpecies, publicCopyAt, publicPhotos, mode } = useRecords();
+  const { findPublicByTag, publicVisitsOf, publicSpecies, publicCopyAt, publicPhotos, mode } =
+    useRecords();
   // Like the tabs and the Scan screen, anyone who isn't in visitor mode is staff.
   const staff = mode !== 'visitor';
   // Changes when the app comes back to the front, which redraws the "today" in Info from.
@@ -71,6 +78,7 @@ export default function PlantScreen() {
   const otherNames = species ? species.commonNames.filter((common) => common !== name) : [];
   const summary = species ? species.summary.trim() : NO_SPECIES;
   const photo = species && publicPhotos.find((item) => item.speciesSlug === species.slug);
+  const visits = publicVisitsOf(record.id);
   // Recent times start with "Today" or "Yesterday", which read better in lower case here.
   const when = publicCopyAt ? formatRecordedAt(publicCopyAt, now) : undefined;
   const infoFrom = when ? `Info from ${when.charAt(0).toLowerCase()}${when.slice(1)}` : undefined;
@@ -129,8 +137,27 @@ export default function PlantScreen() {
           label="Condition"
           value={record.condition ? conditionLabel(record.condition) : 'Not recorded'}
         />
-        <InfoRow label="Recorded" value={formatParkDate(record.recordedAt)} />
+        <InfoRow
+          label={visits.length > 0 ? 'First recorded' : 'Recorded'}
+          value={formatParkDate(record.recordedAt)}
+        />
       </Card>
+
+      {visits.length > 0 ? (
+        <Card title="Later visits" icon="history">
+          <ThemedText type="small" themeColor="textSecondary">
+            The field team came back to check on this plant {plural(visits.length, 'time')}. The
+            facts above are from the first record. Newest visit first.
+          </ThemedText>
+          {visits.map((visit) => (
+            <InfoRow
+              key={visit.id}
+              label={formatParkDate(visit.recordedAt)}
+              value={visit.condition ? conditionLabel(visit.condition) : 'Not recorded'}
+            />
+          ))}
+        </Card>
+      ) : null}
 
       {staff ? (
         <Button

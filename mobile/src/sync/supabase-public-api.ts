@@ -4,6 +4,7 @@ import * as Network from 'expo-network';
 import type {
   PublicCopyApi,
   RecordsPublicRow,
+  RecordVisitsRow,
   SpeciesPhotosRow,
   SpeciesPublicRow,
 } from './public-copy';
@@ -61,6 +62,20 @@ export function supabasePublicCopyApi(supabase: SupabaseClient): PublicCopyApi {
           .order('id')
           .range(from, to);
         return error ? failed(error, status) : (data as RecordsPublicRow[]);
+      });
+    },
+
+    fetchVisits() {
+      return fetchAllPages<RecordVisitsRow>(async (from, to) => {
+        // The view only links a visit and a first record that are both published.
+        const { data, error, status } = await supabase
+          .from('record_visits_public')
+          .select('id, visit_of')
+          .order('id')
+          .range(from, to);
+        return error
+          ? failed(error, status, "Couldn't download the plant visits.")
+          : (data as RecordVisitsRow[]);
       });
     },
 

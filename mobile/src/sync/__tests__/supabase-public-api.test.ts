@@ -178,6 +178,29 @@ describe('fetchRecords', () => {
   });
 });
 
+describe('fetchVisits', () => {
+  it('asks for which records are visits, a page at a time, sorted by ID', async () => {
+    const { api, asked } = fakeServer(onePage('7c1e9b3a-2d4f-4a6b-8c0d-1e2f3a4b5c60'));
+    expect(await api.fetchVisits()).toEqual([{ id: '7c1e9b3a-2d4f-4a6b-8c0d-1e2f3a4b5c60' }]);
+    expect(asked).toEqual([
+      {
+        table: 'record_visits_public',
+        fields: ['id', 'visit_of'],
+        filters: [],
+        orderBy: ['id'],
+        range: [0, 499],
+      },
+      {
+        table: 'record_visits_public',
+        fields: ['id', 'visit_of'],
+        filters: [],
+        orderBy: ['id'],
+        range: [1, 500],
+      },
+    ]);
+  });
+});
+
 describe('fetchPhotos', () => {
   it('asks for the photo list of every species, a page at a time, sorted by ID', async () => {
     const { api, asked } = fakeServer(onePage('nepenthes-rafflesiana'));
@@ -215,6 +238,7 @@ describe('photoUrl', () => {
 describe.each([
   ['fetchSpecies', "Couldn't download the plant info."],
   ['fetchRecords', "Couldn't download the plant info."],
+  ['fetchVisits', "Couldn't download the plant visits."],
   ['fetchPhotos', "Couldn't download the species photos."],
 ] as const)('%s', (fetch, warning) => {
   it('gives null and warns when the server answers with an error', async () => {

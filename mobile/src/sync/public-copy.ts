@@ -45,6 +45,15 @@ export type RecordsPublicRow = {
   recorded_at: string | null;
 };
 
+/**
+ * One row of the record_visits_public view: a published visit and the published first record of
+ * its plant (supabase/028_record_visits.sql).
+ */
+export type RecordVisitsRow = {
+  id: string | null;
+  visit_of: string | null;
+};
+
 /** One row of the species_photos_public view. */
 export type SpeciesPhotosRow = {
   id: string | null;
@@ -113,10 +122,17 @@ export function speciesFromServer(rows: SpeciesPublicRow[]): PublicSpecies[] {
   });
 }
 
-/** The records the plant page can show. A row with no ID, no name or no date is left out. */
-export function recordsFromServer(rows: RecordsPublicRow[]): PublicRecord[] {
+/**
+ * The records the plant page can show. A row with no ID, no name or no date is left out. A record
+ * in visits gets the ID of its plant's first record, but only when that first record is in the
+ * copy and isn't a visit itself, so the phone never points at a plant it can't show.
+ */
+export function recordsFromServer(
+  rows: RecordsPublicRow[],
+  visits: RecordVisitsRow[] = [],
+): PublicRecord[] {
   const seen = new Set<string>();
-  return rows.flatMap((row) => {
+  const records: PublicRecord[] = rows.flatMap((row) => {
     const id = text(row.id);
     const speciesName = filled(row.species_name);
     const recordedAt = isoDate(row.recorded_at);
@@ -138,6 +154,20 @@ export function recordsFromServer(rows: RecordsPublicRow[]): PublicRecord[] {
         recordedAt,
       },
     ];
+  });
+  const firstOf = new Map<string, string>();
+  for (const visit of visits) {
+    const id = text(visit.id);
+    const first = text(visit.visit_of);
+    if (id && first && id !== first) {
+      firstOf.set(id, first);
+    }
+  }
+  return records.map((record) => {
+    const first = firstOf.get(record.id);
+    return first && seen.has(first) && !firstOf.has(first)
+      ? { ...record, visitOf: first }
+      : record;
   });
 }
 
@@ -220,6 +250,8 @@ export type PublicCopyApi = {
   fetchSpecies: () => Promise<SpeciesPublicRow[] | null>;
   /** Every published record, without its location, or null if the server couldn't be read. */
   fetchRecords: () => Promise<RecordsPublicRow[] | null>;
+  /** Which published records are visits to which plants, or null if the server couldn't be read. */
+  fetchVisits: () => Promise<RecordVisitsRow[] | null>;
   /** The photo list of every species, or null if the server couldn't be read. */
   fetchPhotos: () => Promise<SpeciesPhotosRow[] | null>;
   /** The link to a photo uploaded to the website, from where it is in the public photo storage. */
@@ -238,6 +270,20 @@ async function speciesPhotos(api: PublicCopyApi, species: PublicSpecies[]) {
   } catch (error) {
     console.warn("Couldn't download the species photos.", error);
     return null;
+  }
+}
+
+/**
+ * Which records are visits, or none if that couldn't be read. Then each visit shows as a plant of
+ * its own until the next download, the same as before the server had visits, because the plant
+ * info is still worth saving without them.
+ */
+async function visitLinks(api: PublicCopyApi) {
+  try {
+    return (await api.fetchVisits()) ?? [];
+  } catch (error) {
+    console.warn("Couldn't download the plant visits.", error);
+    return [];
   }
 }
 
@@ -268,8 +314,9 @@ export async function downloadPublicCopy(
       // than nothing. No records is fine, because the park might not have published any yet.
       return 'failed';
     }
+    const visits = await visitLinks(api);
     const photos = await speciesPhotos(api, species);
-    await store.replacePublicCopy(species, recordsFromServer(recordRows), now(), photos);
+    await store.replacePublicCopy(species, recordsFromServer(recordRows, visits), now(), photos);
     return 'done';
   } catch (error) {
     console.warn("Couldn't update the plant info for offline use.", error);

@@ -9,7 +9,8 @@ import type { IucnCode, NewPublicPhoto, PublicRecord, PublicSpecies } from '@/ty
 
 const BAD_SPECIES = 'A species in the plant info has no name, a repeated slug or a bad IUCN code.';
 const BAD_RECORD =
-  'A record in the plant info has no tag or name, a repeated ID, or a bad height or condition.';
+  'A record in the plant info has no tag or name, a repeated ID, a bad height or condition, ' +
+  'or is a visit to itself.';
 
 const pitcher: PublicSpecies = {
   slug: 'nepenthes-rafflesiana',
@@ -89,6 +90,12 @@ describe('public plant info', () => {
     expect(await store.loadPublicCopy()).toEqual({ species: [], records: [], downloadedAt: null });
   });
 
+  it('gives back which first record a visit is to', async () => {
+    const visit: PublicRecord = { ...unmatched, visitOf: tagged.id };
+    await store.replacePublicCopy([fig, pitcher], [tagged, visit], DOWNLOADED);
+    expect((await store.loadPublicCopy()).records).toEqual([tagged, visit]);
+  });
+
   it('gives back every field the way it came down, in the same order', async () => {
     await store.replacePublicCopy([fig, pitcher], [unmatched, tagged], DOWNLOADED);
     expect(await store.loadPublicCopy()).toEqual({
@@ -146,6 +153,7 @@ describe('public plant info', () => {
       [{ ...tagged, condition: 'gone' as PlantCondition }],
       BAD_RECORD,
     ],
+    ['a record that is a visit to itself', [fig], [{ ...tagged, visitOf: tagged.id }], BAD_RECORD],
   ])('keeps the old copy when the new one has %s', async (_what, species, records, error) => {
     await store.replacePublicCopy([pitcher], [tagged], DOWNLOADED);
     await expect(store.replacePublicCopy(species, records, LATER)).rejects.toThrow(error);
