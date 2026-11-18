@@ -9,6 +9,7 @@ import { recordFromRow, type StaffRecord } from "@/lib/records-staff";
 import { commonNameIsNew, nameDisagrees } from "@/lib/review";
 import { speciesFromRow } from "@/lib/species-db";
 import { createClient } from "@/lib/supabase/server";
+import { tagCode } from "@/lib/tags";
 import { ReviewQueue, type ReviewItem } from "./review-queue";
 
 export const metadata: Metadata = { title: "Review queue" };
@@ -87,6 +88,7 @@ export default async function ReviewPage() {
       id: record.id,
       version: record.version,
       code: record.tagCode,
+      visitOf: record.visitOf ? { id: record.visitOf, code: tagCode(record.visitOf) } : null,
       speciesName: plant?.commonNames[0] ?? record.commonName ?? record.speciesName,
       scientificName: plant?.scientificName ?? record.speciesName,
       // Shown as well when they disagree, so the officer sees what was sent

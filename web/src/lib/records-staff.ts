@@ -39,6 +39,8 @@ export type StaffRecord = {
   photoFolder: string | null;
   /** Park time of the last edit, or null when it hasn't been edited since upload (008) */
   updatedAt: string | null;
+  /** For a later visit to a plant, the ID of the plant's first record (028) */
+  visitOf: string | null;
 };
 
 export const STAFF_STATUSES = ["waiting", "published", "rejected"] as const;
@@ -78,6 +80,7 @@ export function recordFromRow(row: Record<string, unknown>): StaffRecord {
     version: row.updated_at ? String(row.updated_at) : "",
     photoFolder: photoFolderOf(row),
     updatedAt: wasEdited(row) ? parkTime(String(row.updated_at)) : null,
+    visitOf: row.visit_of ? String(row.visit_of) : null,
   };
 }
 

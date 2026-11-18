@@ -15,7 +15,12 @@ import { TreeTag } from "@/components/tree-tag";
 import { recordHidesLocation, type Species } from "@/data/species";
 import { formatDate, plural } from "@/lib/format";
 import { fromHq, roughAreas } from "@/lib/geo";
-import { getPublishedByTag, type PublicRecord } from "@/lib/records-db";
+import {
+  getFirstRecordTag,
+  getPublishedByTag,
+  getPublishedVisits,
+  type PublicRecord,
+} from "@/lib/records-db";
 import { nameDisagrees } from "@/lib/review";
 import { getSpeciesBySlug } from "@/lib/species-db";
 import { normaliseTag, safeDecode } from "@/lib/tags";
@@ -61,6 +66,14 @@ export default async function TagResultPage({
   // "nnp-3f2a9c" or "3F2A9C" both end up on /tag/NNP-3F2A9C
   if (code !== raw) redirect(`/tag/${code}`);
   if (!record) notFound();
+
+  // A visit keeps its own code, but that code isn't on any tag, so it goes to
+  // the tag on the plant, whose page lists the visit
+  const [firstTag, visits] = await Promise.all([
+    getFirstRecordTag(record.id),
+    getPublishedVisits(record.id),
+  ]);
+  if (firstTag && firstTag !== code) redirect(`/tag/${firstTag}`);
 
   const name = plantName(record, species);
   // Same rule as records_public, which also hides the spot of a plant with no
@@ -141,7 +154,9 @@ export default async function TagResultPage({
             </dd>
           </div>
           <div className="bg-sheet p-4">
-            <dt className="text-sm text-moss">Recorded</dt>
+            <dt className="text-sm text-moss">
+              {visits.length > 0 ? "First recorded" : "Recorded"}
+            </dt>
             <dd className="mt-1 text-lg font-bold">
               {formatDate(record.recordedAt)}
             </dd>
@@ -156,6 +171,30 @@ export default async function TagResultPage({
           </div>
         </dl>
       </section>
+
+      {visits.length > 0 && (
+        <section aria-labelledby="visits-heading" className="mt-12">
+          <h2 id="visits-heading" className="text-xl font-bold tracking-tight">
+            Later visits
+          </h2>
+          <p className="mt-2 text-moss">
+            The field team came back to check on this plant{" "}
+            {plural(visits.length, "time")}. The facts above are from the first
+            record. Newest visit first.
+          </p>
+          <ul className="mt-4 divide-y divide-line rounded-xl border border-line bg-sheet">
+            {visits.map((visit) => (
+              <li
+                key={visit.id}
+                className="flex flex-wrap items-center justify-between gap-3 p-4"
+              >
+                <span className="font-bold">{formatDate(visit.recordedAt)}</span>
+                <ConditionBadge condition={visit.condition} />
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {(speciesPhotos.length > 0 || record.photoCount > 0) && (
         <section aria-labelledby="photos-heading" className="mt-12">

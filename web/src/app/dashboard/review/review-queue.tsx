@@ -20,6 +20,8 @@ export type ReviewItem = {
   /** The record's updated_at as sent, so a decision only applies to what was shown */
   version: string;
   code: string;
+  /** For a later visit to a plant, the plant's first record */
+  visitOf: { id: string; code: string } | null;
   /** The common name when the species is on our list, otherwise what the field team typed */
   speciesName: string;
   scientificName: string;
@@ -238,6 +240,17 @@ export function ReviewQueue({
                     <p className="font-mono text-sm font-bold text-moss">
                       {item.code}
                     </p>
+                    {item.visitOf && (
+                      <p className="text-sm text-moss">
+                        Visit to{" "}
+                        <Link
+                          href={`/dashboard/records/${item.visitOf.id}/edit`}
+                          className="font-mono font-bold underline hover:text-ink"
+                        >
+                          {item.visitOf.code}
+                        </Link>
+                      </p>
+                    )}
                     <h3
                       id={`item-${item.id}`}
                       tabIndex={-1}
