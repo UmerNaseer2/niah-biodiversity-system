@@ -69,6 +69,7 @@
   "jest": {
     "preset": "jest-expo",
     "testTimeout": 30000,
+    "globalSetup": "<rootDir>/jest/time-zone.js",
     "setupFilesAfterEnv": [
       "<rootDir>/jest/setup.js"
     ],

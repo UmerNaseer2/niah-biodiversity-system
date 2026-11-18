@@ -1,3 +1,4 @@
+import { startOfParkDay } from '@/lib/format';
 import { tagCodeFor } from '@/lib/id';
 import type { GpsReading, PlantRecord } from '@/types/plant-record';
 
@@ -6,20 +7,20 @@ import type { GpsReading, PlantRecord } from '@/types/plant-record';
 // protected species must never go into test data, screenshots or anything public.
 
 const now = new Date();
+// The app counts days in park time, so the mock times are worked out in park time too.
+const startOfToday = startOfParkDay(now);
+const DAY_MS = 24 * 60 * 60 * 1000;
 
-/** A time earlier today, so the Home count always has something in it. */
+/** A time earlier today at the park, so the Home count always has something in it. */
 function earlierToday(minutesAgo: number) {
-  const startOfToday = new Date(now);
-  startOfToday.setHours(0, 0, 0, 0);
-  const time = Math.max(now.getTime() - minutesAgo * 60_000, startOfToday.getTime());
+  const time = Math.max(now.getTime() - minutesAgo * 60_000, startOfToday);
   return new Date(time).toISOString();
 }
 
+/** A time of day at the park, a number of days ago. */
 function daysAgo(days: number, hours: number, minutes: number) {
-  const date = new Date(now);
-  date.setDate(now.getDate() - days);
-  date.setHours(hours, minutes, 0, 0);
-  return date.toISOString();
+  const time = startOfToday - days * DAY_MS + (hours * 60 + minutes) * 60_000;
+  return new Date(time).toISOString();
 }
 
 type MockInput = Omit<PlantRecord, 'tagCode' | 'location'> & {
