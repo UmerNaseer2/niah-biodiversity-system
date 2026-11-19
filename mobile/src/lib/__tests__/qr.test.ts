@@ -4,6 +4,7 @@ import {
   isNewScan,
   MAX_QR_LENGTH,
   parseTagQr,
+  pickPhotoQr,
   RESCAN_AFTER_MS,
   tagQrText,
   tagWebsite,
@@ -161,5 +162,38 @@ describe('isNewScan', () => {
     isNewScan(seen, 'NNP-8C41E7', 1000);
     isNewScan(seen, 'NNP-B17D03', RESCAN_AFTER_MS);
     expect([...seen.keys()]).toEqual(['NNP-8C41E7', 'NNP-B17D03']);
+  });
+});
+
+describe('pickPhotoQr', () => {
+  it('finds nothing in a photo with no QR codes', () => {
+    expect(pickPhotoQr([])).toEqual({ found: 'none' });
+  });
+
+  it('picks the plant tag over any other QR code', () => {
+    expect(
+      pickPhotoQr(['https://example.com/menu', 'https://niah.example.org/tag/NNP-3F2A9C']),
+    ).toEqual({ found: 'one', data: 'https://niah.example.org/tag/NNP-3F2A9C' });
+  });
+
+  it('counts a link and a code for the same tag as one tag', () => {
+    expect(pickPhotoQr(['NNP-3F2A9C', 'https://niah.example.org/tag/nnp-3f2a9c'])).toEqual({
+      found: 'one',
+      data: 'NNP-3F2A9C',
+    });
+  });
+
+  it("doesn't pick between two different tags", () => {
+    expect(pickPhotoQr(['NNP-3F2A9C', 'NNP-8C41E7', 'NNP-3F2A9C'])).toEqual({
+      found: 'several',
+      count: 2,
+    });
+  });
+
+  it('gives back the first QR code when none of them are tags', () => {
+    expect(pickPhotoQr(['WIFI:T:WPA;S:ParkOffice;;', 'https://example.com'])).toEqual({
+      found: 'one',
+      data: 'WIFI:T:WPA;S:ParkOffice;;',
+    });
   });
 });

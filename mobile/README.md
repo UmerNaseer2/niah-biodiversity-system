@@ -24,7 +24,7 @@ Staff get these five tabs:
 | Tab | What it shows |
 | --- | --- |
 | Home | How many plants were recorded today and whether anything is waiting to sync |
-| Scan | The camera, which opens a record from its QR tag, plus a box to type a tag code by hand |
+| Scan | The camera, which opens a record from its QR tag, a button to read the tag from a photo, and a box to type a tag code by hand |
 | New Record | The plant form, with species suggestions, GPS capture and up to 5 photos |
 | My Records | Every record on the phone, tagged "Pending sync", "Synced", "Approved", "Rejected" or "Couldn't upload", plus a Sync now button |
 | Profile | Signing in and out, what's on the phone, when it last synced and some info about the app |
@@ -36,7 +36,7 @@ Visitors get these five tabs instead:
 | Tab | What it shows |
 | --- | --- |
 | Home | A button to scan a tag, plus how many tagged plants can be looked up with no signal and when the plant info last updated |
-| Scan | The same camera and tag code box. A tag opens its plant's page from the plant info saved on the phone, or says there's no info for it yet |
+| Scan | The same camera, photo button and tag code box. A tag opens its plant's page from the plant info saved on the phone, or says there's no info for it yet |
 | Plants | Every species in the saved plant info, with a search and a conservation status filter |
 | History | The tags scanned or typed in on this phone, newest first, plus a Clear history button |
 | Settings | When the plant info last updated, an Update now button, a "Work at the park?" card to switch to the staff pages and some info about the app |
@@ -143,7 +143,8 @@ src/
   own test picture with `xcrun simctl addmedia booted <file>`.
 - The iOS simulator has no camera, so the camera box on the Scan tab stays black there. Try
   scanning on a real phone: make a QR code that holds `NNP-3F2A9C` (the mock Belian) and point the
-  phone at it on another screen. On the simulator, type the tag code instead. On iOS, turning
+  phone at it on another screen. On the simulator, type the tag code instead, or add a picture of
+  the QR code with `xcrun simctl addmedia booted <file>` and tap "Choose a photo". On iOS, turning
   camera access on or off in Settings closes Expo Go, so open the project again after.
 - A printed QR tag holds a link to the plant's page on the website
   (`https://<website>/tag/NNP-3F2A9C`), so a normal phone camera can open it. The address comes

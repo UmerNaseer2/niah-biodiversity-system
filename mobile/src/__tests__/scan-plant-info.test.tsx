@@ -1,4 +1,10 @@
-import { PermissionStatus, useCameraPermissions, type PermissionResponse } from 'expo-camera';
+import {
+  PermissionStatus,
+  scanFromURLAsync,
+  useCameraPermissions,
+  type PermissionResponse,
+} from 'expo-camera';
+import * as ImagePicker from 'expo-image-picker';
 import { Stack } from 'expo-router';
 import {
   act,
@@ -35,8 +41,10 @@ jest.mock('expo-camera', () => {
     CameraView: (props: object) => createElement(View, { testID: 'camera', ...props }),
     PermissionStatus: { GRANTED: 'granted', UNDETERMINED: 'undetermined', DENIED: 'denied' },
     useCameraPermissions: jest.fn(),
+    scanFromURLAsync: jest.fn(),
   };
 });
+jest.mock('expo-image-picker');
 
 const BELIAN_ID = '3f2a9c4e-8b1d-4c6a-9e2f-7a1b5c3d9e01';
 
@@ -269,6 +277,45 @@ describe('A visitor scanning a tag', () => {
     testRouter.navigate('/history');
     expect(await screen.findByText(NO_SCANS)).toBeVisible();
     expect(await savedScans()).toEqual([]);
+  });
+});
+
+describe('A visitor scanning a photo of a tag', () => {
+  /** Chooses a photo with this QR code in it. */
+  function choosePhotoOf(data: string) {
+    jest.mocked(ImagePicker.launchImageLibraryAsync).mockResolvedValueOnce({
+      canceled: false,
+      assets: [{ uri: 'file:///picked/tag.jpg', width: 3024, height: 4032 }],
+    });
+    jest.mocked(scanFromURLAsync).mockResolvedValueOnce([
+      {
+        type: 'qr',
+        data,
+        cornerPoints: [],
+        bounds: { origin: { x: 0, y: 0 }, size: { width: 0, height: 0 } },
+      },
+    ]);
+    fireEvent.press(screen.getByRole('button', { name: 'Choose a photo' }));
+  }
+
+  it('opens the plant page and keeps the tag in History', async () => {
+    await savePlantInfo('visitor');
+    const app = await renderApp();
+    choosePhotoOf('https://niah.example.org/tag/NNP-E1A2B3');
+    expect(await screen.findByRole('heading', { name: 'Raffles pitcher plant' })).toBeVisible();
+    expect(app.getPathname()).toBe('/plant/NNP-E1A2B3');
+    await waitFor(async () => expect(await savedScans()).toEqual(['NNP-E1A2B3']));
+  });
+
+  it("says there's no plant info yet for a tag that isn't in the saved copy", async () => {
+    await savePlantInfo('visitor');
+    const app = await renderApp();
+    choosePhotoOf('NNP-A1B2C3');
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      `No plant info for tag NNP-A1B2C3 yet. ${SHOWS_LATER}`,
+    );
+    expect(app.getPathname()).toBe('/scan');
+    await waitFor(async () => expect(await savedScans()).toEqual(['NNP-A1B2C3']));
   });
 });
 
