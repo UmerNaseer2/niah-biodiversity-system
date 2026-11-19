@@ -6,7 +6,7 @@ import { requireStaff } from "@/lib/auth";
 import { formatCoords, formatDateTime } from "@/lib/format";
 import type { IucnCode } from "@/lib/iucn";
 import { recordFromRow, type StaffRecord } from "@/lib/records-staff";
-import { commonNameIsNew, nameDisagrees } from "@/lib/review";
+import { commonNameIsNew, nameDisagrees, sameName } from "@/lib/review";
 import { ifItKeepsHappening } from "@/lib/setup-hint";
 import { speciesFromRow } from "@/lib/species-db";
 import { createClient } from "@/lib/supabase/server";
@@ -85,6 +85,12 @@ export default async function ReviewPage() {
   function toItem(row: Record<string, unknown>): ReviewItem {
     const record: StaffRecord = recordFromRow(row);
     const plant = record.speciesSlug ? species.get(record.speciesSlug) : undefined;
+    // With no species yet, approving links it to one with the same name, or adds it to the list
+    // (supabase/031_species_from_record.sql)
+    const listed = plant
+      ? undefined
+      : [...species.values()].find((s) => sameName(record.speciesName, s.scientificName));
+    const addsSpecies = !plant && !listed && record.status === "waiting";
     return {
       id: record.id,
       version: record.version,
@@ -102,8 +108,11 @@ export default async function ReviewPage() {
           ? record.commonName
           : null,
       iucn: plant ? (plant.iucn as IucnCode) : null,
-      // A plant with no species yet only shows a rough area to the public
-      hidesLocation: recordHidesLocation(record.speciesName, plant),
+      listedAs: listed ? listed.scientificName : null,
+      addsSpecies,
+      // A new species is added as Not Evaluated, which shows the exact spot. A published plant
+      // with no species (its species was taken off the list) only shows a rough area.
+      hidesLocation: addsSpecies ? false : recordHidesLocation(record.speciesName, plant ?? listed),
       heightM: record.heightM,
       condition: record.condition,
       photoCount: record.photoCount,

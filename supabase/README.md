@@ -43,10 +43,11 @@ kept, and you can fix the problem and run it again.
 | `028_record_visits.sql` | Visits to a plant that already has a record. A visit is a new record with `visit_of` set to the plant's first record, so the first record stays as it was. Deleting the first record keeps its visits as records on their own. The public sees which records are visits through `record_visits_public`, only when both records are approved, and a visit only shows its exact spot when the first record would too | 40 | Yes |
 | `029_find_plant_by_tag.sql` | `find_plant_by_tag`, so field staff can find a plant by its tag code when another phone recorded it and add a visit to it. It only gives back the plant's name, condition, date, review status and visits, never the spot, notes, photos or who recorded it | 40 | Yes |
 | `030_spot_unless_threatened.sql` | Shows the exact spot of every plant whose species isn't Vulnerable, Endangered or Critically Endangered, protected or set to rough area only. Data Deficient and Not Evaluated species stop being rough area only, and that change shows in their history. The Reports counts follow the same rule | 4 | Yes |
+| `031_species_from_record.sql` | When an officer approves a record whose name isn't on the species list, adds the species as Not Evaluated (family left blank, common name from the record) and links every record with that name. A name already on the list with other capitals or spaces links to that species instead. Adding a species links the records that already have its name. Records approved before the file are done when it runs | 4 | Yes |
 
 On 18 Nov 2026 `tests/check-hosted.js` (below) found 001 on the hosted project and nothing after it
 (002 can't be seen from outside). Run 003, 004, 005, 006, 007, 008, 009, 010, 011, 012, 013, 014,
-015, 016_1 to 017, 019, 020, 021, 022 to 027, 028, 029 and 030 next, one file at a time, in that order,
+015, 016_1 to 017, 019, 020, 021, 022 to 027, 028, 029, 030 and 031 next, one file at a time, in that order,
 and don't stop part way. On a new project, run 001 and 002 first. There's no 018 file: the number
 was held for the phone's photos, and they didn't need one. The website's species pages (add, edit
 and delete) and its public pages need 007,
@@ -74,7 +75,9 @@ its visits waiting to upload and tries again later, and the website shows no vis
 its first line if 027 isn't there. Without 029 a staff phone only finds plants recorded on that
 phone and published ones, and a tag from another phone says "Couldn't look up the plant". 029
 stops on its first line if 028 isn't there. Without 030 Data Deficient and Not Evaluated species
-only show a rough area on the public map. 030 stops on its first line if 029 isn't there. 003 is fine to run even if it
+only show a rough area on the public map. 030 stops on its first line if 029 isn't there. Without 031 an approved record whose name isn't on
+the species list stays off the species list and only shows a rough area. 031 stops on its first line
+if 030 isn't there. 003 is fine to run even if it
 turns out to be there already. The history only starts once 013 is in, so changes made before
 that aren't in it.
 
@@ -199,16 +202,16 @@ npm test
   `tests/public-details.test.js` checks 019, `tests/record-photo-access.test.js` checks 020,
   `tests/role-changes.test.js` checks 021, `tests/iot-limit.test.js` checks 022 through
   `edge-com` (item 26), `tests/visits.test.js` checks 028 (item 40) and
-  `tests/find-plant.test.js` checks 029 (item 40) and `tests/spot-unless-threatened.test.js`
-  checks 030.
+  `tests/find-plant.test.js` checks 029 (item 40) `tests/spot-unless-threatened.test.js`
+  checks 030 and `tests/species-from-record.test.js` checks 031.
 - `tests/check-hosted.js` says which SQL files a Supabase project has, using only its URL and
   anon key, and whether `edge-com` is deployed with JWT verification off. It only reads: it asks
   for no rows of a table or column each file adds. For 029 it asks to run `find_plant_by_tag`,
   which the anon key isn't allowed to do, so the database turns it away before it runs. A file
   that only changes policies or functions can't be seen from outside, but from 006 on each file
   needs the one before it, so a later file being there says the earlier ones are too.
-  030 is the last file and only changes a view and two functions, so the check can't see it. Run
-  it after 029 anyway, since it's safe to run again.
+  030 and 031 only change a view, functions and triggers, so the check can't see them. Run them
+  after 029 anyway, since they're safe to run again.
   `npm run check-hosted` runs it with the keys in `web/.env.local`, and it ends by listing the
   files to run next.
   [`docs/hosted-setup.md`](../docs/hosted-setup.md) has the rest of the steps.

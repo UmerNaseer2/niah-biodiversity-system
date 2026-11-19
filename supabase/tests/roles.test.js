@@ -680,13 +680,15 @@ describe('what the public sees in records_public', () => {
     }
   });
 
-  test("a species the species table doesn't have only shows its grid square", async () => {
+  test('a plant whose species was taken off the list only shows its grid square', async () => {
+    await addSpecies('test-taken-off');
     const id = await upload(botanist, {
-      species_slug: null,
-      species_name: 'Unlisted species',
+      species_slug: 'test-taken-off',
+      species_name: 'Testus test-taken-off',
       common_name: null,
     });
     await setStatus(id, 'published');
+    await db.query("DELETE FROM public.species WHERE id = 'test-taken-off'");
     const [shown] = await selectAs(db, null, sql, [id]);
     assert.deepEqual(shown.gps, spotSquare);
   });

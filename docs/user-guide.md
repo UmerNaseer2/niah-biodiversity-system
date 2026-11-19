@@ -112,7 +112,7 @@ code** or **Browse plants**.
 
 A plant's exact spot is only on the public map when all four of these are true:
 
-1. Its species is Least Concern or Near Threatened on the IUCN Red List.
+1. Its species isn't Vulnerable, Endangered or Critically Endangered on the IUCN Red List.
 2. Its species isn't protected in Sarawak.
 3. The park hasn't set its species to "Rough area only".
 4. The field team's record is matched to that species on our list.
@@ -122,7 +122,8 @@ site says why: "Exact spots of threatened and protected plants stay with park st
 can't be used to find and take them. The map only shows the rough area." The tag page links to it
 with "See the rough area on the species page".
 
-A plant that isn't matched to a species yet says "Until we know what this plant is, its exact spot
+Approving a record adds its species to the list if it isn't there yet, so this mostly happens when
+a species is taken off the list. A plant that isn't matched to a species says "Until we know what this plant is, its exact spot
 stays with park staff in case it turns out to be threatened or protected."
 
 ### The phone app for visitors
@@ -479,6 +480,12 @@ For each record:
 3. Press **Open the record** "to see its photos or fix a mistake before you decide."
 4. Press **Approve**, or **Reject**.
 
+When you approve a record whose name isn't on the species list, the species is added for you as
+Not Evaluated, not protected, with the exact spot on the map. Every other record with that name is
+linked to it as well. It shows on **Species** with "Not added yet" under Family, so open it and fill
+in the rest. If the plant is threatened or protected, change its IUCN status or tick **Protected in
+Sarawak** and its spot goes back to a rough area.
+
 To reject a record:
 
 1. Press **Reject**.
@@ -497,7 +504,9 @@ What the checks mean:
 | "No GPS point, so it won't show on any map" | The record has no location. |
 | "2 photos attached" or "No photos attached" | How many photos came with it. Open the record to see them. |
 | "Matched to a species on our list" | The name matches a species in the database. |
-| "Not matched to a species yet, so the public site only shows a rough area" | The name isn't on the species list. Fix the name, or add the species first. |
+| "Approving links it to ... on our species list" | The record has no species yet, but a species on the list has the same name (capitals and spaces don't matter). Approving links it. |
+| "Not on our species list yet. Approving adds it as Not Evaluated, so check the spelling" | Nothing on the species list has this name. Approving adds it to the list as Not Evaluated, so its exact spot is public. If the name is spelt wrong, fix it first, or the wrong name goes on the list. Then fill in the family, summary and IUCN status on the Species page. |
+| "Not matched to a species, so the public site only shows a rough area" | An approved record whose species was deleted. Edit its name or add the species again to link it. |
 | "The record says ... but it's linked to ..." | The name on the record and the species it's linked to disagree. "Fix the name before you approve it, since the link decides how much of its spot the public sees." |
 | "The recorder typed the common name ..., which we don't have for this species. It shows on the public page" | A new common name. If it's right, add it to the species. |
 
@@ -592,11 +601,12 @@ shows the "Exact spot" or the "Rough area".
 4. On "Species added", press **Add photos**, **See its public page**, **Back to species** or **Add
    another**.
 
-A protected species, or one that isn't Least Concern or Near Threatened, is always set to rough area
-only, and the form says so: "The site should never help someone find a plant they could dig up or
+A protected species, or one that's Vulnerable, Endangered or Critically Endangered, is always set to
+rough area only, and the form says so: "The site should never help someone find a plant they could dig up or
 cut down."
 
-Phones pick up a new species the next time they sync.
+Phones pick up a new species the next time they sync. Records that already have its name (capitals
+and spaces don't matter) and no species are linked to it when you add it.
 
 **To edit a species**, press **Edit**, change it and press **Save changes**. "Changes show on the
 public site as soon as you save." The edit page has the same **History** as a record.

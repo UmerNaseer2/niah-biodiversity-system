@@ -31,6 +31,10 @@ export type ReviewItem = {
   newCommonName: string | null;
   /** Null while the plant isn't matched to a species yet */
   iucn: IucnCode | null;
+  /** With no species yet, the one on our list with the same name, which approving links it to */
+  listedAs: string | null;
+  /** Approving adds the name to our species list, since nothing on it has that name */
+  addsSpecies: boolean;
   hidesLocation: boolean;
   heightM: number | null;
   condition: Condition;
@@ -84,14 +88,21 @@ function checksFor(item: ReviewItem) {
       ? { ok: true, text: `${plural(item.photoCount, "photo")} attached` }
       : { ok: false, text: "No photos attached" },
   );
-  checks.push(
-    item.iucn
-      ? { ok: true, text: "Matched to a species on our list" }
-      : {
-          ok: false,
-          text: "Not matched to a species yet, so the public site only shows a rough area",
-        },
-  );
+  if (item.iucn) {
+    checks.push({ ok: true, text: "Matched to a species on our list" });
+  } else if (item.listedAs) {
+    checks.push({ ok: true, text: `Approving links it to ${item.listedAs} on our species list` });
+  } else if (item.addsSpecies) {
+    checks.push({
+      ok: false,
+      text: "Not on our species list yet. Approving adds it as Not Evaluated, so check the spelling",
+    });
+  } else {
+    checks.push({
+      ok: false,
+      text: "Not matched to a species, so the public site only shows a rough area",
+    });
+  }
   return checks;
 }
 

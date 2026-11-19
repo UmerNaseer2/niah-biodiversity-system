@@ -40,7 +40,7 @@ export default async function SpeciesPage({
     <PageHeader
       eyebrow="Plant database"
       title="Species"
-      description="Every species in the database has its own page on the public site. A plant only shows its exact spot there if its species is Least Concern or Near Threatened, isn’t protected in Sarawak and isn’t set to rough area only."
+      description="Every species in the database has its own page on the public site. A plant shows its exact spot there unless its species is Vulnerable, Endangered or Critically Endangered, protected in Sarawak or set to rough area only."
       aside={
         <Link href="/dashboard/species/new" className="btn btn-primary">
           <Icon name="plus" className="size-4" />
@@ -162,7 +162,9 @@ export default async function SpeciesPage({
                     <LatinName name={row.scientificName} />
                   </span>
                 </th>
-                <td className="px-4 py-3">{row.family}</td>
+                <td className="px-4 py-3">
+                  {row.family || <span className="text-moss">Not added yet</span>}
+                </td>
                 <td className="px-4 py-3">
                   <IucnChip code={row.iucn} />
                   {row.sarawakProtected && (
