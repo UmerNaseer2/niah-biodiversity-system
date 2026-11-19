@@ -25,6 +25,12 @@ const NO_QR = "Couldn't find a QR code in that photo. Try one that's closer and 
 
 // One photo, at full size, since a small or squashed QR code is harder to read.
 const PHOTO_OPTIONS: ImagePicker.ImagePickerOptions = { mediaTypes: ['images'], quality: 1 };
+// The library takes a second or two to open, so the button says so instead of looking stuck.
+const PHOTO_LABELS = {
+  idle: 'Choose a photo',
+  opening: 'Opening your photos…',
+  reading: 'Reading the photo…',
+};
 
 /** Where the scan went: the page to open, or what to tell the person instead. */
 type ScanResult = { page: Href } | { problem: string };
@@ -38,7 +44,8 @@ export default function ScanScreen() {
   const [notFound, setNotFound] = useState(false);
   const [scanProblem, setScanProblem] = useState<string>();
   const [photoProblem, setPhotoProblem] = useState<string>();
-  const [readingPhoto, setReadingPhoto] = useState(false);
+  // Where the photo button is up to, so its label says what's really happening.
+  const [photoStep, setPhotoStep] = useState<'idle' | 'opening' | 'reading'>('idle');
   // State only changes on the next render, which is too late to stop a second tap.
   const choosingPhoto = useRef(false);
   // When each QR code was last in view, so a code held in front of the camera only counts once.
@@ -155,6 +162,7 @@ export default function ScanScreen() {
     if (!photo) {
       return undefined;
     }
+    setPhotoStep('reading');
     let texts: string[];
     try {
       texts = (await scanFromURLAsync(photo.uri, ['qr'])).map((code) => code.data);
@@ -187,7 +195,7 @@ export default function ScanScreen() {
       return;
     }
     choosingPhoto.current = true;
-    setReadingPhoto(true);
+    setPhotoStep('opening');
     setPhotoProblem(undefined);
     try {
       const problem = await scanPhoto();
@@ -197,7 +205,7 @@ export default function ScanScreen() {
       }
     } finally {
       choosingPhoto.current = false;
-      setReadingPhoto(false);
+      setPhotoStep('idle');
     }
   }
 
@@ -237,11 +245,11 @@ export default function ScanScreen() {
           </View>
         ) : null}
         <Button
-          label={readingPhoto ? 'Reading the photo…' : 'Choose a photo'}
+          label={PHOTO_LABELS[photoStep]}
           icon="library"
           variant="outline"
           onPress={choosePhoto}
-          disabled={readingPhoto}
+          disabled={photoStep !== 'idle'}
         />
       </Card>
 

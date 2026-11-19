@@ -495,13 +495,42 @@ describe('Scanning a photo of a tag', () => {
       }),
     );
     fireEvent.press(photoButton());
-    const busy = await screen.findByRole('button', { name: 'Reading the photo…' });
+    const busy = await screen.findByRole('button', { name: 'Opening your photos…' });
     expect(busy).toBeDisabled();
     fireEvent.press(busy);
     expect(chooseFromLibrary).toHaveBeenCalledTimes(1);
 
     await act(async () => finishPicking({ canceled: true, assets: null }));
     expect(photoButton()).toBeEnabled();
+  });
+
+  it('says it is reading once a photo is chosen', async () => {
+    await renderScan();
+    chooseFromLibrary.mockResolvedValueOnce({
+      canceled: false,
+      assets: [{ uri: PHOTO_URI, width: 3024, height: 4032 }],
+    });
+    let finishReading!: (codes: BarcodeScanningResult[]) => void;
+    readQrCodes.mockReturnValueOnce(
+      new Promise((resolve) => {
+        finishReading = resolve;
+      }),
+    );
+    fireEvent.press(photoButton());
+    const busy = await screen.findByRole('button', { name: 'Reading the photo…' });
+    expect(busy).toBeDisabled();
+
+    await act(async () =>
+      finishReading([
+        {
+          type: 'qr',
+          data: 'NNP-3F2A9C',
+          cornerPoints: [],
+          bounds: { origin: { x: 0, y: 0 }, size: { width: 0, height: 0 } },
+        },
+      ]),
+    );
+    expect(await screen.findByText('Tag NNP-3F2A9C')).toBeVisible();
   });
 
   it('still works when camera access is turned off', async () => {
