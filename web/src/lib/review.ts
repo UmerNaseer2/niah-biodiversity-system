@@ -36,7 +36,8 @@ export function tidyReason(reason: string) {
 export const REASON_MISSING = "Write a reason so the recorder knows what to fix.";
 
 /** Capitals and extra spaces don't count, so "Shorea  MACROPHYLLA" is the same name */
-function sameName(a: string, b: string) {
+/** Whether two plant names are the same once capitals and extra spaces are ignored */
+export function sameName(a: string, b: string) {
   const plain = (name: string) => name.trim().replace(/\s+/g, " ").toLowerCase();
   return plain(a) === plain(b);
 }

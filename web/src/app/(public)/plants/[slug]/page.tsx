@@ -28,7 +28,7 @@ export async function generateMetadata({
   if (!plant) return {};
   return {
     title: plant.commonNames[0] ?? plant.scientificName,
-    description: plant.summary,
+    description: plant.summary || undefined,
   };
 }
 
@@ -106,7 +106,7 @@ export default async function PlantPage({
 
       <div className="mt-6 grid gap-x-12 gap-y-10 lg:grid-cols-[minmax(0,1fr)_19rem]">
         <header className="lg:col-start-1">
-          <p className="eyebrow">{plant.family}</p>
+          {plant.family && <p className="eyebrow">{plant.family}</p>}
           <h1 className="mt-2 text-4xl font-bold tracking-tight sm:text-5xl">
             {hasCommonName ? name : <LatinName name={plant.scientificName} />}
           </h1>
@@ -132,7 +132,7 @@ export default async function PlantPage({
             {plant.sarawakProtected && <ProtectedBadge />}
             {hidden && <HiddenLocationBadge />}
           </div>
-          <p className="mt-5 max-w-2xl text-lg">{plant.summary}</p>
+          {plant.summary && <p className="mt-5 max-w-2xl text-lg">{plant.summary}</p>}
         </header>
 
         <aside
@@ -147,7 +147,7 @@ export default async function PlantPage({
               <Icon name="leaf" className="size-4 text-moss" />
             </div>
             <dl className="divide-y divide-line px-4 text-sm">
-              <LabelRow term="Family">{plant.family}</LabelRow>
+              {plant.family && <LabelRow term="Family">{plant.family}</LabelRow>}
               <LabelRow term="Species">
                 <LatinName
                   name={plant.scientificName}

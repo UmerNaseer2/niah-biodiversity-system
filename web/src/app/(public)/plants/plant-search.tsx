@@ -206,7 +206,8 @@ export function PlantSearch({
                     </p>
                   </div>
                   <p className="text-moss">
-                    <LatinName name={plant.scientificName} /> · {plant.family}
+                    <LatinName name={plant.scientificName} />
+                    {plant.family && ` · ${plant.family}`}
                   </p>
                   {plant.otherNames.length > 0 && (
                     <p className="text-sm text-moss">
