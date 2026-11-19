@@ -1,4 +1,11 @@
-import { PermissionStatus, useCameraPermissions, type PermissionResponse } from 'expo-camera';
+import {
+  PermissionStatus,
+  scanFromURLAsync,
+  useCameraPermissions,
+  type BarcodeScanningResult,
+  type PermissionResponse,
+} from 'expo-camera';
+import * as ImagePicker from 'expo-image-picker';
 import { Stack } from 'expo-router';
 import { act, fireEvent, renderRouter, screen, testRouter } from 'expo-router/testing-library';
 import { deleteDatabaseAsync } from 'expo-sqlite';
@@ -22,8 +29,10 @@ jest.mock('expo-camera', () => {
     CameraView: (props: object) => createElement(View, { testID: 'camera', ...props }),
     PermissionStatus: { GRANTED: 'granted', UNDETERMINED: 'undetermined', DENIED: 'denied' },
     useCameraPermissions: jest.fn(),
+    scanFromURLAsync: jest.fn(),
   };
 });
+jest.mock('expo-image-picker');
 
 const BELIAN_ID = '3f2a9c4e-8b1d-4c6a-9e2f-7a1b5c3d9e01';
 const PITCHER_PLANT_ID = '8c41e7b2-5d3f-4a9e-b6c1-2e8f4a7d1c02';
@@ -83,6 +92,37 @@ async function renderScan() {
   );
   await screen.findByLabelText('Tag code');
   return app;
+}
+
+const chooseFromLibrary = jest.mocked(ImagePicker.launchImageLibraryAsync);
+const readQrCodes = jest.mocked(scanFromURLAsync);
+
+const PHOTO_URI = 'file:///picked/tag.jpg';
+
+/** The library hands back one photo, and these are the QR codes read out of it. */
+function photoWith(...texts: string[]) {
+  chooseFromLibrary.mockResolvedValueOnce({
+    canceled: false,
+    assets: [{ uri: PHOTO_URI, width: 3024, height: 4032 }],
+  });
+  readQrCodes.mockResolvedValueOnce(
+    texts.map(
+      (data): BarcodeScanningResult => ({
+        type: 'qr',
+        data,
+        cornerPoints: [],
+        bounds: { origin: { x: 0, y: 0 }, size: { width: 0, height: 0 } },
+      }),
+    ),
+  );
+}
+
+const photoButton = () => screen.getByRole('button', { name: 'Choose a photo' });
+
+/** Presses Choose a photo and waits for the photo to be read. */
+async function choosePhoto() {
+  fireEvent.press(photoButton());
+  expect(await screen.findByRole('button', { name: 'Choose a photo' })).toBeEnabled();
 }
 
 const camera = () => screen.getByTestId('camera');
@@ -357,6 +397,120 @@ describe('Scanning a tag', () => {
     letTimePass(100);
     scan('NNP-8C41E7');
     expect(app.getPathname()).toBe(`/record/${PITCHER_PLANT_ID}`);
+  });
+});
+
+describe('Scanning a photo of a tag', () => {
+  it('opens the record for the tag in the photo', async () => {
+    const app = await renderScan();
+    photoWith('https://niah.example.org/tag/NNP-3F2A9C');
+    fireEvent.press(photoButton());
+    expect(await screen.findByText('Tag NNP-3F2A9C')).toBeVisible();
+    expect(app.getPathname()).toBe(`/record/${BELIAN_ID}`);
+    expect(chooseFromLibrary).toHaveBeenCalledWith({ mediaTypes: ['images'], quality: 1 });
+    expect(readQrCodes).toHaveBeenCalledWith(PHOTO_URI, ['qr']);
+  });
+
+  it('opens the tag when the photo has other QR codes in it too', async () => {
+    const app = await renderScan();
+    photoWith('https://example.com/menu', 'NNP-8C41E7');
+    fireEvent.press(photoButton());
+    expect(await screen.findByText('Tag NNP-8C41E7')).toBeVisible();
+    expect(app.getPathname()).toBe(`/record/${PITCHER_PLANT_ID}`);
+  });
+
+  it('stays on the Scan tab when no photo is chosen', async () => {
+    const app = await renderScan();
+    chooseFromLibrary.mockResolvedValueOnce({ canceled: true, assets: null });
+    await choosePhoto();
+    expect(app.getPathname()).toBe('/scan');
+    expect(readQrCodes).not.toHaveBeenCalled();
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it.each([
+    [
+      'has no QR code',
+      [],
+      "Couldn't find a QR code in that photo. Try one that's closer and in focus.",
+    ],
+    [
+      'has two different tags',
+      ['NNP-3F2A9C', 'NNP-8C41E7'],
+      'That photo has 2 different tags in it. Choose a photo of just one.',
+    ],
+    [
+      "has a QR code that isn't a tag",
+      ['https://example.com'],
+      "That QR code isn't a Niah plant tag.",
+    ],
+  ])('says so when the photo %s', async (_what, texts, message) => {
+    const app = await renderScan();
+    photoWith(...texts);
+    await choosePhoto();
+    expect(screen.getByRole('alert')).toHaveTextContent(message);
+    expect(AccessibilityInfo.announceForAccessibility).toHaveBeenCalledWith(message);
+    expect(app.getPathname()).toBe('/scan');
+  });
+
+  it("says so when the library won't open", async () => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+    await renderScan();
+    chooseFromLibrary.mockRejectedValueOnce(new Error('No activity'));
+    await choosePhoto();
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      "The photo library wouldn't open. Please try again.",
+    );
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
+  it("says so when the photo can't be read, and clears it on the next try", async () => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+    await renderScan();
+    chooseFromLibrary.mockResolvedValueOnce({
+      canceled: false,
+      assets: [{ uri: PHOTO_URI, width: 10, height: 10 }],
+    });
+    readQrCodes.mockRejectedValueOnce(new Error('Could not load the image'));
+    await choosePhoto();
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      "Couldn't read that photo. Try another one, or type the tag code below.",
+    );
+    warn.mockRestore();
+
+    photoWith('NNP-3F2A9C');
+    fireEvent.press(photoButton());
+    expect(await screen.findByText('Tag NNP-3F2A9C')).toBeVisible();
+    testRouter.back('/scan');
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it('only reads one photo at a time', async () => {
+    await renderScan();
+    let finishPicking!: (result: ImagePicker.ImagePickerResult) => void;
+    chooseFromLibrary.mockReturnValueOnce(
+      new Promise((resolve) => {
+        finishPicking = resolve;
+      }),
+    );
+    fireEvent.press(photoButton());
+    const busy = await screen.findByRole('button', { name: 'Reading the photo…' });
+    expect(busy).toBeDisabled();
+    fireEvent.press(busy);
+    expect(chooseFromLibrary).toHaveBeenCalledTimes(1);
+
+    await act(async () => finishPicking({ canceled: true, assets: null }));
+    expect(photoButton()).toBeEnabled();
+  });
+
+  it('still works when camera access is turned off', async () => {
+    cameraAccess(turnedOff);
+    const app = await renderScan();
+    photoWith('NNP-3F2A9C');
+    fireEvent.press(photoButton());
+    expect(await screen.findByText('Tag NNP-3F2A9C')).toBeVisible();
+    expect(app.getPathname()).toBe(`/record/${BELIAN_ID}`);
   });
 });
 

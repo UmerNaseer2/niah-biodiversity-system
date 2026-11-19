@@ -92,3 +92,31 @@ export function isNewScan(seen: Map<string, number>, data: string, now: number):
   seen.set(data, now);
   return last === undefined || now - last >= RESCAN_AFTER_MS;
 }
+
+/** What a photo's QR codes come to. */
+export type PhotoQr =
+  | { found: 'none' }
+  | { found: 'several'; count: number }
+  | { found: 'one'; data: string };
+
+/**
+ * Picks the QR code to open from all the ones read out of a photo. A plant tag comes before any
+ * other QR code, so a photo of a tag next to a poster still works. Two different tags in one
+ * photo, like a sheet of printed tags, can't be told apart, so none of them is picked. A tag's
+ * link and its code on its own count as the same tag.
+ */
+export function pickPhotoQr(texts: readonly string[]): PhotoQr {
+  const tags = new Map<string, string>();
+  for (const data of texts) {
+    const tag = parseTagQr(data);
+    if (tag && !tags.has(tag)) {
+      tags.set(tag, data);
+    }
+  }
+  if (tags.size > 1) {
+    return { found: 'several', count: tags.size };
+  }
+  // With no tag in it, the first QR code is opened anyway so the screen can say it isn't a tag.
+  const data = tags.values().next().value ?? texts[0];
+  return data === undefined ? { found: 'none' } : { found: 'one', data };
+}
