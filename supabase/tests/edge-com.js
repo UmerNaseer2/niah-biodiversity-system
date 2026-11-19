@@ -41,8 +41,9 @@ const quoteName = (name) => {
  * sql`... ${value} ...` for a query with its values as $1 style parameters, giving back the rows;
  * sql(['a', 'b']) for a list of column names; sql(row, ...columns) and sql(rows, ...columns) for
  * the "(columns) values (...)" of an insert; sql.begin(fn) for a transaction; and sql.end().
+ * ai-check-function.test.js uses it for the ai-check function too.
  */
-function postgresOnPglite(db) {
+export function postgresOnPglite(db) {
   const make = (runner) => {
     const sql = (first, ...rest) => {
       // A tagged template: the query itself
