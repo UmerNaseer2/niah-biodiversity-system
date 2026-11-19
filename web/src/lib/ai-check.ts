@@ -12,7 +12,9 @@ export type AiStatus =
   | "checking"
   | "done"
   | "failed"
-  | "not_set_up";
+  | "not_set_up"
+  /** The page couldn't load the check, so it can't say what it is */
+  | "unavailable";
 
 export type AiCheck = {
   status: AiStatus;
@@ -21,7 +23,10 @@ export type AiCheck = {
   photoShowsPlant: AiAnswer | null;
   photoMatchesName: AiAnswer | null;
   note: string | null;
+  /** Why it failed, or why the page can't show it */
   problem: string | null;
+  /** Something the officer should know next to an answer, like a photo that didn't load */
+  warning: string | null;
   photosChecked: number;
   /** Someone changed the names after the check, so it was about the old ones */
   namesChanged: boolean;
@@ -95,6 +100,8 @@ export function aiCheckFromRow(
     photoMatchesName: done ? pick(row?.photo_matches_name, ANSWERS) : null,
     note: done ? text(row?.note) : null,
     problem: status === "failed" || (done && !verdict) ? text(row?.problem) : null,
+    // A check that went ahead without some of the photos says which (033)
+    warning: done && verdict ? text(row?.problem) : null,
     photosChecked:
       done && typeof row?.photos_checked === "number" ? Math.max(0, row.photos_checked) : 0,
     namesChanged:
@@ -105,6 +112,24 @@ export function aiCheckFromRow(
       ),
     stuck: status === "checking" && (requested === null || now - requested > STUCK_MS),
     checkedAt: checkedAt && time(checkedAt) !== null ? formatTime(checkedAt) : null,
+  };
+}
+
+/** A card for a record whose check the page couldn't load, saying why */
+export function aiCheckUnavailable(why: string): AiCheck {
+  return {
+    status: "unavailable",
+    verdict: null,
+    namesMatch: null,
+    photoShowsPlant: null,
+    photoMatchesName: null,
+    note: null,
+    problem: why,
+    warning: null,
+    photosChecked: 0,
+    namesChanged: false,
+    stuck: false,
+    checkedAt: null,
   };
 }
 

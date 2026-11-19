@@ -45,10 +45,11 @@ kept, and you can fix the problem and run it again.
 | `030_spot_unless_threatened.sql` | Shows the exact spot of every plant whose species isn't Vulnerable, Endangered or Critically Endangered, protected or set to rough area only. Data Deficient and Not Evaluated species stop being rough area only, and that change shows in their history. The Reports counts follow the same rule | 4 | Yes |
 | `031_species_from_record.sql` | When an officer approves a record whose name isn't on the species list, adds the species as Not Evaluated (family left blank, common name from the record) and links every record with that name. A name already on the list with other capitals or spaces links to that species instead. Adding a species links the records that already have its name. Records approved before the file are done when it runs | 4 | Yes |
 | `032_ai_photo_check.sql` | An AI second opinion on each waiting record: once a record and all its photos are in, the database asks the `ai-check` Edge Function to have Google Gemini look at its names and photos, and the review queue shows the answer. It never approves or rejects anything. Only officers and admins can read the answers. [`docs/ai-photo-check.md`](../docs/ai-photo-check.md) has the setup | Extra | Yes |
+| `033_ai_check_errors.sql` | Makes every way the AI photo check can break show on the record's card. A check that can't start is saved as failed with the database's error, and `fail_lost_ai_checks()`, which the review page calls, fails a check whose function wasn't reached, said no, or never answered within 3 minutes, with the reason | Extra | Yes |
 
 On 18 Nov 2026 `tests/check-hosted.js` (below) found 001 on the hosted project and nothing after it
 (002 can't be seen from outside). Run 003, 004, 005, 006, 007, 008, 009, 010, 011, 012, 013, 014,
-015, 016_1 to 017, 019, 020, 021, 022 to 027, 028, 029, 030, 031 and 032 next, one file at a time, in that order,
+015, 016_1 to 017, 019, 020, 021, 022 to 027, 028, 029, 030, 031, 032 and 033 next, one file at a time, in that order,
 and don't stop part way. On a new project, run 001 and 002 first. There's no 018 file: the number
 was held for the phone's photos, and they didn't need one. The website's species pages (add, edit
 and delete) and its public pages need 007,
@@ -82,7 +83,9 @@ if 030 isn't there. Without 032 the review queue has no AI photo check, and the
 rest of it works the same. 032 stops on its first line if 031 isn't there. After 032, save the
 `ai-check` function's address in Vault, deploy the function with JWT verification turned off and
 add its `GEMINI_API_KEY` secret ([`docs/ai-photo-check.md`](../docs/ai-photo-check.md)). Until the
-address is in Vault each check is saved as "not set up" and nothing is sent. 003 is fine to run even if it
+address is in Vault each check is saved as "not set up" and nothing is sent. Without 033 a check
+that breaks on the way sits on "Checking" until the page gives up on it after 2 minutes, with no
+reason. 033 stops on its first line if 032 isn't there. 003 is fine to run even if it
 turns out to be there already. The history only starts once 013 is in, so changes made before
 that aren't in it.
 
@@ -209,8 +212,9 @@ npm test
   `edge-com` (item 26), `tests/visits.test.js` checks 028 (item 40) and
   `tests/find-plant.test.js` checks 029 (item 40) `tests/spot-unless-threatened.test.js`
   checks 030, `tests/species-from-record.test.js` checks 031,
-  `tests/ai-check.test.js` checks 032 and `tests/ai-check-function.test.js` runs the `ai-check`
-  function against it with a stand-in Gemini.
+  `tests/ai-check.test.js` checks 032, `tests/ai-check-errors.test.js` checks 033 and
+  `tests/ai-check-function.test.js` runs the `ai-check` function against them with a stand-in
+  Gemini.
 - `tests/check-hosted.js` says which SQL files a Supabase project has, using only its URL and
   anon key, and whether `edge-com` is deployed with JWT verification off. It only reads: it asks
   for no rows of a table or column each file adds. For 029 it asks to run `find_plant_by_tag`,

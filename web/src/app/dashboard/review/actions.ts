@@ -210,7 +210,9 @@ export async function requestAiCheck(id: unknown): Promise<AiCheckResult> {
     console.error("Asking for an AI check failed:", error.code, error.message);
     return {
       ok: false,
-      message: "The check wasn’t sent. Try again, and if it keeps happening, ask an administrator.",
+      message:
+        `The check wasn’t sent. The database said: ${error.message}. ` +
+        "Try again, and if it keeps happening, ask an administrator.",
     };
   }
 
@@ -223,8 +225,13 @@ export async function requestAiCheck(id: unknown): Promise<AiCheckResult> {
   };
 }
 
-/** The review page's timer while an AI check is on its way. refresh() draws the page again. */
-export async function refreshReviewQueue() {
-  if (await whyNotAllowed()) return;
+/**
+ * The review page's timer while an AI check is on its way. refresh() draws the page again, and
+ * the page says why when it can't.
+ */
+export async function refreshReviewQueue(): Promise<AiCheckResult> {
+  const notAllowed = await whyNotAllowed();
+  if (notAllowed) return { ok: false, message: notAllowed };
   refresh();
+  return { ok: true };
 }

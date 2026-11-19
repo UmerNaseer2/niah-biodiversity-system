@@ -353,10 +353,17 @@ describe('on a project where it is set up', () => {
       const noPhotos = await upload(db, botanist, { photo_count: 0 });
       const { rows } = await db.query('SELECT 1 FROM public.records WHERE id = $1', [noPhotos]);
       assert.equal(rows.length, 1);
+      // 033 saves why on the card
+      const failed = await checkOf(db, noPhotos);
+      assert.equal(failed.status, 'failed');
+      assert.equal(failed.problem, "The check didn't start: pg_net is down");
 
       const withPhoto = await upload(db, botanist, { photo_count: 1 });
-      assert.equal((await uploadPhoto(db, botanist, withPhoto, 1)).affectedRows, 1);
       assert.equal((await checkOf(db, withPhoto)).status, 'waiting_for_photos');
+      assert.equal((await uploadPhoto(db, botanist, withPhoto, 1)).affectedRows, 1);
+      const photoFailed = await checkOf(db, withPhoto);
+      assert.equal(photoFailed.status, 'failed');
+      assert.equal(photoFailed.problem, "The check didn't start: pg_net is down");
     } finally {
       await db.exec(`
         DROP FUNCTION net.http_post(text, jsonb, jsonb, jsonb, integer);

@@ -44,6 +44,7 @@ export const SQL_FILES = [
   '030_spot_unless_threatened.sql',
   '031_species_from_record.sql',
   '032_ai_photo_check.sql',
+  '033_ai_check_errors.sql',
 ];
 
 export function readSql(file) {

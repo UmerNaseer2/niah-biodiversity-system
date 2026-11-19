@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useRef, useState, useTransition, type ReactNode } from "react";
 import { Icon } from "@/components/icon";
 import {
   aiCheckPending,
@@ -91,7 +91,7 @@ export function AiCheckPanel({
         decision is still yours.
       </p>
 
-      {!pending && (
+      {!pending && check.status !== "unavailable" && (
         <div className="mt-3">
           <button
             type="button"
@@ -122,6 +122,16 @@ export function AiCheckPanel({
   );
 }
 
+/** Something that went wrong, or that the officer should know, on the card */
+function Warning({ children }: { children: ReactNode }) {
+  return (
+    <p className="flex items-start gap-2 font-bold text-warn">
+      <Icon name="alert" className="mt-0.5 size-4 shrink-0" />
+      <span>{children}</span>
+    </p>
+  );
+}
+
 function Body({ check }: { check: AiCheck }) {
   switch (check.status) {
     case "done":
@@ -141,12 +151,12 @@ function Body({ check }: { check: AiCheck }) {
               })}
             </dl>
           )}
+          {check.warning && <Warning>{check.warning}</Warning>}
           {check.namesChanged && (
-            <p className="flex items-start gap-2 font-bold text-warn">
-              <Icon name="alert" className="mt-0.5 size-4 shrink-0" />
+            <Warning>
               The names were changed after this check, so it was about the old ones. Check again
               to look at the new names.
-            </p>
+            </Warning>
           )}
           <p className="text-moss">
             {check.photosChecked > 0
@@ -166,30 +176,31 @@ function Body({ check }: { check: AiCheck }) {
         </>
       );
     case "checking":
-      return check.stuck ? (
-        <p className="flex items-start gap-2 text-moss">
-          <Icon name="alert" className="mt-0.5 size-4 shrink-0" />
-          The check didn’t finish. Check again to try once more.
-        </p>
-      ) : (
+      return (
         <>
-          <p className="flex items-start gap-2 text-moss">
-            <Icon name="clock" className="mt-0.5 size-4 shrink-0" />
-            Checking now. This usually takes under a minute.
-          </p>
+          {check.stuck ? (
+            <Warning>
+              No answer has come back yet. Reload the page in a minute to see why, or check again
+              to try once more.
+            </Warning>
+          ) : (
+            <p className="flex items-start gap-2 text-moss">
+              <Icon name="clock" className="mt-0.5 size-4 shrink-0" />
+              Checking now. This usually takes under a minute.
+            </p>
+          )}
+          {check.warning && <Warning>{check.warning}</Warning>}
         </>
       );
     case "failed":
       return (
-        <p className="flex items-start gap-2 text-moss">
-          <Icon name="alert" className="mt-0.5 size-4 shrink-0" />
-          <span>
-            The check didn’t work.{" "}
-            {check.problem ?? "Something went wrong on the way."}
-            {check.checkedAt && <> ({check.checkedAt})</>}
-          </span>
-        </p>
+        <Warning>
+          The check didn’t work. {check.problem ?? "Something went wrong on the way."}
+          {check.checkedAt && <> ({check.checkedAt})</>}
+        </Warning>
       );
+    case "unavailable":
+      return <Warning>{check.problem}</Warning>;
     case "not_set_up":
       return (
         <p className="flex items-start gap-2 text-moss">
@@ -215,13 +226,39 @@ const WATCH_TIMES = 36;
  * Draws the page again every few seconds while a check on it is on its way, for three minutes at
  * most. The queue only shows it while a check is pending, so the timer stops when the answers are
  * in, and it gets a new key (so a new three minutes) when a different set of checks is pending.
+ * When it can't reach the server, or stops looking, it says so.
  */
 export function WatchForAnswers() {
   const times = useRef(0);
+  const [problem, setProblem] = useState<string | null>(null);
   useVisibleTimer(async () => {
     if (times.current >= WATCH_TIMES) return;
     times.current += 1;
-    await refreshReviewQueue();
+    let result;
+    try {
+      result = await refreshReviewQueue();
+    } catch (e) {
+      result = {
+        ok: false as const,
+        message: `The page couldn’t reach the server (${e instanceof Error ? e.message : String(e)}).`,
+      };
+    }
+    if (!result.ok) {
+      setProblem(`The page stopped getting AI answers. ${result.message} Reload the page to see them.`);
+    } else if (times.current >= WATCH_TIMES) {
+      setProblem("The page stopped looking for AI answers after 3 minutes. Reload the page to see them.");
+    } else {
+      setProblem(null);
+    }
   }, WATCH_MS);
-  return null;
+  if (!problem) return null;
+  return (
+    <p
+      role="alert"
+      className="mt-6 flex max-w-2xl items-start gap-2.5 rounded-xl border-2 border-warn bg-sheet p-4 font-bold text-warn"
+    >
+      <Icon name="alert" className="mt-0.5 size-4 shrink-0" />
+      {problem}
+    </p>
+  );
 }

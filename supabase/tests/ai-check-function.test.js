@@ -501,6 +501,47 @@ describe('ai-check on the database', { skip: !EDGE_COM_RUNS && 'needs Node 22.13
     const check = await run(sent);
     assert.equal(check.status, 'done');
     assert.equal(check.photos_checked, 1);
+    // and the card says which ones it left out
+    assert.equal(
+      check.problem,
+      "2 photos couldn't be loaded (1.jpg gave HTTP 404, and more). It looked at the other 1 photo.",
+    );
+  });
+
+  test('a check with photos still on the way says how many it saw', async () => {
+    const id = randomUUID();
+    const row = { ...structuredClone(everyField.row), id, photo_count: 2 };
+    await insertAs(db, botanist, 'public.records', row);
+    await insertAs(db, botanist, 'storage.objects', {
+      bucket_id: 'record-photos',
+      name: `${botanist.id}/${id}/1.jpg`,
+      owner: botanist.id,
+    });
+    assert.equal((await checkOf(id)).status, 'waiting_for_photos');
+    // what Check now does
+    await db.query('SELECT public.send_ai_check($1)', [id]);
+    const { token } = await checkOf(id);
+    standIns(fn.state, () =>
+      geminiSays({ names_match: 'yes', photo_shows_plant: 'yes', photo_matches_name: 'yes', note: 'ok' }),
+    );
+    const check = await run({ id, token });
+    assert.equal(check.status, 'done');
+    assert.equal(check.verdict, 'consistent');
+    assert.equal(check.photos_checked, 1);
+    assert.equal(
+      check.problem,
+      'The record has 2 photos but only 1 is on the server yet. It looked at the other 1 photo.',
+    );
+  });
+
+  test('a check with every photo there has no warning', async () => {
+    const sent = await uploadWithPhotos(2);
+    standIns(fn.state, () =>
+      geminiSays({ names_match: 'yes', photo_shows_plant: 'yes', photo_matches_name: 'yes', note: 'ok' }),
+    );
+    const check = await run(sent);
+    assert.equal(check.photos_checked, 2);
+    assert.equal(check.problem, null);
   });
 
   test('when none of the photos load, it says so and does not ask Gemini', async () => {
@@ -511,7 +552,10 @@ describe('ai-check on the database', { skip: !EDGE_COM_RUNS && 'needs Node 22.13
     });
     const check = await run(sent);
     assert.equal(check.status, 'failed');
-    assert.match(check.problem, /photos couldn't be loaded/);
+    assert.equal(
+      check.problem,
+      "The record's photos couldn't be loaded (1.jpg gave HTTP 404), so it wasn't checked.",
+    );
     assert.equal(check.verdict, null);
     assert.equal(check.token, null);
   });
@@ -601,7 +645,36 @@ describe('ai-check on the database', { skip: !EDGE_COM_RUNS && 'needs Node 22.13
     });
     const check = await run(sent);
     assert.equal(check.status, 'failed');
-    assert.match(check.problem, /didn't answer in time/);
+    assert.equal(check.problem, "Gemini couldn't be reached (fetch failed). Try again in a minute.");
+  });
+
+  test('Gemini timing out says how long it waited', async () => {
+    const sent = await uploadWithPhotos(0);
+    standIns(fn.state, () => {
+      throw new DOMException('The operation timed out.', 'TimeoutError');
+    });
+    const check = await run(sent);
+    assert.equal(check.status, 'failed');
+    assert.equal(
+      check.problem,
+      "Gemini didn't answer in time (it waited 90 seconds). Try again in a minute.",
+    );
+  });
+
+  test('an error it did not expect is saved with what it was', async () => {
+    const sent = await uploadWithPhotos(0);
+    fn.state.env = {
+      ...ENV,
+      get GEMINI_API_KEY() {
+        throw new Error('the secrets store is down');
+      },
+    };
+    const check = await run(sent);
+    assert.equal(check.status, 'failed');
+    assert.equal(
+      check.problem,
+      'Something went wrong while checking (the secrets store is down). Try again in a minute.',
+    );
   });
 
   test('if Check again starts a new check while one runs, the old answer is dropped', async () => {

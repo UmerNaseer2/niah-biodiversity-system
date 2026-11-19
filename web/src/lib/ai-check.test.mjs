@@ -1,6 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { aiCheckFromRow, aiCheckPending, REQUEST_MESSAGE, STUCK_MS } from "./ai-check.ts";
+import {
+  aiCheckFromRow,
+  aiCheckPending,
+  aiCheckUnavailable,
+  REQUEST_MESSAGE,
+  STUCK_MS,
+} from "./ai-check.ts";
 
 const NOW = Date.parse("2026-11-19T10:00:00Z");
 const fmt = (iso) => `at ${iso}`;
@@ -35,6 +41,7 @@ test("a finished check gives its verdict, answers and note", () => {
     photoMatchesName: "yes",
     note: "The bark and leaves fit Belian.",
     problem: null,
+    warning: null,
     photosChecked: 2,
     namesChanged: false,
     stuck: false,
@@ -156,4 +163,32 @@ test("every answer from request_ai_check has a message", () => {
     assert.ok(code in REQUEST_MESSAGE, code);
   }
   assert.equal(REQUEST_MESSAGE.checking, null);
+});
+
+test("a check that went ahead without some photos keeps the answer and says what was missing", () => {
+  const warning = "The record has 2 photos but only 1 is on the server yet. It looked at the other 1 photo.";
+  const check = aiCheckFromRow(row({ problem: warning, photos_checked: 1 }), BELIAN, NOW, fmt);
+  assert.equal(check.status, "done");
+  assert.equal(check.verdict, "consistent");
+  assert.equal(check.warning, warning);
+  assert.equal(check.problem, null);
+});
+
+test("a failed check has a problem, not a warning", () => {
+  const check = aiCheckFromRow(
+    row({ status: "failed", verdict: null, problem: "The ai-check function said no (HTTP 404)" }),
+    BELIAN,
+    NOW,
+    fmt,
+  );
+  assert.equal(check.problem, "The ai-check function said no (HTTP 404)");
+  assert.equal(check.warning, null);
+});
+
+test("a check the page couldn't load says why and isn't waited for", () => {
+  const check = aiCheckUnavailable("The AI checks didn’t load.");
+  assert.equal(check.status, "unavailable");
+  assert.equal(check.problem, "The AI checks didn’t load.");
+  assert.equal(check.verdict, null);
+  assert.equal(aiCheckPending(check), false);
 });

@@ -50,12 +50,35 @@ answer. The function answers the database straight away and does the check after
 answer in `record_ai_checks`. The review page looks for it every 5 seconds while a check is on its
 way, for up to 3 minutes.
 
-If something goes wrong (Gemini is busy, the key is wrong, a photo didn't load), the card says what
-happened and offers **Check again**.
+## When something goes wrong
+
+Nothing fails quietly. Whatever breaks, the card says what happened and offers **Check again**:
+
+| What broke | What the card says |
+| --- | --- |
+| The check couldn't start (say `pg_net` is down) | "The check didn't start:" and the database's error. The record and its photos still upload |
+| The function isn't deployed, or said no | "The ai-check function said no (HTTP 404)" and what it said, straight away |
+| The database couldn't reach the function | "The database couldn't reach the ai-check function:" and the error |
+| The function took it but never answered | After 3 minutes, that it never saved an answer, and to look at its logs |
+| The key is missing or wrong, or Gemini is busy | What Gemini said, in words the officer can act on |
+| Gemini didn't answer, or couldn't be reached | How long it waited, or why it couldn't reach it |
+| None of the photos loaded | Which one failed first and why (like "1.jpg gave HTTP 404"). Gemini isn't asked |
+| Some photos are missing or didn't load | The answer, with a line saying which photos were left out |
+| Anything else in the function | "Something went wrong while checking" and the error |
+| The page couldn't load the checks | The database's error on each card, and to reload |
+| The page stopped getting answers | A note at the top of the queue, and to reload |
+
+The triggers never stop an upload because of the AI check: a botanist's record must get to the
+server even when the AI is down. So instead of throwing, they save the error on the record's card.
+The review page calls `fail_lost_ai_checks()` (033) each time it loads. It reads what `pg_net`
+wrote down about each request, so a check that got lost on the way says why instead of sitting on
+"Checking". The database's own error stays out of the function's replies, because anyone can call
+its address, so for those the card points at the function's logs.
 
 ## Setting it up
 
-1. Run `supabase/032_ai_photo_check.sql` in the SQL editor, after 031.
+1. Run `supabase/032_ai_photo_check.sql` in the SQL editor, after 031, then
+   `supabase/033_ai_check_errors.sql`.
 2. Save the function's address in Vault, under the name `ai_check_url` (SQL editor):
 
    ```sql
@@ -68,7 +91,8 @@ happened and offers **Check again**.
    Edge Functions, Deploy a new function, Via Editor, paste the file.
 4. Add the Gemini key: Edge Functions, Secrets, add `GEMINI_API_KEY`. Get a key from
    [Google AI Studio](https://aistudio.google.com/apikey).
-5. Optional: `GEMINI_MODEL` picks another model. It's `gemini-3.8-flash` without it.
+5. Optional: `GEMINI_MODEL` picks another model, like `gemini-3.5-flash-lite` (what NIAH
+   uses). It's `gemini-3.8-flash` without it.
 
 The website needs nothing new, so there's nothing to add in Vercel. Without step 2, checks are
 saved as "not set up" and nothing is sent anywhere. Without step 4, each check fails with "the
@@ -83,6 +107,8 @@ again** sends them once it's quiet.
 
 - `supabase/tests/ai-check.test.js` checks 032: who can read the checks, the triggers, waiting for
   photos, and `request_ai_check()`.
+- `supabase/tests/ai-check-errors.test.js` checks 033: a trigger's error saved on the card, and
+  each answer `pg_net` can write down for a lost check.
 - `supabase/tests/ai-check-function.test.js` runs the function in Node against PGlite with a
   stand-in Gemini: the token, what's sent (no GPS or notes, photo details taken out), the
   answers, and each way it can fail.

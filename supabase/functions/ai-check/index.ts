@@ -275,15 +275,23 @@ function storageHeaders(): Record<string, string> | null {
   return null;
 }
 
+type LoadedPhotos = {
+  photos: Uint8Array[];
+  /** How many photos of the record are in Storage */
+  found: number;
+  /** Why each photo that was tried didn't load, like "1.jpg gave HTTP 404" */
+  failed: string[];
+};
+
 /** Downloads up to MAX_PHOTOS of the record's photos, with their EXIF taken out. */
-async function loadPhotos(recordId: string): Promise<{ photos: Uint8Array[]; found: number }> {
+async function loadPhotos(recordId: string): Promise<LoadedPhotos> {
   // The phone saves them at <account>/<record>/<1, 2, 3...>.jpg
   const objects = await sql`
     SELECT name FROM storage.objects
     WHERE bucket_id = ${BUCKET} AND split_part(name, '/', 2) = ${recordId}
     ORDER BY created_at, name
   `;
-  if (objects.length === 0) return { photos: [], found: 0 };
+  if (objects.length === 0) return { photos: [], found: 0, failed: [] };
 
   const supabaseUrl = (Deno.env.get("SUPABASE_URL") || "").replace(/\/+$/, "");
   const headers = storageHeaders();
@@ -291,6 +299,12 @@ async function loadPhotos(recordId: string): Promise<{ photos: Uint8Array[]; fou
     throw new CheckProblem("The function can't reach the photos (no SUPABASE_URL or secret key).");
   }
   const photos: Uint8Array[] = [];
+  const failed: string[] = [];
+  const skip = (name: unknown, why: string) => {
+    const file = String(name).split("/").pop();
+    console.warn(`ai-check: photo ${name} ${why}`);
+    failed.push(`${file} ${why}`);
+  };
   for (const { name } of objects) {
     if (photos.length >= MAX_PHOTOS) break;
     const path = String(name).split("/").map(encodeURIComponent).join("/");
@@ -300,26 +314,57 @@ async function loadPhotos(recordId: string): Promise<{ photos: Uint8Array[]; fou
         signal: AbortSignal.timeout(PHOTO_TIMEOUT_MS),
       });
       if (!response.ok) {
-        console.warn(`ai-check: photo ${name} gave HTTP ${response.status}`);
+        skip(name, `gave HTTP ${response.status}`);
         await response.body?.cancel();
         continue;
       }
       const bytes = new Uint8Array(await response.arrayBuffer());
       if (bytes.length > MAX_PHOTO_BYTES) {
-        console.warn(`ai-check: photo ${name} is ${bytes.length} bytes, too big to send`);
+        skip(name, `is too big to send (${(bytes.length / 1024 / 1024).toFixed(1)} MB)`);
         continue;
       }
       const clean = stripJpegMetadata(bytes);
       if (!clean) {
-        console.warn(`ai-check: photo ${name} isn't a JPEG we can read`);
+        skip(name, "isn't a JPEG it can read");
         continue;
       }
       photos.push(clean);
     } catch (e) {
-      console.warn(`ai-check: photo ${name} didn't download:`, e instanceof Error ? e.message : e);
+      skip(name, `didn't download (${e instanceof Error ? e.message : String(e)})`);
     }
   }
-  return { photos, found: objects.length };
+  return { photos, found: objects.length, failed };
+}
+
+function photoWord(n: number) {
+  return n === 1 ? "1 photo" : `${n} photos`;
+}
+
+/**
+ * Says what was missing when a check went ahead without all the record's photos, so the card can
+ * show it next to the answer. Null when every photo it wanted was there.
+ */
+export function photoShortfall(
+  expected: number,
+  loaded: LoadedPhotos,
+): string | null {
+  const notes: string[] = [];
+  if (loaded.found < expected) {
+    const there = loaded.found === 0 ? "none are" : `only ${loaded.found} ${loaded.found === 1 ? "is" : "are"}`;
+    notes.push(`The record has ${photoWord(expected)} but ${there} on the server yet.`);
+  }
+  if (loaded.failed.length > 0) {
+    notes.push(
+      `${photoWord(loaded.failed.length)} couldn't be loaded (${loaded.failed[0]}${loaded.failed.length > 1 ? ", and more" : ""}).`,
+    );
+  }
+  if (notes.length === 0) return null;
+  notes.push(
+    loaded.photos.length > 0
+      ? `It looked at the other ${photoWord(loaded.photos.length)}.`
+      : "So only the names were checked.",
+  );
+  return notes.join(" ");
 }
 
 /** Base64 for a photo, a piece at a time so a big photo doesn't overflow the call stack. */
@@ -349,8 +394,14 @@ async function postToGemini(apiKey: string, model: string, request: unknown) {
     );
     return { status: response.status, ok: response.ok, text: await response.text() };
   } catch (e) {
-    console.error("ai-check: Gemini didn't answer:", e instanceof Error ? e.message : e);
-    throw new CheckProblem("Gemini didn't answer in time. Try again in a minute.");
+    const why = e instanceof Error ? e.message : String(e);
+    console.error("ai-check: Gemini didn't answer:", why);
+    if (e instanceof Error && e.name === "TimeoutError") {
+      throw new CheckProblem(
+        `Gemini didn't answer in time (it waited ${GEMINI_TIMEOUT_MS / 1000} seconds). Try again in a minute.`,
+      );
+    }
+    throw new CheckProblem(`Gemini couldn't be reached (${why}). Try again in a minute.`);
   }
 }
 
@@ -437,7 +488,7 @@ async function check(recordId: string, token: string) {
   const model = (Deno.env.get("GEMINI_MODEL") || DEFAULT_MODEL).trim();
   try {
     const [record] = await sql`
-      SELECT species_name, common_name, status FROM public.records WHERE id = ${recordId}
+      SELECT species_name, common_name, status, photo_count FROM public.records WHERE id = ${recordId}
     `;
     if (!record) return; // deleted, and its check went with it
     const speciesName = String(record.species_name ?? "").trim();
@@ -458,10 +509,15 @@ async function check(recordId: string, token: string) {
       return;
     }
 
-    const { photos, found } = await loadPhotos(recordId);
+    const loaded = await loadPhotos(recordId);
+    const { photos, found } = loaded;
     if (found > 0 && photos.length === 0) {
-      throw new CheckProblem("The record's photos couldn't be loaded, so it wasn't checked.");
+      throw new CheckProblem(
+        `The record's photos couldn't be loaded (${loaded.failed[0] ?? "none came back"}), so it wasn't checked.`,
+      );
     }
+    // Checked anyway, but the card says what was missing
+    const shortfall = photoShortfall(Math.max(0, Number(record.photo_count) || 0), loaded);
     const questions = questionsFor(commonName, photos.length);
     if (questions.length === 0) {
       await save(recordId, token, {
@@ -477,13 +533,16 @@ async function check(recordId: string, token: string) {
       status: "done",
       verdict: verdictFor(questions.map((question) => answers[question] as Answer)),
       answers,
+      problem: shortfall,
       photosChecked: photos.length,
       model,
       ...names,
     });
   } catch (e) {
     const problem =
-      e instanceof CheckProblem ? e.message : "Something went wrong while checking. Try again in a minute.";
+      e instanceof CheckProblem
+        ? e.message
+        : `Something went wrong while checking (${e instanceof Error ? e.message : String(e)}). Try again in a minute.`;
     if (!(e instanceof CheckProblem)) console.error(`ai-check: checking ${recordId} failed:`, e);
     try {
       await save(recordId, token, { status: "failed", problem, model });
@@ -524,7 +583,10 @@ Deno.serve(async (req: Request) => {
     if (!waiting) return reply(401, { error: "not a check the database asked for" });
   } catch (e) {
     console.error("ai-check: reading the check failed:", e);
-    return reply(500, { error: "database error" });
+    // Anyone can call this address, so the database's own error stays in the logs
+    return reply(500, {
+      error: "the function couldn't read the check from the database. Its logs in Supabase say why",
+    });
   }
 
   const work = check(recordId, token);
