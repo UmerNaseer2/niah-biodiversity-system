@@ -440,8 +440,8 @@ export function SpeciesForm(props: Props) {
           </label>
           <p id="iucn-hint" className={HINT}>
             Vulnerable, Endangered and Critically Endangered count as
-            threatened. Only Least Concern and Near Threatened species can show
-            their exact spot on the public map.
+            threatened, and they only show a rough area on the public map.
+            Every other status can show the exact spot.
           </p>
           <FieldError id="iucn" message={errors.iucn} />
           <select

@@ -368,7 +368,6 @@ A tag holds only the code when:
 
 - the species is protected in Sarawak
 - the species is Vulnerable, Endangered or Critically Endangered
-- the species' risk isn't known yet (Data Deficient or Not Evaluated)
 - the species only shows a rough area on the public map
 - the plant isn't matched to a species yet, or the name on the record doesn't match its species
 - the phone doesn't have the species' details yet (they come with the next sync)
@@ -522,8 +521,12 @@ all work. The search keeps whichever of All, Waiting for review, Published or Re
 1. Press **Edit** on its row. "A published record stays published, and visitors see your changes as
    soon as you save."
 2. Change what's wrong:
-   - **Species**: the scientific name. If it matches a species in the database the record links to
-     it. If not, the public site only shows its grid square.
+   - **Species**: the scientific name. From the second letter, matching species show under the box
+     with their common names, so you can click one or pick it with the arrow keys and Enter.
+     Capitals don't matter, and a common name like "ironwood" finds it too. Picking one fills in
+     an empty **Common name**. If the name matches a species in the database the record links to it
+     and is saved the way the species list spells it. If not, the public site only shows its grid
+     square.
    - **Common name**, **Height** in metres, **Condition** and **Notes**.
    - **Recorded on**, in park time.
    - **Location**: Latitude, Longitude and Accuracy (m). "Only change it to fix a wrong reading.

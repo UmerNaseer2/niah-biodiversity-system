@@ -653,7 +653,7 @@ describe('what the public sees in records_public', () => {
     }
   });
 
-  test('only plants that are unprotected and LC or NT show their exact spot', async () => {
+  test('only plants that are unprotected and not VU, EN or CR show their exact spot', async () => {
     const species = [
       ['LC', false, exactSpot],
       ['NT', false, exactSpot],
@@ -662,8 +662,9 @@ describe('what the public sees in records_public', () => {
       ['VU', false, spotSquare],
       ['EN', false, spotSquare],
       ['CR', false, spotSquare],
-      ['DD', false, spotSquare],
-      ['NE', false, spotSquare],
+      ['DD', false, exactSpot],
+      ['NE', false, exactSpot],
+      ['DD', true, spotSquare],
     ];
     for (const [iucnCode, sarawakProtected, expected] of species) {
       const slug = `test-${iucnCode.toLowerCase()}${sarawakProtected ? '-protected' : ''}`;
@@ -1114,14 +1115,15 @@ describe('running 006, 007 and 008 again', () => {
   test('ends up the same as the first time', async () => {
     const firstTime = await catalogs();
     // 006 makes records_public, species_staff and records_staff again without what 007, 008,
-    // 019 and 028 add to them, and its REVOKE on iot_nodes takes the column grants 016_2 adds, so
-    // they have to run again after it (see supabase/README.md).
+    // 019, 028 and 030 add to them, and its REVOKE on iot_nodes takes the column grants 016_2
+    // adds, so they have to run again after it (see supabase/README.md).
     await db.exec(readSql('006_role_based_access.sql'));
     await db.exec(readSql('007_species_fixes.sql'));
     await db.exec(readSql('008_record_edits.sql'));
     await db.exec(readSql('016_2_iot_nodes.sql'));
     await db.exec(readSql('019_public_record_details.sql'));
     await db.exec(readSql('028_record_visits.sql'));
+    await db.exec(readSql('030_spot_unless_threatened.sql'));
     assert.deepEqual(await catalogs(), firstTime);
 
     const sql = 'SELECT gps FROM public.records_public WHERE id = $1';
@@ -1148,6 +1150,8 @@ describe('running 006, 007 and 008 again', () => {
       await db.exec(readSql('008_record_edits.sql'));
       await db.exec(readSql('016_2_iot_nodes.sql'));
       await db.exec(readSql('019_public_record_details.sql'));
+      await db.exec(readSql('028_record_visits.sql'));
+      await db.exec(readSql('030_spot_unless_threatened.sql'));
     }
   });
 });

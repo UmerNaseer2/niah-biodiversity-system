@@ -13,6 +13,9 @@ const common = {
 test("a common species whose exact spot is public gets a link on its tag", () => {
   assert.equal(codeOnlyReason("Shorea macrophylla", common), null);
   assert.equal(codeOnlyReason("Shorea macrophylla", { ...common, iucn: "NT" }), null);
+  // Nobody has said a Data Deficient or Not Evaluated species is at risk, so it gets a link too
+  assert.equal(codeOnlyReason("Shorea macrophylla", { ...common, iucn: "DD" }), null);
+  assert.equal(codeOnlyReason("Shorea macrophylla", { ...common, iucn: "NE" }), null);
   // Capitals and extra spaces don't count, the same as records_public
   assert.equal(codeOnlyReason("  shorea   MACROPHYLLA ", common), null);
   // An older species row with no rough area flag counts as not set
@@ -21,7 +24,7 @@ test("a common species whose exact spot is public gets a link on its tag", () =>
   assert.equal(codeOnlyReason("Shorea macrophylla", noFlag), null);
 });
 
-test("protected, threatened and unknown species get a code only tag, and say why", () => {
+test("protected, threatened and rough area species get a code only tag, and say why", () => {
   const protectedOne = codeOnlyReason("Shorea macrophylla", { ...common, sarawakProtected: true });
   assert.equal(
     protectedOne,
@@ -30,9 +33,11 @@ test("protected, threatened and unknown species get a code only tag, and say why
   for (const iucn of ["VU", "EN", "CR"]) {
     assert.match(codeOnlyReason("Shorea macrophylla", { ...common, iucn }), /^This species is threatened, so its tag holds only the code\./);
   }
-  for (const iucn of ["DD", "NE"]) {
-    assert.match(codeOnlyReason("Shorea macrophylla", { ...common, iucn }), /risk isn’t known yet, so its tag holds only the code\./);
-  }
+  // An officer can still keep a Data Deficient species to a rough area
+  assert.match(
+    codeOnlyReason("Shorea macrophylla", { ...common, iucn: "DD", roughAreaOnly: true }),
+    /rough area on the map, so its tag holds only the code\./,
+  );
   assert.match(
     codeOnlyReason("Shorea macrophylla", { ...common, roughAreaOnly: true }),
     /rough area on the map, so its tag holds only the code\./,

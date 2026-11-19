@@ -141,7 +141,8 @@ describe('report counts', () => {
     assert.equal(counts.waiting, 1);
     assert.equal(counts.species_count, 5);
     assert.equal(counts.needs_care, 3);
-    assert.equal(counts.hidden_spots, 4);
+    // The Data Deficient plant waiting for review shows its spot (030), so it isn't one of them
+    assert.equal(counts.hidden_spots, 3);
     assert.equal(counts.last, '2031-04-02T09:00');
     assert.deepEqual(counts.by_iucn, { LC: 2, VU: 1, NT: 1, DD: 1, none: 1 });
     assert.deepEqual(counts.by_month['2031-04'], { dead: 1 });

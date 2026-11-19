@@ -62,15 +62,18 @@ export const IUCN: Record<
 };
 
 /**
- * Whether the public can see the exact spot of a plant. Only Least Concern and
- * Near Threatened species that aren't protected in Sarawak and aren't marked
- * rough area only. Every other plant only shows a rough area. It's the same
- * rule as the records_public view in supabase/007_species_fixes.sql.
+ * Whether the public can see the exact spot of a plant of this species. Every
+ * species shows it unless it's Vulnerable, Endangered or Critically
+ * Endangered, protected in Sarawak, or marked rough area only. Data Deficient
+ * and Not Evaluated species show it too, since nobody has said they're at
+ * risk. A plant with no species isn't covered here and only shows a rough
+ * area. It's the same rule as the records_public view in
+ * supabase/030_spot_unless_threatened.sql.
  */
 export function showsExactSpot(
   iucn: IucnCode,
   sarawakProtected: boolean,
   roughAreaOnly: boolean,
 ) {
-  return (iucn === "LC" || iucn === "NT") && !sarawakProtected && !roughAreaOnly;
+  return !IUCN[iucn].threatened && !sarawakProtected && !roughAreaOnly;
 }

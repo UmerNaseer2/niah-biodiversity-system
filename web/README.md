@@ -145,10 +145,10 @@ Item numbers match the proposal and `docs/sprint-2.md`.
   emails use example.com. Never put the real location of a threatened or protected plant in mock
   data, screenshots or anything public.
 - Public pages query the `species_public` and `records_public` views, never the tables.
-  `records_public` only gives the exact spot of a plant whose species is LC or NT, isn't protected
-  in Sarawak and isn't marked rough area only, and whose name matches the species it's linked to.
-  Every other plant, including one the field team hasn't matched to a species yet, only gets the
-  middle of its grid square and the day it was recorded, not the time (007, 019). Keep the exact
+  `records_public` only gives the exact spot of a plant whose species isn't VU, EN or CR, isn't
+  protected in Sarawak and isn't marked rough area only, and whose name matches the species it's
+  linked to. Every other plant, including one the field team hasn't matched to a species yet, only
+  gets the middle of its grid square and the day it was recorded, not the time (007, 019, 030). Keep the exact
   spots of threatened and protected plants in server-only staff workflows, and never select them
   into a public page response.
 - The pages use the same rule, `showsExactSpot()` in `src/lib/iucn.ts` (through `hidesLocation()`

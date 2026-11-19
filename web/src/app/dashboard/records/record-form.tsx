@@ -7,6 +7,7 @@ import {
   useEffect,
   useState,
   type FormEvent,
+  type KeyboardEvent,
   type MouseEvent,
 } from "react";
 import { Icon } from "@/components/icon";
@@ -23,6 +24,11 @@ import {
   type FieldId,
   type Values,
 } from "@/lib/record-form";
+import {
+  findSpeciesByName,
+  searchSpecies,
+  type SpeciesOption,
+} from "@/lib/species-search";
 import { editRecord, type RecordFormState } from "./actions";
 
 const INITIAL: RecordFormState = { status: "idle" };
@@ -60,10 +66,17 @@ const LABEL = "font-bold";
 const HINT = "text-sm text-moss";
 const OPTIONAL = <span className="font-normal text-moss"> (optional)</span>;
 
-// version is the record's updated_at when the page loaded (src/lib/edit-version.ts)
-type Props = { id: string; tag: string; initial: Values; version: string };
+// version is the record's updated_at when the page loaded (src/lib/edit-version.ts).
+// species is the list the Species box suggests from, empty when it didn't load.
+type Props = {
+  id: string;
+  tag: string;
+  initial: Values;
+  version: string;
+  species: SpeciesOption[];
+};
 
-export function RecordForm({ id, tag, initial, version: loadedVersion }: Props) {
+export function RecordForm({ id, tag, initial, version: loadedVersion, species }: Props) {
   const [posted, formAction] = useActionState(editRecord, INITIAL);
   const [sent, sendAction, pending] = useActionState(sendRecord, INITIAL);
   const state = sent === INITIAL ? posted : sent;
@@ -88,6 +101,11 @@ export function RecordForm({ id, tag, initial, version: loadedVersion }: Props) 
   const [saved, setSaved] = useState(() => state.status === "saved");
   const [handled, setHandled] = useState(state);
   const [focusRequest, setFocusRequest] = useState<{ elementId: string } | null>(null);
+  // The species suggestions show while the Species box has focus, until Escape
+  // or a pick closes them
+  const [speciesFocused, setSpeciesFocused] = useState(false);
+  const [suggestionsClosed, setSuggestionsClosed] = useState(false);
+  const [activeSuggestion, setActiveSuggestion] = useState(-1);
 
   // A new answer from the server, picked up while rendering rather than in an
   // effect, so the page never draws the old answer first
@@ -120,6 +138,60 @@ export function RecordForm({ id, tag, initial, version: loadedVersion }: Props) 
         delete next[field];
         return next;
       });
+    }
+  }
+
+  // A name typed in full links to the species without picking it, the same as
+  // the server does when it saves
+  const speciesMatch = findSpeciesByName(values.speciesName, species);
+  const suggestions = speciesMatch ? [] : searchSpecies(values.speciesName, species);
+  const suggestionsOpen = speciesFocused && !suggestionsClosed && suggestions.length > 0;
+  let speciesStatus: string | null = null;
+  if (species.length > 0 && values.speciesName.trim() !== "") {
+    if (speciesMatch) speciesStatus = "On the species list.";
+    else if (suggestions.length > 0) speciesStatus = "Pick a match below, or keep typing if it isn’t there.";
+    else speciesStatus = "Not on the species list. You can still save it.";
+  }
+
+  function typeSpecies(value: string) {
+    update("speciesName", value, "species-name");
+    setSuggestionsClosed(false);
+    setActiveSuggestion(-1);
+  }
+
+  function pickSpecies(option: SpeciesOption) {
+    update("speciesName", option.scientificName, "species-name");
+    // Some species have no common name yet, and one typed in already stays
+    if (values.commonName.trim() === "" && option.commonNames[0]) {
+      update("commonName", option.commonNames[0], "common-name");
+    }
+    setSuggestionsClosed(true);
+    setActiveSuggestion(-1);
+  }
+
+  function speciesKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    if (suggestions.length === 0) return;
+    const last = suggestions.length - 1;
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      event.preventDefault();
+      if (!suggestionsOpen) {
+        setSuggestionsClosed(false);
+        setActiveSuggestion(event.key === "ArrowDown" ? 0 : last);
+        return;
+      }
+      if (event.key === "ArrowDown") {
+        setActiveSuggestion(activeSuggestion >= last ? 0 : activeSuggestion + 1);
+      } else {
+        setActiveSuggestion(activeSuggestion <= 0 ? last : activeSuggestion - 1);
+      }
+    } else if (event.key === "Enter" && suggestionsOpen && activeSuggestion >= 0) {
+      // Enter picks the highlighted species instead of saving the form
+      event.preventDefault();
+      pickSpecies(suggestions[activeSuggestion]);
+    } else if (event.key === "Escape" && suggestionsOpen) {
+      event.preventDefault();
+      setSuggestionsClosed(true);
+      setActiveSuggestion(-1);
     }
   }
 
@@ -228,20 +300,82 @@ export function RecordForm({ id, tag, initial, version: loadedVersion }: Props) 
           species yet and the public site only shows its grid square.
         </p>
         <FieldError id="species-name" message={errors["species-name"]} />
-        <input
-          id="species-name"
-          name="speciesName"
-          type="text"
-          value={values.speciesName}
-          onChange={(e) => update("speciesName", e.target.value, "species-name")}
-          maxLength={MAX.speciesName}
-          aria-required="true"
-          aria-invalid={Boolean(errors["species-name"])}
-          aria-describedby={describedBy("species-name", errors["species-name"])}
-          autoComplete="off"
-          spellCheck={false}
-          className="field mt-2 font-latin text-lg italic"
-        />
+        <div className="relative mt-2">
+          <input
+            id="species-name"
+            name="speciesName"
+            type="text"
+            role="combobox"
+            value={values.speciesName}
+            onChange={(e) => typeSpecies(e.target.value)}
+            onFocus={() => setSpeciesFocused(true)}
+            onBlur={() => {
+              setSpeciesFocused(false);
+              setActiveSuggestion(-1);
+            }}
+            onKeyDown={speciesKeyDown}
+            maxLength={MAX.speciesName}
+            aria-required="true"
+            aria-invalid={Boolean(errors["species-name"])}
+            aria-describedby={
+              [describedBy("species-name", errors["species-name"]), speciesStatus ? "species-name-status" : null]
+                .filter(Boolean)
+                .join(" ") || undefined
+            }
+            aria-autocomplete="list"
+            aria-expanded={suggestionsOpen}
+            aria-controls="species-suggestions"
+            aria-activedescendant={
+              suggestionsOpen && activeSuggestion >= 0
+                ? `species-suggestion-${activeSuggestion}`
+                : undefined
+            }
+            autoComplete="off"
+            spellCheck={false}
+            className="field font-latin text-lg italic"
+          />
+          <ul
+            id="species-suggestions"
+            role="listbox"
+            aria-label="Species on the list"
+            hidden={!suggestionsOpen}
+            className="absolute inset-x-0 top-full z-20 mt-1 overflow-hidden rounded-xl border border-line bg-sheet shadow-lg"
+          >
+            {suggestions.map((option, index) => (
+              <li
+                key={option.slug}
+                id={`species-suggestion-${index}`}
+                role="option"
+                aria-selected={index === activeSuggestion}
+                // Keeps the focus in the box, so the list doesn't close before the click
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => pickSpecies(option)}
+                onMouseEnter={() => setActiveSuggestion(index)}
+                className={`flex min-h-11 cursor-pointer flex-col justify-center px-4 py-2 ${
+                  index > 0 ? "border-t border-line" : ""
+                } ${index === activeSuggestion ? "bg-paper" : ""}`}
+              >
+                <span className="font-latin text-lg italic">{option.scientificName}</span>
+                {option.commonNames.length > 0 && (
+                  <span className="text-sm text-moss">
+                    {option.commonNames.slice(0, 3).join(", ")}
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+        {speciesStatus && (
+          <p id="species-name-status" className="mt-1 text-sm text-moss">
+            {speciesMatch && <Icon name="check" className="mr-1 inline size-4 align-[-2px] text-ok" />}
+            {speciesStatus}
+          </p>
+        )}
+        <p role="status" className="sr-only">
+          {suggestionsOpen
+            ? `${suggestions.length} ${suggestions.length === 1 ? "species matches" : "species match"}. Use the up and down arrows to pick one.`
+            : ""}
+        </p>
       </div>
 
       <div>
