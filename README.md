@@ -61,6 +61,8 @@ Ask Umer for the Supabase URL and anon key and put them in your own `.env` / `.e
 **Never commit real keys.** The `.gitignore` files already block `.env` files, only the `.env.example` files are committed.
 The Supabase service role key is only ever used on the server (Vercel env variables), never in the mobile app or browser code.
 
+Putting the website on Vercel (Root Directory, the env variables, the function region and the Supabase sign in settings) is in [docs/deployment.md](docs/deployment.md#putting-the-website-on-vercel).
+
 ## How we work
 
 See [CONTRIBUTING.md](CONTRIBUTING.md). Short version: never push straight to `main`, make a branch, open a pull request, get one teammate to review it.

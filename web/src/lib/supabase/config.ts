@@ -1,10 +1,15 @@
-// The Supabase project the site talks to, from .env.local. When it isn't set,
-// sign in is off and the public pages use the sample data in src/data.
+// The Supabase project the site talks to, from .env.local (or the Environment
+// Variables on Vercel). When it isn't set, sign in is off and the public pages
+// use the sample data in src/data. The key goes by a few names: ours, the one
+// the Supabase Connect button shows, and the ones Vercel's Supabase
+// integration adds. They all hold the same publishable (anon) key.
 const url =
   process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || "";
 const anonKey =
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
   process.env.SUPABASE_PUBLISHABLE_KEY ||
+  process.env.SUPABASE_ANON_KEY ||
   "";
 
 export const SUPABASE_URL = url;
