@@ -25,7 +25,8 @@ export default function LoginPage() {
             <Icon name="info" className="mt-0.5 size-4 shrink-0" />
             <span>
               Sign in isn’t set up on this server. Add the Supabase values to{" "}
-              <code>.env.local</code> and restart.
+              <code>.env.local</code> and restart, or on Vercel to the
+              project’s Environment Variables and redeploy.
             </span>
           </p>
         )}

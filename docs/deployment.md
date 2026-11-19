@@ -13,12 +13,67 @@ bringing the hosted project up to `main`. This page is how it should work every 
 | Phone app | A development or store build, since Expo Go doesn't encrypt the records file | Expo Go against the staging project or the stand-in |
 | Edge device | The edge VM in the park, set up with `iot/edge-device/install-edge.sh` | `iot-edge fake-thing` on the VM, or the edge software on a laptop like in item 43 |
 
+## Putting the website on Vercel
+
+The website is a plain Next.js app in `web/`, so Vercel builds it without a `vercel.json`. These
+are the steps for a new Vercel project, and the settings to check on the one that runs the live
+site now.
+
+1. **Add New, Project**, and import `UmerNaseer2/niah-biodiversity-system` from GitHub.
+2. **Root Directory** `web`. Vercel then finds Next.js by itself. Leave the build, output and
+   install commands as they are.
+3. **Environment Variables**, before the first deploy:
+
+   | Name | Value | Environment |
+   | --- | --- | --- |
+   | `NEXT_PUBLIC_SUPABASE_URL` | The project URL from the Supabase **Connect** button, starting with `https://` | Production. For Preview see staging below |
+   | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | The publishable key (`sb_publishable_...`), or the older anon key | Production. For Preview see staging below |
+   | `SITE_URL` | The website's own address, with no slash at the end | Production only |
+   | `SUPABASE_SERVICE_ROLE_KEY` | The secret key (`sb_secret_...`), or the older service role key. Mark it **Sensitive**. `SUPABASE_SECRET_KEY` works too | Production only. Only the Users and roles page needs it |
+
+   - The site also takes `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (the name the Connect button
+     shows), `SUPABASE_PUBLISHABLE_KEY` or `SUPABASE_ANON_KEY` for the key, and `SUPABASE_URL` for
+     the address. So the names Vercel's Supabase integration adds work too. Set one of each.
+   - Never give the secret key a name that starts with `NEXT_PUBLIC_`, because those go into the
+     pages people download.
+   - Some pages, such as sign in, are built ahead of time. After changing any of these, redeploy
+     (**Deployments**, the newest one, **Redeploy**). A deploy built without the Supabase values
+     shows the sample plants and says sign in isn't set up.
+4. **Settings, Functions, Function Region.** Pick the Vercel region closest to the Supabase
+   project. The region is in the project's **Session pooler** address from the Connect button
+   (for example `aws-0-ap-northeast-1` is Tokyo, so `hnd1`, and `ap-southeast-1` is Singapore, so
+   `sin1`). The default is Washington DC (`iad1`), and each page reads Supabase a few times on the
+   server, so a project in Asia would make every page slower. The free Hobby plan can pick any one
+   region.
+5. **Deploy.** Then, from `web`:
+
+   ```bash
+   npm run check-deploy -- https://your-site-address
+   ```
+
+   It reads the home page, `/health`, sign in, the dashboard, `/welcome` and the plant list, and
+   should end with "Everything answered as it should." It only reads public pages and needs no
+   keys.
+6. **In Supabase, Authentication, URL Configuration.** Set the Site URL to the website's address,
+   and add `<address>/welcome` to the Redirect URLs. Without these, invite and password emails
+   send people to Supabase's default address instead of the website. If Preview uses the same
+   project, add `https://niah-biodiversity-system-*.vercel.app/**` too.
+7. **The phone app.** Put the same address in `EXPO_PUBLIC_SITE_URL` in `mobile/.env`, so tags
+   printed from the app link to the website, and build the app again.
+
+The address comes from the project name, and `niah-biodiversity-system.vercel.app` belongs to the
+project that runs the live site now. A new project gets a different address, so use whichever one
+is live for `SITE_URL`, the Supabase Site URL and `EXPO_PUBLIC_SITE_URL`.
+
+`edge-com` doesn't run on Vercel. It stays an Edge Function on the Supabase project (step 5 of
+`hosted-setup.md`), and the Sensors page only fills up once an edge device uploads to it.
+
 ## Staging (item 42)
 
 ### What we use now
 
 The stand-in (`supabase/tests/stand-in.js`) is our staging for now. It runs every SQL file, 001 to
-027, and `edge-com` on a laptop, with made up accounts for each role, made up records and a day of
+029, and `edge-com` on a laptop, with made up accounts for each role, made up records and a day of
 made up sensor readings. Every results page in `docs/test-results` ran against it, and
 [item 43](test-results/item-43-integration.md) ran the phone, website and edge device together on
 it. `supabase/README.md` and `docs/test-plan.md` say how to start it.
@@ -48,7 +103,7 @@ In the Vercel dashboard, by whoever has the project:
 A preview shouldn't use the live database, because a test record or a test approval would show on
 the public site. There are two ways:
 
-- **A second free Supabase project** (say `niah-staging`). This is the better one. Run 001 to 027
+- **A second free Supabase project** (say `niah-staging`). This is the better one. Run 001 to 029
   and deploy `edge-com` on it the same way as steps 4 and 5 of `hosted-setup.md`, then add a few
   made up staff accounts. In Vercel, set the Preview values of `NEXT_PUBLIC_SUPABASE_URL`,
   `NEXT_PUBLIC_SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY` to that project's. Leave
@@ -65,7 +120,7 @@ Neither is set up yet. Both need the Vercel and Supabase dashboards.
 
 The same order every time something goes live:
 
-1. **CI is green** on the commit on `main` (GitHub Actions, three jobs).
+1. **CI is green** on the commit on `main` (GitHub Actions, four jobs).
 2. **New SQL goes first.** If the change adds a SQL file, run it on hosted in the SQL Editor, then
    `npm run check-hosted` from `supabase/tests`. A new page that needs a table that isn't there yet
    would show an error, so the database goes before the website.
@@ -74,7 +129,8 @@ The same order every time something goes live:
 4. **The website.** With Git connected, merging to `main` deploys it. Without, open
    **Deployments** and deploy the newest commit on `main` to Production. Either way, check the
    Production deployment shows that commit.
-5. **Check it.** `curl -i https://niah-biodiversity-system.vercel.app/health` should give `200` and
+5. **Check it.** From `web`, `npm run check-deploy -- https://niah-biodiversity-system.vercel.app`
+   should end with "Everything answered as it should." That includes `/health` giving `200` and
    `{"status":"ok",...}`. Then do the quick run in step 9 of `hosted-setup.md`.
 6. **The phone app**, only if `mobile/` changed. The app isn't in a store yet, so a ranger's phone
    gets a development build from `npm run ios` or `npm run android` (`mobile/README.md`). Store or
@@ -126,7 +182,8 @@ page doesn't say what's wrong.
 
 ## What's done and what isn't
 
-Done: the `/health` route, these steps written down, and the stand-in used as staging for every
+Done: the `/health` route, `npm run check-deploy` for checking a deploy from the outside, these
+steps written down (with the first time Vercel setup), and the stand-in used as staging for every
 test including [item 43](test-results/item-43-integration.md).
 
 Not done, because each needs the Vercel or Supabase dashboard: connecting Git in Vercel and turning

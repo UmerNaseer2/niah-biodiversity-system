@@ -27,8 +27,10 @@ npm run dev
 
 Then open http://localhost:3000. The public pages and staff sign in use Supabase when configured,
 so copy `.env.example` to `.env.local` and fill in the project URL and publishable key. The app
-accepts both `NEXT_PUBLIC_SUPABASE_URL`/`NEXT_PUBLIC_SUPABASE_ANON_KEY` and the Supabase export
-names `SUPABASE_URL`/`SUPABASE_PUBLISHABLE_KEY`. Without them `/login` says sign in isn't set up
+reads `NEXT_PUBLIC_SUPABASE_URL` or `SUPABASE_URL` for the address, and
+`NEXT_PUBLIC_SUPABASE_ANON_KEY`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_PUBLISHABLE_KEY`
+or `SUPABASE_ANON_KEY` for the key, so the names the Supabase Connect button and Vercel's Supabase
+integration give both work. Without them `/login` says sign in isn't set up
 and `/dashboard` sends you back to `/login`. A production build (`npm run build`) also needs the
 project URL to start with `https://` (item 23), and treats any other URL as not set up.
 
