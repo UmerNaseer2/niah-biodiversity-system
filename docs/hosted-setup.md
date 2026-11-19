@@ -43,9 +43,10 @@ In the SQL Editor: **New query**, paste the whole file, **Run**. One file at a t
 the check printed. For a project with only 001 and 002 that's:
 
 003, 004, 005, 006, 007, 008, 009, 010, 011, 012, 013, 014, 015, 016_1, 016_2, 016_3, 016_4, 017,
-019, 020, 021, 022, 023, 024, 025, 026, 027, 028, 029
+019, 020, 021, 022, 023, 024, 025, 026, 027, 028, 029, 030
 
 - There's no 018.
+- The check can't see 030 from outside, so it stops at 029. Run 030 after 029 anyway.
 - Don't run 001 or 002 again. 002 writes the sample species back over any changes.
 - A file that fails keeps nothing, so fix the problem and run the same file again. From 007 on,
   each file stops on its first line if the one before it isn't there, so a skipped file shows up

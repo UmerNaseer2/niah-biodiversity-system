@@ -1,5 +1,7 @@
 // Checks 015_species_rough_area.sql: every threatened or protected species is rough area only,
 // whichever way it's saved, and turning the switch on for the old rows doesn't look like an edit.
+// Since 030, threatened means VU, EN or CR, so Data Deficient and Not Evaluated species aren't
+// forced any more. spot-unless-threatened.test.js checks the rest of 030.
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { after, before, describe, test } from 'node:test';
@@ -62,8 +64,6 @@ async function historyOf(database, id) {
 describe('adding a species', () => {
   for (const [what, changes] of [
     ['a threatened species', { iucn_code: 'VU' }],
-    ['a species with no assessment yet', { iucn_code: 'NE' }],
-    ['a species short of data', { iucn_code: 'DD' }],
     ['a protected species of least concern', { sarawak_protected: true }],
     ['a protected near threatened species', { iucn_code: 'NT', sarawak_protected: true }],
   ]) {
@@ -73,8 +73,8 @@ describe('adding a species', () => {
     });
   }
 
-  test('LC and NT species that are not protected stay how they were sent', async () => {
-    for (const iucn_code of ['LC', 'NT']) {
+  test('LC, NT, DD and NE species that are not protected stay how they were sent', async () => {
+    for (const iucn_code of ['LC', 'NT', 'DD', 'NE']) {
       const off = await addSpecies(speciesRow({ iucn_code }));
       const on = await addSpecies(speciesRow({ iucn_code, rough_area_only: true }));
       assert.equal((await stored(db, off)).rough_area_only, false, iucn_code);
@@ -208,7 +208,9 @@ describe('running the SQL files', () => {
   test('running 015 again changes nothing, and 002 still runs after it', async () => {
     const id = await addSpecies(speciesRow({ iucn_code: 'VU' }));
     const before = await stored(db, id);
+    // 015 puts back its own trigger, so 030 runs again after it (see supabase/README.md)
     await db.exec(readSql('015_species_rough_area.sql'));
+    await db.exec(readSql('030_spot_unless_threatened.sql'));
     await db.exec(readSql('002_seed_data.sql'));
     assert.deepEqual(await stored(db, id), before);
 

@@ -132,7 +132,7 @@ export async function editRecord(
       ? { data: null, error: null }
       : supabase
           .from("species_staff")
-          .select("id")
+          .select("id, scientific_name")
           .ilike("scientific_name", exactPattern(name))
           .maybeSingle(),
     supabase.from("records_staff").select("gps, recorded_at").eq("id", id).maybeSingle(),
@@ -165,11 +165,15 @@ export async function editRecord(
   // The form only goes down to the minute, so a time the phone saved with
   // seconds keeps them unless someone picks a different minute
   const storedTime = String(currentResult.data.recorded_at);
+  // A name that matches a species is saved the way the species spells it, so
+  // "shorea MACROPHYLLA" is saved as Shorea macrophylla
+  const species = speciesResult.data;
   const update = {
     ...row,
+    species_name: species ? String(species.scientific_name) : row.species_name,
     recorded_at:
       parkTime(storedTime) === values.recordedAt ? storedTime : row.recorded_at,
-    species_slug: speciesResult.data ? String(speciesResult.data.id) : null,
+    species_slug: species ? String(species.id) : null,
     gps:
       row.gps && sameSpot && before.capturedAt
         ? { ...row.gps, capturedAt: before.capturedAt }
@@ -200,7 +204,7 @@ export async function editRecord(
   return {
     status: "saved",
     id,
-    values: tidyValues(values),
+    values: { ...tidyValues(values), speciesName: update.species_name },
     version: String(data[0].updated_at),
   };
 }

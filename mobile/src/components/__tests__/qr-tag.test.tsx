@@ -167,7 +167,6 @@ describe('QrTag', () => {
   it.each([
     ['protected', { sarawakProtected: true }, 'This species is protected'],
     ['threatened', { iucnCode: 'EN' as const }, 'This species is threatened'],
-    ['of unknown risk', { iucnCode: 'DD' as const }, "This species' risk isn't known yet"],
     ['shown as a rough area', { roughAreaOnly: true }, 'This species only shows a rough area on the map'],
   ])('holds only the code for a species that is %s, and says why', (_what, change, start) => {
     render(<QrTag publicSpecies={[{ ...ficus, ...change }]} record={record} />);

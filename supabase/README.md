@@ -16,22 +16,22 @@ kept, and you can fix the problem and run it again.
 | `003_profiles_read_own.sql` | Lets a signed in user read their own profile, so the website can see their role, and takes out an old view from 001 that nothing uses | 15 | Yes |
 | `004_security_hardening.sql` | Role checks on writes, the public views and the staff views | 4, 14, 15, 16 | No, it stops on the policies that are already there |
 | `005_phone_sync.sql` | Lets the phone upload records, and adds the private `record-photos` bucket | 3 | No, it stops on its first line and changes nothing |
-| `006_role_based_access.sql` | What each role can read and change, checked by the database: Row Level Security, column grants and a review trigger | 4 | Yes, then run 007, 008, 016_2, 019 and 028 again. The public still can't see the exact spot of a plant set to rough area only in between |
-| `007_species_fixes.sql` | The rough area only switch for a species, the public views that use it, checked facts for the sample species, and a trigger that sets `updated_at` when a species is edited | 14 | Yes, then run 019 and 028 again, because this puts the older public view back |
+| `006_role_based_access.sql` | What each role can read and change, checked by the database: Row Level Security, column grants and a review trigger | 4 | Yes, then run 007, 008, 016_2, 019, 028 and 030 again. The public still can't see the exact spot of a plant set to rough area only in between |
+| `007_species_fixes.sql` | The rough area only switch for a species, the public views that use it, checked facts for the sample species, and a trigger that sets `updated_at` when a species is edited | 14 | Yes, then run 019, 028 and 030 again, because this puts the older public view back |
 | `008_record_edits.sql` | `updated_at` on records, set by a trigger when a record is edited, and the staff view that shows it | 17 | Yes |
 | `009_species_photos.sql` | Checks what goes in `species.photos`, the `species_photos_public` view for the plant pages, and lets officers and admins delete record photos | 18 | Yes |
 | `010_deleted_records.sql` | Keeps the ID of every deleted record, with who deleted it and when, so a phone can't upload it again | 3, 17 | Yes |
 | `011_exact_location_downloads.sql` | Keeps a list of every report downloaded with the exact spots of threatened and protected plants, with who downloaded it and when. Only admins can read the list, and nobody can change it | 21 | Yes |
-| `012_report_counts.sql` | Counts the records for the Reports page in the database, as whoever is asking, so the page doesn't load every record to count them | 21 | Yes, then run 019 again, because this puts the older counts back |
+| `012_report_counts.sql` | Counts the records for the Reports page in the database, as whoever is asking, so the page doesn't load every record to count them | 21 | Yes, then run 019 and 030 again, because this puts the older counts back |
 | `013_edit_history.sql` | Keeps a history of every change to a record or species, with who saved it and when, for the edit pages. Only officers and admins can read it, and nobody can change it. It never keeps a plant's map location, but text like notes is kept word for word | 17, 18 | Yes |
 | `014_photo_folder.sql` | Keeps the name of each record's photo folder, so the website can still show and delete a record's photos after the account that sent it is deleted | 18 | Yes |
-| `015_species_rough_area.sql` | Keeps rough area only on for every threatened or protected species, so the first save on the edit page doesn't write a false history line. The public sees the same as before | 17 | Yes |
+| `015_species_rough_area.sql` | Keeps rough area only on for every threatened or protected species, so the first save on the edit page doesn't write a false history line. The public sees the same as before | 17 | Yes, then run 030 again, because this puts back the older rule for Data Deficient and Not Evaluated species |
 | `016_1_iot_devices.sql` | The edge devices, one for each forest region, with their position. Admins manage them, officers can see them | 28 | Yes |
 | `016_2_iot_nodes.sql` | Takes 001's sample telemetry columns off `iot_nodes`, links each node to its edge device, and gives each node its own calibration and alert settings | 28, 29 | Yes |
 | `016_3_iot_device_tokens.sql` | A hash of each edge device's token, and `iot_make_device_token` for the Devices page | 28 | Yes. The tokens are kept |
 | `016_4_iot_readings.sql` | The readings, with raw values only, and `iot_raw_pct`, which turns a raw value into a percentage with a node's calibration | 28, 29 | Yes. The readings are kept |
 | `017_iot_alerts.sql` | The alerts, the check for nodes going quiet, acknowledging and resolving, each node's status, and the `iot_node_status` view for the Sensors page | 31 | Yes |
-| `019_public_record_details.sql` | Gives the public less about a plant whose spot is hidden: the day a record was made, not the time, and the spot stays hidden when a record's name disagrees with its species. The Reports counts follow the same rule | 26 | Yes, then run 028 again, because this puts back the public view without its rule for visits |
+| `019_public_record_details.sql` | Gives the public less about a plant whose spot is hidden: the day a record was made, not the time, and the spot stays hidden when a record's name disagrees with its species. The Reports counts follow the same rule | 26 | Yes, then run 028 and 030 again, because this puts back the public view without its rule for visits |
 | `020_record_photo_access.sql` | Someone who loses their field staff role also loses their own record photos, and people who aren't signed in can't call the helper functions | 26 | Yes |
 | `021_role_changes.sql` | Keeps a list of every role change, with who made it and when, for the Users page, and makes sure administrators can't remove each other at the same moment and leave nobody. Only admins can read the list, and nobody can change it | 26 | Yes. The list is kept |
 | `022_iot_reading_limit.sql` | Limits each edge device to 3,600 readings an hour. An upload that would go over is refused with HTTP 429 and none of it is kept, so the device sends it again later | 26 | Yes. To change the limit, change the number in it and run it again |
@@ -42,10 +42,11 @@ kept, and you can fix the problem and run it again.
 | `027_iot_daily_summary.sql` | Each node's lowest, average and highest temperature, humidity and soil moisture for today and the 6 days before, by park time, for the Sensors page. Officers and admins only | 30 | Yes |
 | `028_record_visits.sql` | Visits to a plant that already has a record. A visit is a new record with `visit_of` set to the plant's first record, so the first record stays as it was. Deleting the first record keeps its visits as records on their own. The public sees which records are visits through `record_visits_public`, only when both records are approved, and a visit only shows its exact spot when the first record would too | 40 | Yes |
 | `029_find_plant_by_tag.sql` | `find_plant_by_tag`, so field staff can find a plant by its tag code when another phone recorded it and add a visit to it. It only gives back the plant's name, condition, date, review status and visits, never the spot, notes, photos or who recorded it | 40 | Yes |
+| `030_spot_unless_threatened.sql` | Shows the exact spot of every plant whose species isn't Vulnerable, Endangered or Critically Endangered, protected or set to rough area only. Data Deficient and Not Evaluated species stop being rough area only, and that change shows in their history. The Reports counts follow the same rule | 4 | Yes |
 
 On 18 Nov 2026 `tests/check-hosted.js` (below) found 001 on the hosted project and nothing after it
 (002 can't be seen from outside). Run 003, 004, 005, 006, 007, 008, 009, 010, 011, 012, 013, 014,
-015, 016_1 to 017, 019, 020, 021, 022 to 027, 028 and 029 next, one file at a time, in that order,
+015, 016_1 to 017, 019, 020, 021, 022 to 027, 028, 029 and 030 next, one file at a time, in that order,
 and don't stop part way. On a new project, run 001 and 002 first. There's no 018 file: the number
 was held for the phone's photos, and they didn't need one. The website's species pages (add, edit
 and delete) and its public pages need 007,
@@ -72,7 +73,8 @@ edge device can add. 022 stops on its first line if 021 isn't there. Without 028
 its visits waiting to upload and tries again later, and the website shows no visits. 028 stops on
 its first line if 027 isn't there. Without 029 a staff phone only finds plants recorded on that
 phone and published ones, and a tag from another phone says "Couldn't look up the plant". 029
-stops on its first line if 028 isn't there. 003 is fine to run even if it
+stops on its first line if 028 isn't there. Without 030 Data Deficient and Not Evaluated species
+only show a rough area on the public map. 030 stops on its first line if 029 isn't there. 003 is fine to run even if it
 turns out to be there already. The history only starts once 013 is in, so changes made before
 that aren't in it.
 
@@ -149,10 +151,12 @@ the bucket.
 - Row Level Security is on for every table.
 - The public reads through `species_public` and `records_public`, never the tables themselves,
   because the records table has exact locations. Only published records show in
-  `records_public`, and a plant only shows its exact spot there if its species is Least Concern
-  or Near Threatened, isn't protected in Sarawak and isn't set to rough area only, and the record's
-  name matches that species. Every other plant, Data Deficient and Not Evaluated ones too, shows
-  the middle of its 0.004 degree grid square (about 440 m at Niah) and only the day it was recorded.
+  `records_public`, and a plant only shows its exact spot there if its species isn't Vulnerable,
+  Endangered or Critically Endangered, isn't protected in Sarawak and isn't set to rough area only,
+  and the record's name matches that species (030). Data Deficient and Not Evaluated species show
+  their spot too, since nobody has said they're at risk. Every other plant, including one that
+  isn't matched to a species, shows the middle of its 0.004 degree grid square (about 440 m at
+  Niah) and only the day it was recorded.
 - The server decides who uploaded a record and its status, never the phone. See
   [docs/sync-design.md](../docs/sync-design.md).
 - A new account is always a visitor, whatever was sent when signing up. Only an admin can change
@@ -195,13 +199,16 @@ npm test
   `tests/public-details.test.js` checks 019, `tests/record-photo-access.test.js` checks 020,
   `tests/role-changes.test.js` checks 021, `tests/iot-limit.test.js` checks 022 through
   `edge-com` (item 26), `tests/visits.test.js` checks 028 (item 40) and
-  `tests/find-plant.test.js` checks 029 (item 40).
+  `tests/find-plant.test.js` checks 029 (item 40) and `tests/spot-unless-threatened.test.js`
+  checks 030.
 - `tests/check-hosted.js` says which SQL files a Supabase project has, using only its URL and
   anon key, and whether `edge-com` is deployed with JWT verification off. It only reads: it asks
   for no rows of a table or column each file adds. For 029 it asks to run `find_plant_by_tag`,
   which the anon key isn't allowed to do, so the database turns it away before it runs. A file
   that only changes policies or functions can't be seen from outside, but from 006 on each file
   needs the one before it, so a later file being there says the earlier ones are too.
+  030 is the last file and only changes a view and two functions, so the check can't see it. Run
+  it after 029 anyway, since it's safe to run again.
   `npm run check-hosted` runs it with the keys in `web/.env.local`, and it ends by listing the
   files to run next.
   [`docs/hosted-setup.md`](../docs/hosted-setup.md) has the rest of the steps.

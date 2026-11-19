@@ -5,7 +5,7 @@ import type { PublicSpecies } from '@/types/public-copy';
 // Some plants get a tag whose QR code holds only the tag code, with no web address. A normal phone
 // camera then can't open a page that names the species at that spot, but staff can still scan it in
 // the Niah app. It's the same rule as the rough area on the public map (records_public in
-// supabase/019), and the website has the same rule and words in web/src/lib/code-only-tag.ts.
+// supabase/030), and the website has the same rule and words in web/src/lib/code-only-tag.ts.
 
 const AFTER = 'so its tag holds only the code. Staff can scan it in the Niah app.';
 
@@ -37,9 +37,6 @@ export function codeOnlyReason(
   }
   if (isThreatened(species.iucnCode)) {
     return `This species is threatened, ${AFTER}`;
-  }
-  if (species.iucnCode === 'DD' || species.iucnCode === 'NE') {
-    return `This species' risk isn't known yet, ${AFTER}`;
   }
   // Left out means the phone saved it before it knew, so it counts as rough until the next download.
   if (species.roughAreaOnly !== false) {

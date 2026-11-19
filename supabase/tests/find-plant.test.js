@@ -208,7 +208,7 @@ describe('running 029', () => {
 
   test("029 stops and changes nothing if 028 hasn't been run", async () => {
     const before028 = await newDatabase(
-      SQL_FILES.filter((file) => file !== '028_record_visits.sql' && file !== '029_find_plant_by_tag.sql'),
+      SQL_FILES.slice(0, SQL_FILES.indexOf('028_record_visits.sql')),
     );
     try {
       await assert.rejects(before028.exec(readSql('029_find_plant_by_tag.sql')), /029 needs 028/);

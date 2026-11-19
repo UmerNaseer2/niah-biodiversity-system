@@ -42,8 +42,12 @@ describe('codeOnlyReason', () => {
     );
   });
 
-  it.each(['DD', 'NE'] as const)("says a %s species' risk isn't known", (iucnCode) => {
-    expect(codeOnlyReason(record, [{ ...shorea, iucnCode }])).toMatch(/risk isn't known yet/);
+  it.each(['DD', 'NE'] as const)('lets a %s species hold a link, since nobody has said it is at risk', (iucnCode) => {
+    expect(codeOnlyReason(record, [{ ...shorea, iucnCode }])).toBeNull();
+    // An officer can still keep it to a rough area
+    expect(codeOnlyReason(record, [{ ...shorea, iucnCode, roughAreaOnly: true }])).toMatch(
+      /rough area/,
+    );
   });
 
   it('keeps a rough area species, or one saved before the phone knew, to the code', () => {

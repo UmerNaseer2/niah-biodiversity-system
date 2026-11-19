@@ -56,7 +56,7 @@ export const staffScreens: Screen[] = [
   {
     title: "Add a species",
     path: "/dashboard/species/new",
-    works: "The full form, which saves to Supabase. Only Least Concern and Near Threatened species that are not protected can show their exact spot.",
+    works: "The full form, which saves to Supabase. Threatened (VU, EN or CR) and protected species only show a rough area. The rest can show their exact spot.",
   },
   {
     title: "Edit a species",

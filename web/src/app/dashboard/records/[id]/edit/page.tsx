@@ -17,6 +17,7 @@ import {
   type StaffRecord,
 } from "@/lib/records-staff";
 import { ifItKeepsHappening } from "@/lib/setup-hint";
+import { speciesOptionFromRow, type SpeciesOption } from "@/lib/species-search";
 import { sqlIsMissing } from "@/lib/sql-missing";
 import { createClient } from "@/lib/supabase/server";
 import { tagCode } from "@/lib/tags";
@@ -60,6 +61,26 @@ async function loadVisits(
     return null;
   }
   return newestVisitsFirst(data.map(recordFromRow));
+}
+
+/**
+ * The species the Species box suggests. Names only. When they don't load the
+ * box still works, it just has nothing to suggest.
+ */
+async function loadSpeciesOptions(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+): Promise<SpeciesOption[]> {
+  const { data, error } = await supabase
+    .from("species_staff")
+    .select("id, scientific_name, common_names")
+    .order("scientific_name");
+  if (error) {
+    console.error("Loading the species for the suggestions failed:", error.message);
+    return [];
+  }
+  return data
+    .map((row) => speciesOptionFromRow(row))
+    .filter((option): option is SpeciesOption => option !== null);
 }
 
 export default async function EditRecordPage({
@@ -113,12 +134,13 @@ export default async function EditRecordPage({
   if (!data) notFound();
 
   const record = recordFromRow(data);
-  const [photos, history, visits] = await Promise.all([
+  const [photos, history, visits, speciesOptions] = await Promise.all([
     record.photoFolder
       ? recordPhotoLinks(supabase, record.photoFolder, record.id)
       : ([] as RecordPhoto[]),
     loadHistory(supabase, "record", record.id),
     record.visitOf ? ([] as StaffRecord[]) : loadVisits(supabase, record.id),
+    loadSpeciesOptions(supabase),
   ]);
 
   return (
@@ -142,6 +164,7 @@ export default async function EditRecordPage({
         tag={record.tagCode}
         initial={valuesFromRecord(record)}
         version={String(data.updated_at ?? "")}
+        species={speciesOptions}
       />
 
       <section
