@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Icon } from "@/components/icon";
 import { PageHeader } from "@/components/page-header";
 import { recordHidesLocation } from "@/data/species";
+import { AI_CHECK_COLUMNS, aiCheckFromRow } from "@/lib/ai-check";
 import { requireStaff } from "@/lib/auth";
 import { formatCoords, formatDateTime } from "@/lib/format";
 import type { IucnCode } from "@/lib/iucn";
@@ -9,6 +10,7 @@ import { recordFromRow, type StaffRecord } from "@/lib/records-staff";
 import { commonNameIsNew, nameDisagrees, sameName } from "@/lib/review";
 import { ifItKeepsHappening } from "@/lib/setup-hint";
 import { speciesFromRow } from "@/lib/species-db";
+import { sqlIsMissing } from "@/lib/sql-missing";
 import { createClient } from "@/lib/supabase/server";
 import { tagCode } from "@/lib/tags";
 import { ReviewQueue, type ReviewItem } from "./review-queue";
@@ -82,6 +84,13 @@ export default async function ReviewPage() {
     speciesResult.data.map(speciesFromRow).map((s) => [s.slug, s]),
   );
 
+  // The AI photo check on each waiting record (supabase/032). It's only a second opinion, so if
+  // it doesn't load the queue still works, just without it. Without 032 there's nothing to show.
+  const ai = await loadAiChecks(
+    supabase,
+    waitingResult.data.map((row) => String(row.id)),
+  );
+
   function toItem(row: Record<string, unknown>): ReviewItem {
     const record: StaffRecord = recordFromRow(row);
     const plant = record.speciesSlug ? species.get(record.speciesSlug) : undefined;
@@ -125,6 +134,10 @@ export default async function ReviewPage() {
       reviewNotes: record.reviewNotes,
       reviewedBy: record.reviewedBy,
       reviewedAt: record.reviewedAt ? formatDateTime(record.reviewedAt) : null,
+      aiCheck:
+        ai && record.status === "waiting"
+          ? aiCheckFromRow(ai.rows.get(record.id), record, ai.loadedAt, formatDateTime)
+          : null,
     };
   }
 
@@ -138,4 +151,32 @@ export default async function ReviewPage() {
       />
     </div>
   );
+}
+
+/**
+ * The AI checks for the records on the page, by record ID, and when they were loaded (to tell
+ * when one has been checking for too long). Null when there's nothing to show: 032 isn't in this
+ * database, or loading them failed (that gets logged).
+ */
+async function loadAiChecks(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  ids: string[],
+): Promise<{ rows: Map<string, Record<string, unknown>>; loadedAt: number } | null> {
+  if (ids.length === 0) return { rows: new Map(), loadedAt: Date.now() };
+  const { data, error } = await supabase
+    .from("record_ai_checks")
+    .select(AI_CHECK_COLUMNS)
+    .in("record_id", ids);
+  if (error) {
+    if (!sqlIsMissing(error)) {
+      console.error("Loading the AI checks failed:", error.code, error.message);
+    }
+    return null;
+  }
+  return {
+    rows: new Map(
+      (data as unknown as Record<string, unknown>[]).map((row) => [String(row.record_id), row]),
+    ),
+    loadedAt: Date.now(),
+  };
 }

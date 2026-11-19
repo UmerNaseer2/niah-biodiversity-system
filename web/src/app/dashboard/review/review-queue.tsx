@@ -9,11 +9,13 @@ import {
   IucnChip,
   LatinName,
 } from "@/components/plant-bits";
+import { aiCheckPending, type AiCheck } from "@/lib/ai-check";
 import type { Condition } from "@/lib/condition";
 import { plural } from "@/lib/format";
 import type { IucnCode } from "@/lib/iucn";
 import { MAX_REASON, REASON_MISSING, tidyReason, type Decision } from "@/lib/review";
 import { reviewRecord } from "./actions";
+import { AiCheckPanel, WatchForAnswers } from "./ai-check-panel";
 
 export type ReviewItem = {
   id: string;
@@ -48,6 +50,8 @@ export type ReviewItem = {
   reviewNotes: string | null;
   reviewedBy: string | null;
   reviewedAt: string | null;
+  /** The AI photo check, only on waiting records and only when 032 is in the database */
+  aiCheck: AiCheck | null;
 };
 
 // Phone GPS under the canopy is often off by 10 m or more. Past this we
@@ -211,8 +215,15 @@ export function ReviewQueue({
     decide(item, "reject", text);
   }
 
+  // The IDs of the records whose AI check may still come in, as the watcher's key
+  const watching = waiting
+    .filter((item) => aiCheckPending(item.aiCheck))
+    .map((item) => `${item.id}:${item.aiCheck?.status}`)
+    .join(" ");
+
   return (
     <>
+      {watching && <WatchForAnswers key={watching} />}
       <p role="status" className="sr-only">
         {isPending ? "Saving your decision." : announcement}
       </p>
@@ -363,6 +374,10 @@ export function ReviewQueue({
                         </li>
                       ))}
                     </ul>
+
+                    {item.aiCheck && (
+                      <AiCheckPanel recordId={item.id} code={item.code} check={item.aiCheck} />
+                    )}
 
                     <p className="mt-4 text-sm">
                       <Link

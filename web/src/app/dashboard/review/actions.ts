@@ -1,6 +1,7 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { refresh, revalidatePath } from "next/cache";
+import { REQUEST_MESSAGE } from "@/lib/ai-check";
 import { getSession, SERVICE_DOWN } from "@/lib/auth";
 import { versionRange } from "@/lib/edit-version";
 import {
@@ -10,7 +11,9 @@ import {
   nameDisagrees,
   type Decision,
 } from "@/lib/review";
+import { RECORD_ID } from "@/lib/record-form";
 import { STATUS_LABEL, type StaffStatus } from "@/lib/records-staff";
+import { sqlIsMissing } from "@/lib/sql-missing";
 import { authConfigured } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
 
@@ -176,4 +179,52 @@ export async function reviewRecord(input: unknown): Promise<ReviewResult> {
 
   refreshAfterReview();
   return { ok: true, status: data[0].status as StaffStatus };
+}
+
+export type AiCheckResult = { ok: true } | { ok: false; message: string };
+
+/**
+ * "Check again" on one waiting record. request_ai_check() in supabase/032 checks the role itself,
+ * and won't send the same record twice within a minute, so a double click doesn't use up the free
+ * Gemini requests. The answer comes in later, and the page looks for it while it's open.
+ */
+export async function requestAiCheck(id: unknown): Promise<AiCheckResult> {
+  const notAllowed = await whyNotAllowed();
+  if (notAllowed) return { ok: false, message: notAllowed };
+  if (typeof id !== "string" || !RECORD_ID.test(id)) {
+    return { ok: false, message: "That record ID isn’t right. Reload the page and try again." };
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("request_ai_check", { for_record: id });
+  if (error) {
+    if (error.code === "42501") {
+      return {
+        ok: false,
+        message:
+          "The database didn’t let your account ask for an AI check. " +
+          "Ask an administrator to check your role.",
+      };
+    }
+    if (sqlIsMissing(error)) return { ok: false, message: REQUEST_MESSAGE.not_set_up! };
+    console.error("Asking for an AI check failed:", error.code, error.message);
+    return {
+      ok: false,
+      message: "The check wasn’t sent. Try again, and if it keeps happening, ask an administrator.",
+    };
+  }
+
+  revalidatePath("/dashboard/review");
+  const message = REQUEST_MESSAGE[String(data)];
+  if (message === null) return { ok: true };
+  return {
+    ok: false,
+    message: message ?? "The check wasn’t sent. Reload the page and try again.",
+  };
+}
+
+/** The review page's timer while an AI check is on its way. refresh() draws the page again. */
+export async function refreshReviewQueue() {
+  if (await whyNotAllowed()) return;
+  refresh();
 }
